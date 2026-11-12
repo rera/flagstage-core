@@ -1,6 +1,6 @@
 # Starter issues
 
-Open these on the public repository after launch. They are not filed from this branch.
+Open these on [rera/flagstage-core](https://github.com/rera/flagstage-core/issues). They are not filed from `main`.
 
 1. **good first issue** — Add a keyboard shortcut to focus the chat composer.
 2. **good first issue** — Show relative times in the message list with `Intl.RelativeTimeFormat`.

@@ -1,4 +1,4 @@
-# Not wired. Copy into .github/workflows only on the public repository.
+# Not wired. Do not copy this file into .github/workflows on main of rera/flagstage-core.
 # @changesets/cli is not a dependency yet. Add it, and add
 # "release": "changeset tag" to package.json, before enabling this workflow.
 # The publish script tags the repo. It does not publish packages to npm.

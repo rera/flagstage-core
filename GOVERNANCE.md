@@ -8,7 +8,7 @@ Product and technical constraints live in the docs and in the code that enforces
 
 ## Releases
 
-Version numbers come from [Changesets](https://github.com/changesets/changesets). The steps, including the multi-arch container image, are written in [docs/ci/release.md](docs/ci/release.md). That recipe is not wired on this branch. Nothing here tags a release or pushes an image.
+Version numbers come from [Changesets](https://github.com/changesets/changesets). The steps, including the multi-arch container image, are written in [docs/ci/release.md](docs/ci/release.md). That recipe is not wired on `main`. Nothing here tags a release or pushes an image.
 
 ## Conduct and security
 

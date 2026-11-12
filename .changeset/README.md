@@ -6,4 +6,4 @@ This repository uses [Changesets](https://github.com/changesets/changesets) with
 pnpm exec changeset
 ```
 
-Releases are cut from `main` of the public repository. See `RELEASING.md`.
+Releases are cut from `main` of `rera/flagstage-core`. See `RELEASING.md`.

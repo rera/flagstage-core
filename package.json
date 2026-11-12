@@ -4,6 +4,10 @@
   "version": "0.1.0",
   "description": "Flagstage Core — self-hostable static sites, chat edits, and publish.",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rera/flagstage-core.git"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"

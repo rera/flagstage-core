@@ -40,4 +40,4 @@ The sign-in page can email a new password through SES. `flagstage user reset-pas
 
 ## Is the container image published?
 
-Not yet. The name `ghcr.io/rera/flagstage-core` is reserved in the examples. Build `docker/Dockerfile` and push it to a registry you control. The release steps are written in [docs/ci/release.md](ci/release.md) and are not wired.
+Not yet. The name `public.ecr.aws/rera/flagstage-core` is reserved in the examples. Build `docker/Dockerfile` and push it to a registry you control. The release steps are written in [docs/ci/release.md](ci/release.md) and are not wired.

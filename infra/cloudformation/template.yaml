@@ -21,11 +21,11 @@ Parameters:
     Description: From address for invite, password reset, and form mail.
   ImageUri:
     Type: String
-    Default: public.ecr.aws/flagstage/flagstage-core:0.1.0
+    Default: public.ecr.aws/rera/flagstage-core:0.1.0
     Description: Web container image. A release pins this to the public image for that version.
   LambdaImageUri:
     Type: String
-    Default: public.ecr.aws/flagstage/flagstage-core:0.1.0-lambda
+    Default: public.ecr.aws/rera/flagstage-core:0.1.0-lambda
     Description: Chat Lambda image. A release pins this beside the web image.
   ProvisionedConcurrency:
     Type: Number

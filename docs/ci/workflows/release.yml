@@ -1,5 +1,5 @@
 # Not wired. Do not copy this file into .github/workflows.
-# It would run. The public repository is where a release workflow belongs.
+# It would run on main of rera/flagstage-core.
 name: release
 
 on:
@@ -32,7 +32,7 @@ jobs:
           file: docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: public.ecr.aws/flagstage/flagstage-core:${{ github.ref_name }}
+          tags: public.ecr.aws/rera/flagstage-core:${{ github.ref_name }}
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -40,14 +40,14 @@ jobs:
           target: lambda
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: public.ecr.aws/flagstage/flagstage-core:${{ github.ref_name }}-lambda
+          tags: public.ecr.aws/rera/flagstage-core:${{ github.ref_name }}-lambda
       - name: Attach the template
         run: |
           version="${GITHUB_REF_NAME#v}"
           sed "s|flagstage-core:0.1.0|flagstage-core:${version}|" infra/cloudformation/template.yaml > /tmp/template.yaml
-          aws s3 cp /tmp/template.yaml "s3://${RELEASE_BUCKET}/flagstage-core/${version}/template.yaml" --acl public-read
-          url="https://s3.amazonaws.com/${RELEASE_BUCKET}/flagstage-core/${version}/template.yaml"
-          notes=$(printf '%s\n' "Launch stack: https://us-east-1.console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/quickcreate?stackName=flagstage&templateURL=${url}")
+          aws s3 cp /tmp/template.yaml "s3://${RELEASE_BUCKET}/rera/flagstage-core/${version}/template.yaml" --acl public-read
+          url="https://s3.amazonaws.com/${RELEASE_BUCKET}/rera/flagstage-core/${version}/template.yaml"
+          notes=$(printf '%s\n' "Launch stack: https://us-east-1.console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/quickcreate?stackName=flagstage-core&templateURL=${url}")
           gh release create "$GITHUB_REF_NAME" /tmp/template.yaml --title "$GITHUB_REF_NAME" --notes "$notes"
         env:
           RELEASE_BUCKET: ${{ secrets.RELEASE_BUCKET }}

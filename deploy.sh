@@ -59,13 +59,13 @@ fi
 
 aws cloudformation deploy \
   --region "$REGION" \
-  --stack-name flagstage \
+  --stack-name flagstage-core \
   --template-file "$root/infra/cloudformation/template.yaml" \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides "${overrides[@]}"
 
 aws cloudformation describe-stacks \
   --region "$REGION" \
-  --stack-name flagstage \
+  --stack-name flagstage-core \
   --query "Stacks[0].Outputs" \
   --output table
