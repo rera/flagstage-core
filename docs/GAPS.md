@@ -18,7 +18,7 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 4. **CI workflows sit in `docs/ci/workflows/`.** They are not under `.github/workflows/` because this branch lives in a private repository where those files would run. Move them when the public repository exists. The OpenTofu examples point at `github.com/rera/flagstage` `core/main` for the same reason. Point them at `github.com/rera/flagstage-core` and a release tag when that repository exists.
 
-5. **No release automation beyond changesets.** There is a changelog stub and changeset files. There is no tag, no GitHub release, no image publish. The image workflow is written to build and not push.
+5. **The release recipe is written and not wired.** [docs/ci/release.md](ci/release.md) uses Changesets for the version pull request and a multi-arch GHCR image on a `v*` tag. Those workflows sit in `docs/ci/workflows/` and do not run. There is no tag, no GitHub release, and no published image. `@changesets/cli` is not installed yet.
 
 6. **No manual screen-reader pass.** Playwright runs axe on the signed-in flow, and the empty pages name one next action. Nobody has walked the app with a screen reader.
 
@@ -39,3 +39,4 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - Setup accepts a logo, and Settings can test the model key. OIDC and SAML providers are saved through Better Auth's register and update endpoints.
 - Accounts, sites, versions, form submissions, and analytics each show an empty state with one next action. Focus is visible on links, buttons, and fields, and the first Tab stop is "Skip to content". `pnpm e2e` runs axe.
 - `flagstage member add` grants an account role. `flagstage user reset-password` works in local development, and in production only with `FLAGSTAGE_BREAK_GLASS=1`. `flagstage site export <site> --out file.tgz` packs the published snapshot and `content.json`. `flagstage backup` prints the `pg_dump` and storage commands and does not call AWS.
+- Issue templates, the pull request template, `CODEOWNERS` (`@rera`), and Dependabot are in the repo. `CHANGELOG.md` follows Keep a Changelog for 0.1.0, which is unreleased. Vulnerability reports go through GitHub private reporting, as `SECURITY.md` describes. There is no `FUNDING.yml`.

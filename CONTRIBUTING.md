@@ -93,6 +93,8 @@ pnpm exec changeset
 
 Use the pull request template. Fill in the DCO checkbox. Keep the change focused.
 
+Questions go to [SUPPORT.md](SUPPORT.md). How the project is maintained is [GOVERNANCE.md](GOVERNANCE.md).
+
 ## Good first issues
 
 See `docs/contributing/starter-issues.md`.
