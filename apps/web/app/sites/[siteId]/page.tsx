@@ -53,7 +53,11 @@ export default async function SitePage({
   const canRelease = can(principal, "member.manage", { accountId: found.accountId });
   return (
     <>
-      <PageHeader title={found.name} description={`${found.slug}.localhost`} />
+      <PageHeader
+        title={found.name}
+        description={`${found.slug}.localhost`}
+        actions={<a href={`/sites/${found.id}/domain`}>{t("domains.title")}</a>}
+      />
       <ChatStream siteId={found.id} />
       {found.status === "live" ? <Alert tone="ok">{t("sites.live")}</Alert> : null}
       {report ? (

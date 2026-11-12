@@ -17,6 +17,7 @@
     "@flagstage/config": "workspace:*",
     "@flagstage/core": "workspace:*",
     "@flagstage/db": "workspace:*",
+    "@flagstage/domains": "workspace:*",
     "@flagstage/importer": "workspace:*",
     "@flagstage/publish": "workspace:*",
     "@flagstage/storage": "workspace:*",

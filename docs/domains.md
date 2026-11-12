@@ -1,7 +1,11 @@
 # Domains
 
-Adding a hostname stores the DNS records an operator has to create. Core checks them against public resolvers and shows found or not, plus what the name currently resolves to. It does not call a registrar.
+Adding a hostname stores the DNS records an operator has to create. Core checks them against the public resolvers `1.1.1.1` and `8.8.8.8` and shows whether each record was found, plus what the name currently resolves to. It does not call a registrar.
 
-`www` and other subdomains are a CNAME to the CloudFront connection-group endpoint. An apex can be a Route 53 alias, an ALIAS or flattened CNAME at a DNS host that supports it, or a redirect to `www` at the registrar.
+- `www` and any other subdomain are a CNAME to the CloudFront connection-group endpoint.
+- An apex is an ALIAS or flattened CNAME when no addresses are configured, or A records when addresses are provided.
+- Certificate-validation CNAMEs are listed with the routing record when a CloudFront tenant returns them.
+- `DOMAINS_DRIVER=none` skips tenant creation and still shows the routing record. `cloudfront-tenants` creates a tenant through the adapter.
+- A background job rechecks pending hostnames every 10 minutes for 72 hours. The domain page also has Check again.
 
-The checker and the checklist UI land with the domains milestone.
+The checklist is on each site, under Domain.

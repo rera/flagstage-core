@@ -26,7 +26,15 @@ import {
   subprocessRunner
 } from "@flagstage/agent";
 import { rollbackTo } from "@flagstage/publish";
-import { changeRequest, snapshot } from "@flagstage/db";
+import { changeRequest, siteDomain, snapshot } from "@flagstage/db";
+import {
+  checkDnsRecords,
+  isValidHostname,
+  noneDriver,
+  normalizeHostname,
+  publicDnsLookup,
+  type DnsRecord
+} from "@flagstage/domains";
 
 import { getAuth } from "./auth";
 import { applyAuthResponse } from "./cookies";
@@ -457,4 +465,48 @@ export async function releaseHoldAction(formData: FormData) {
     allowHold: false
   });
   redirect(`/sites/${request.siteId}`);
+}
+
+export async function addDomainAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "domain.manage", { accountId })) redirect("/no-access");
+  const config = loadConfig();
+  const hostname = normalizeHostname(String(formData.get("hostname") ?? ""));
+  if (!isValidHostname(hostname)) redirect(`/sites/${siteId}/domain`);
+  const endpoint = config.CLOUDFRONT_CONNECTION_GROUP_ENDPOINT || "d111111abcdef8.cloudfront.net";
+  const provisioned = await noneDriver(endpoint).provision(hostname);
+  const id = randomUUID();
+  await database().insert(siteDomain).values({
+    id,
+    siteId,
+    hostname,
+    records: provisioned.records,
+    cloudfrontTenantId: provisioned.tenantId,
+    status: "pending"
+  });
+  redirect(`/sites/${siteId}/domain`);
+}
+
+export async function recheckDomainAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "domain.manage", { accountId })) redirect("/no-access");
+  const domainId = String(formData.get("domainId") ?? "");
+  const rows = await database()
+    .select()
+    .from(siteDomain)
+    .where(eq(siteDomain.id, domainId))
+    .limit(1);
+  const found = rows[0];
+  if (!found) redirect(`/sites/${siteId}/domain`);
+  const records = await checkDnsRecords(found.records as DnsRecord[], publicDnsLookup());
+  const ready = records.length > 0 && records.every((record) => record.found);
+  await database()
+    .update(siteDomain)
+    .set({ records, status: ready ? "active" : "verifying", lastCheckedAt: new Date() })
+    .where(eq(siteDomain.id, domainId));
+  redirect(`/sites/${siteId}/domain`);
 }
