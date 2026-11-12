@@ -30,7 +30,7 @@ cp .env.example .env
 docker compose up
 ```
 
-Open http://localhost:3000 and sign in as `demo@example.com` with password `demo-demo-demo`. Compose sets `SEED_DEMO=1`, which loads the demo organization and two accounts. Health check: http://localhost:3000/api/health.
+Open http://localhost:3000 and sign in as `demo@example.com` with password `demo-demo-demo`. Compose sets `SEED_DEMO=1`, which loads the demo organization, two accounts, and a published example site at `demo.localhost`. Health check: http://localhost:3000/api/health.
 
 Hot reload against the same Postgres:
 

@@ -16,7 +16,7 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 4. **Forms notify by webhook only.** A signed webhook and a CSV download exist. SMTP is a config field and is not used to mail a submission. Ghost and Documenso both send mail as part of the main loop.
 
-5. **First run is two fields.** Setup asks for an organization name and a base domain. There is no logo, no "test the model key" button, and no guided first import. Cal.com and Infisical spend real effort on the first ten minutes. The demo seed creates an admin and two accounts, and no site, so the chat loop still starts with an import.
+5. **First run is two fields.** Setup asks for an organization name and a base domain. There is no logo, no "test the model key" button, and no guided first import. Cal.com and Infisical spend real effort on the first ten minutes. The demo seed now includes a published example site, so the chat loop no longer has to start with an import.
 
 6. **The editor is a mock unless you bring a binary.** `AI_MOCK=1` appends the request to `index.html`. With the mock off, the subprocess runner executes `opencode` with a scrubbed prompt and a short skill set (clarify, forms, images, contrast). The Vercel AI SDK is not a dependency. Intent uses a deterministic rule, or one OpenAI-compatible chat call when a model is configured. The commercial skill shelf was rewritten down, not copied. Nobody has run this against a real key in CI.
 
@@ -44,3 +44,4 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 
 - Import and chat turns are queued on pg-boss. The web process writes the row and returns. The worker crawls and runs the editor. The site page follows import status, thread status, and new messages.
 - `DOMAINS_DRIVER=cloudfront-tenants` creates and updates a distribution tenant and its managed certificate, then reads the certificate status into the DNS checklist. `none` stays the local default.
+- `SEED_DEMO=1` publishes an example site on the Digital account. Chat, preview, and publish work in mock mode without an import. A later publish is left in place.

@@ -1,6 +1,8 @@
 import { loadConfig, createLogger } from "@flagstage/config";
 import { migrateWithLock, seedDemo, createDb, QUEUE_NAMES } from "@flagstage/db";
 import { bootstrapAdmin } from "@flagstage/auth";
+import { writeHostMap } from "@flagstage/publish";
+import { createBlobStore } from "@flagstage/storage";
 import { hashPassword } from "better-auth/crypto";
 import { PgBoss } from "pg-boss";
 
@@ -14,9 +16,21 @@ export async function boot(): Promise<void> {
   await migrateWithLock(config.DATABASE_URL);
   if (config.SEED_DEMO) {
     const { db, pool } = createDb(config.DATABASE_URL);
-    await seedDemo(db, { passwordHash: await hashPassword("demo-demo-demo") });
+    const demo = await seedDemo(db, { passwordHash: await hashPassword("demo-demo-demo") });
     await pool.end();
-    log.info({ email: "demo@example.com" }, "demo organization seeded");
+    if (demo) {
+      const store = createBlobStore(config);
+      const key = `${demo.prefix}index.html`;
+      if (!(await store.get(key))) {
+        await store.put(key, new TextEncoder().encode(demo.html), "text/html; charset=utf-8");
+        writeHostMap(
+          `${config.FS_STORAGE_DIR}/hostmap.json`,
+          `${demo.slug}.localhost`,
+          demo.prefix
+        );
+      }
+    }
+    log.info({ email: "demo@example.com", site: demo?.slug }, "demo organization seeded");
   }
   {
     const { db, pool } = createDb(config.DATABASE_URL);
