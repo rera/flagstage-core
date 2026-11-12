@@ -1,12 +1,24 @@
+import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 
-import { postMessage, buildAgentEnv, skillsDirectory, subprocessRunner } from "@flagstage/agent";
-import { createLogger, loadConfig } from "@flagstage/config";
-import { getDb, migrateWithLock, QUEUE_NAMES, type QueueName } from "@flagstage/db";
-import { publicDnsLookup, recheckDueDomains } from "@flagstage/domains";
-import { rollupStored } from "@flagstage/analytics";
-import { createBlobStore } from "@flagstage/storage";
+import { eq, sql } from "drizzle-orm";
 import { PgBoss, type Job } from "pg-boss";
+
+import { postMessage, buildAgentEnv, skillsDirectory, subprocessRunner } from "@flagstage/agent";
+import { rollupStored } from "@flagstage/analytics";
+import { createLogger, loadConfig } from "@flagstage/config";
+import {
+  getDb,
+  message,
+  migrateWithLock,
+  QUEUE_NAMES,
+  thread,
+  type QueueName
+} from "@flagstage/db";
+import { publicDnsLookup, recheckDueDomains } from "@flagstage/domains";
+import { runImport } from "@flagstage/importer";
+import type { AgentTurnJob, ImportJob } from "@flagstage/jobs";
+import { createBlobStore } from "@flagstage/storage";
 
 const config = loadConfig();
 const log = createLogger(config, "worker");
@@ -22,26 +34,71 @@ async function note(name: QueueName, jobs: Job<unknown>[]): Promise<void> {
   log.info({ queue: name, count: jobs.length }, "job received");
 }
 
-await boss.work("import", async (jobs) => note("import", jobs));
-await boss.work("agent-turn", async (jobs) => {
+await boss.work("import", async (jobs) => {
   for (const job of jobs) {
-    const data = job.data as { siteId?: string; userId?: string; body?: string };
-    if (!data.siteId || !data.userId || !data.body) continue;
-    await postMessage({
+    const data = job.data as ImportJob;
+    if (!data.siteId || !data.runId || !data.sourceUrl) continue;
+    log.info({ siteId: data.siteId, runId: data.runId }, "import started");
+    await runImport({
       db: getDb(config.DATABASE_URL),
       store: createBlobStore(config),
       siteId: data.siteId,
-      userId: data.userId,
-      body: data.body,
+      importRunId: data.runId,
+      sourceUrl: data.sourceUrl,
       appOrigin: config.APP_URL,
-      runner: config.AI_MOCK
-        ? undefined
-        : subprocessRunner({
-            env: buildAgentEnv(process.env),
-            timeoutMs: config.AGENT_TIMEOUT_SEC * 1000,
-            skillsDir: skillsDirectory
-          })
+      caps: {
+        maxPages: config.IMPORT_MAX_PAGES,
+        maxDepth: config.IMPORT_MAX_DEPTH,
+        maxAssets: config.IMPORT_MAX_ASSETS
+      }
     });
+  }
+});
+await boss.work("agent-turn", async (jobs) => {
+  for (const job of jobs) {
+    const data = job.data as AgentTurnJob;
+    if (!data.siteId || !data.userId || !data.body) continue;
+    const db = getDb(config.DATABASE_URL);
+    try {
+      await postMessage({
+        db,
+        store: createBlobStore(config),
+        siteId: data.siteId,
+        userId: data.userId,
+        body: data.body,
+        appOrigin: config.APP_URL,
+        commentOnly: data.commentOnly,
+        userRecorded: data.userRecorded,
+        allowHold: data.allowHold,
+        runner: config.AI_MOCK
+          ? undefined
+          : subprocessRunner({
+              env: buildAgentEnv(process.env),
+              timeoutMs: config.AGENT_TIMEOUT_SEC * 1000,
+              skillsDir: skillsDirectory
+            })
+      });
+    } catch (error) {
+      log.error({ err: error, siteId: data.siteId }, "agent turn failed");
+      const threads = await db.select().from(thread).where(eq(thread.siteId, data.siteId)).limit(1);
+      const threadId = threads[0]?.id;
+      if (!threadId) continue;
+      await db.insert(message).values({
+        id: randomUUID(),
+        threadId,
+        author: "system",
+        body: "The change did not finish. Try again."
+      });
+      await db
+        .update(thread)
+        .set({ status: "open", updatedAt: new Date() })
+        .where(eq(thread.id, threadId));
+      try {
+        await db.execute(sql`select pg_notify('flagstage_chat', ${threadId})`);
+      } catch {
+        // The site page also polls.
+      }
+    }
   }
 });
 await boss.work("publish", async (jobs) => note("publish", jobs));

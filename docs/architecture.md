@@ -22,7 +22,7 @@ Live HTML is read from object storage by CloudFront. A viewer-request function r
 
 Previews are `https://{slug}--{token}.{PREVIEW_DOMAIN}`, served by the web process, and expire.
 
-Jobs live in Postgres via pg-boss. Chat updates use server-sent events fed by `LISTEN/NOTIFY`, and the client falls back to polling every 2 seconds.
+Jobs live in Postgres via pg-boss. The web process enqueues an import or a chat turn and returns. The worker runs the crawl and the editor. Chat updates use server-sent events fed by `LISTEN/NOTIFY`, and the client falls back to polling every 2 seconds. The event payload includes the import status and the thread status, so the site page reloads when a job finishes.
 
 ## Agent isolation
 

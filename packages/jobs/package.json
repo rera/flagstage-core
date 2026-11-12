@@ -1,0 +1,20 @@
+{
+  "name": "@flagstage/jobs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@flagstage/db": "workspace:*",
+    "pg-boss": "^12.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

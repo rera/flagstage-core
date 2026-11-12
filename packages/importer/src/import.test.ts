@@ -15,7 +15,14 @@ import { account, importRun, leadForm, site, siteRedirect, type Database } from 
 import * as fullSchema from "@flagstage/db";
 import type { BlobStore, StoredObject } from "@flagstage/storage";
 
-import { approveImport, crawlSite, previewFromHost, slugFromHost, storeCrawl } from "./index";
+import {
+  approveImport,
+  crawlSite,
+  previewFromHost,
+  runImport,
+  slugFromHost,
+  storeCrawl
+} from "./index";
 
 const html = `<!doctype html><html><head>
 <style>.hero{background:url(/wp-content/uploads/bg.png)}</style>
@@ -179,5 +186,42 @@ describe("WordPress import", () => {
       await client.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
+  });
+
+  it("marks a queued import failed when the site does not answer", async () => {
+    const client = new PGlite();
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+    await db.insert(account).values({ id: "acct-2", name: "Membership", slug: "membership" });
+    await db.insert(site).values({
+      id: "site-2",
+      accountId: "acct-2",
+      name: "Quiet",
+      slug: "quiet",
+      sourceUrl: "https://example.test",
+      status: "importing"
+    });
+    await db.insert(importRun).values({
+      id: "run-2",
+      siteId: "site-2",
+      sourceUrl: "https://example.test",
+      status: "queued"
+    });
+    const stored = await runImport({
+      db,
+      store: memoryStore(),
+      siteId: "site-2",
+      importRunId: "run-2",
+      sourceUrl: "https://example.test",
+      appOrigin: "http://localhost:3000",
+      caps: { maxPages: 5, maxDepth: 1, maxAssets: 5 },
+      fetchPage: async () => ({ status: 500, body: new Uint8Array(), contentType: "text/html" })
+    });
+    expect(stored.snapshotId).toBeUndefined();
+    const rows = await db.select().from(importRun).where(eq(importRun.id, "run-2"));
+    expect(rows[0]?.status).toBe("failed");
+    const sites = await db.select().from(site).where(eq(site.id, "site-2"));
+    expect(sites[0]?.status).toBe("failed");
+    await client.close();
   });
 });

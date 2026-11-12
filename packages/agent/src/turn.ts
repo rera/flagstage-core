@@ -84,6 +84,7 @@ export async function postMessage(input: {
   runner?: AgentRunner;
   commentOnly?: boolean;
   allowHold?: boolean;
+  userRecorded?: boolean;
 }): Promise<{ threadId: string; reply: string; previewUrl?: string }> {
   const trust = checkTrust(input.body);
   const db = input.db;
@@ -94,13 +95,20 @@ export async function postMessage(input: {
       .insert(thread)
       .values({ id: threadId, siteId: input.siteId, title: "Changes", createdBy: input.userId });
   }
-  await db.insert(message).values({
-    id: randomUUID(),
-    threadId,
-    author: "user",
-    userId: input.userId,
-    body: input.body
-  });
+  if (!input.userRecorded) {
+    await db.insert(message).values({
+      id: randomUUID(),
+      threadId,
+      author: "user",
+      userId: input.userId,
+      body: input.body
+    });
+  }
+  const finish = async (status: string, reply: string, previewUrl?: string) => {
+    await db.update(thread).set({ status, updatedAt: new Date() }).where(eq(thread.id, threadId));
+    await notify(db, threadId);
+    return { threadId, reply, previewUrl };
+  };
   if (input.commentOnly) {
     return { threadId, reply: "" };
   }
@@ -108,25 +116,25 @@ export async function postMessage(input: {
     await db
       .insert(message)
       .values({ id: randomUUID(), threadId, author: "system", body: trust.reason });
-    return { threadId, reply: trust.reason };
+    return finish("open", trust.reason);
   }
   const intent = decideIntent(input.body);
   if (intent.kind === "ask") {
     const reply = "Which page should change, and what should it say?";
     await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
-    return { threadId, reply };
+    return finish("open", reply);
   }
   if (intent.kind === "satisfied") {
     const reply = "Nothing needed changing.";
     await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
-    return { threadId, reply };
+    return finish("open", reply);
   }
   const sites = await db.select().from(site).where(eq(site.id, input.siteId)).limit(1);
   const current = sites[0]?.currentSnapshotId;
   if (!current) {
     const reply = "Publish the import before requesting a change.";
     await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
-    return { threadId, reply };
+    return finish("open", reply);
   }
   const snaps = await db.select().from(snapshot).where(eq(snapshot.id, current)).limit(1);
   const prefix = snaps[0]?.storagePrefix;
@@ -143,8 +151,7 @@ export async function postMessage(input: {
     });
     const reply = "An account admin has to approve this request before it runs.";
     await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
-    await notify(db, threadId);
-    return { threadId, reply };
+    return finish("open", reply);
   }
   const edited = await (input.runner ?? { name: "mock", edit: mockEdit }).edit(
     await readSnapshot(input.store, prefix),
@@ -153,7 +160,7 @@ export async function postMessage(input: {
   if (!edited.changed) {
     const reply = "Nothing needed changing.";
     await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
-    return { threadId, reply };
+    return finish("open", reply);
   }
   const resultId = await writeSnapshot({
     db,
@@ -189,12 +196,7 @@ export async function postMessage(input: {
   const previewUrl = `${input.appOrigin}/preview/${token}`;
   const reply = `Preview ready: ${previewUrl}`;
   await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
-  await db
-    .update(thread)
-    .set({ status: "preview_ready", updatedAt: new Date() })
-    .where(eq(thread.id, threadId));
-  await notify(db, threadId);
-  return { threadId, reply, previewUrl };
+  return finish("preview_ready", reply, previewUrl);
 }
 
 export async function previewForToken(db: Database, token: string) {

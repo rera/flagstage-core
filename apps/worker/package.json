@@ -14,7 +14,10 @@
     "@flagstage/db": "workspace:*",
     "@flagstage/domains": "workspace:*",
     "@flagstage/analytics": "workspace:*",
+    "@flagstage/importer": "workspace:*",
+    "@flagstage/jobs": "workspace:*",
     "@flagstage/storage": "workspace:*",
+    "drizzle-orm": "^0.45.1",
     "pg-boss": "^12.8.0"
   },
   "devDependencies": {

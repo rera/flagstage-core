@@ -27,7 +27,7 @@ export default async function SitePage({
   searchParams
 }: {
   params: Promise<{ siteId: string }>;
-  searchParams: Promise<{ snapshot?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { siteId } = await params;
   const query = await searchParams;
@@ -39,7 +39,6 @@ export default async function SitePage({
   const runs = await db.select().from(importRun).where(eq(importRun.siteId, siteId));
   const latest = runs[runs.length - 1];
   const report = (latest?.fidelityReport ?? null) as Report | null;
-  const snapshotId = query.snapshot;
   const threads = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
   const threadId = threads[0]?.id;
   const messages = threadId
@@ -49,6 +48,10 @@ export default async function SitePage({
   const ready = requests.filter((item) => item.status === "preview_ready");
   const held = requests.filter((item) => item.status === "needs_human");
   const snaps = await db.select().from(snapshot).where(eq(snapshot.siteId, siteId));
+  const pendingSnapshot = snaps
+    .filter((item) => item.kind === "import")
+    .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())
+    .at(-1);
   const canPublish = can(principal, "site.publish", { accountId: found.accountId });
   const canRelease = can(principal, "member.manage", { accountId: found.accountId });
   return (
@@ -64,6 +67,11 @@ export default async function SitePage({
         }
       />
       <ChatStream siteId={found.id} />
+      {query.error ? <Alert tone="bad">{t("sites.failed")}</Alert> : null}
+      {found.status === "importing" ? <Alert>{t("sites.importing")}</Alert> : null}
+      {found.status === "failed" ? (
+        <Alert tone="bad">{latest?.error ?? t("sites.failed")}</Alert>
+      ) : null}
       {found.status === "live" ? <Alert tone="ok">{t("sites.live")}</Alert> : null}
       {report ? (
         <>
@@ -87,15 +95,16 @@ export default async function SitePage({
           </ul>
         </>
       ) : null}
-      {snapshotId && canPublish && !found.currentSnapshotId ? (
+      {pendingSnapshot && canPublish && !found.currentSnapshotId && found.status === "preview" ? (
         <form action={approveSiteAction}>
           <input type="hidden" name="siteId" value={found.id} />
           <input type="hidden" name="accountId" value={found.accountId} />
-          <input type="hidden" name="snapshotId" value={snapshotId} />
+          <input type="hidden" name="snapshotId" value={pendingSnapshot.id} />
           <Button type="submit">{t("sites.goLive")}</Button>
         </form>
       ) : null}
       <h2>{t("chat.title")}</h2>
+      {threads[0]?.status === "queued" ? <p>{t("chat.working")}</p> : null}
       <ul>
         {messages.map((item) => (
           <li key={item.id}>

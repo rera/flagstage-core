@@ -21,6 +21,7 @@
     "@flagstage/forms": "workspace:*",
     "@flagstage/analytics": "workspace:*",
     "@flagstage/importer": "workspace:*",
+    "@flagstage/jobs": "workspace:*",
     "@flagstage/publish": "workspace:*",
     "@flagstage/storage": "workspace:*",
     "@flagstage/ui": "workspace:*",

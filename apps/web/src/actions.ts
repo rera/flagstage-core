@@ -14,17 +14,20 @@ import {
   slugify,
   type MembershipRole
 } from "@flagstage/core";
-import { idpGroupMapping, importRun, orgSettings, site, ssoProvider } from "@flagstage/db";
-import { approveImport, crawlSite, storeCrawl } from "@flagstage/importer";
+import {
+  idpGroupMapping,
+  importRun,
+  message,
+  orgSettings,
+  site,
+  ssoProvider,
+  thread
+} from "@flagstage/db";
+import { approveImport } from "@flagstage/importer";
+import { enqueue } from "@flagstage/jobs";
 import { createBlobStore, snapshotPrefix } from "@flagstage/storage";
 import { samlProviderConfig } from "@flagstage/auth";
-import {
-  approveChange,
-  buildAgentEnv,
-  postMessage,
-  skillsDirectory,
-  subprocessRunner
-} from "@flagstage/agent";
+import { approveChange, buildAgentEnv, skillsDirectory, subprocessRunner } from "@flagstage/agent";
 import { rollbackTo } from "@flagstage/publish";
 import { changeRequest, siteDomain, snapshot } from "@flagstage/db";
 import {
@@ -268,15 +271,6 @@ export async function issueScimToken(_previous: { secret?: string; error?: strin
   return { secret: created.token };
 }
 
-async function fetchPage(url: string) {
-  const response = await fetch(url, { redirect: "follow" });
-  return {
-    status: response.status,
-    body: new Uint8Array(await response.arrayBuffer()),
-    contentType: response.headers.get("content-type") ?? ""
-  };
-}
-
 export async function importSiteAction(formData: FormData) {
   const principal = await requirePrincipal();
   const accountId = String(formData.get("accountId") ?? "");
@@ -296,41 +290,19 @@ export async function importSiteAction(formData: FormData) {
     sourceUrl,
     status: "importing"
   });
-  await db.insert(importRun).values({ id: runId, siteId, sourceUrl, status: "running" });
-  let snapshotId = "";
+  await db.insert(importRun).values({ id: runId, siteId, sourceUrl, status: "queued" });
   try {
-    const crawl = await crawlSite({
-      fetchPage,
-      sourceUrl,
-      appOrigin: config.APP_URL,
-      siteId,
-      caps: {
-        maxPages: config.IMPORT_MAX_PAGES,
-        maxDepth: config.IMPORT_MAX_DEPTH,
-        maxAssets: config.IMPORT_MAX_ASSETS
-      }
-    });
-    const stored = await storeCrawl({
-      db,
-      store: createBlobStore(config),
-      siteId,
-      importRunId: runId,
-      crawl
-    });
-    snapshotId = stored.snapshotId;
+    await enqueue(config.DATABASE_URL, "import", { siteId, runId, sourceUrl });
   } catch (error) {
+    const messageText = error instanceof Error ? error.message : "Import failed";
     await db
       .update(importRun)
-      .set({
-        status: "failed",
-        error: error instanceof Error ? error.message : "Import failed",
-        updatedAt: new Date()
-      })
+      .set({ status: "failed", error: messageText, updatedAt: new Date() })
       .where(eq(importRun.id, runId));
     await db.update(site).set({ status: "failed" }).where(eq(site.id, siteId));
     redirect("/sites?error=1");
   }
-  redirect(`/sites/${siteId}?snapshot=${snapshotId}`);
+  redirect(`/sites/${siteId}`);
 }
 
 export async function approveSiteAction(formData: FormData) {
@@ -369,23 +341,52 @@ export async function sendMessageAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
   const accountId = String(formData.get("accountId") ?? "");
-  if (
-    !can(principal, "site.comment", { accountId }) &&
-    !can(principal, "site.edit", { accountId })
-  ) {
-    redirect("/no-access");
-  }
+  const canComment = can(principal, "site.comment", { accountId });
+  const canEdit = can(principal, "site.edit", { accountId });
+  if (!canComment && !canEdit) redirect("/no-access");
+  const body = String(formData.get("body") ?? "").trim();
+  if (!body) redirect(`/sites/${siteId}`);
   const config = loadConfig();
-  await postMessage({
-    db: database(),
-    store: createBlobStore(config),
-    siteId,
+  const db = database();
+  const existing = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
+  const threadId = existing[0]?.id ?? randomUUID();
+  if (!existing[0]) {
+    await db.insert(thread).values({
+      id: threadId,
+      siteId,
+      title: "Changes",
+      createdBy: principal.id,
+      status: canEdit ? "queued" : "open"
+    });
+  } else if (canEdit) {
+    await db
+      .update(thread)
+      .set({ status: "queued", updatedAt: new Date() })
+      .where(eq(thread.id, threadId));
+  }
+  await db.insert(message).values({
+    id: randomUUID(),
+    threadId,
+    author: "user",
     userId: principal.id,
-    body: String(formData.get("body") ?? ""),
-    appOrigin: config.APP_URL,
-    runner: editor(),
-    commentOnly: !can(principal, "site.edit", { accountId })
+    body
   });
+  if (canEdit) {
+    try {
+      await enqueue(config.DATABASE_URL, "agent-turn", {
+        siteId,
+        userId: principal.id,
+        body,
+        userRecorded: true
+      });
+    } catch {
+      await db
+        .update(thread)
+        .set({ status: "open", updatedAt: new Date() })
+        .where(eq(thread.id, threadId));
+      redirect(`/sites/${siteId}?error=1`);
+    }
+  }
   redirect(`/sites/${siteId}`);
 }
 
@@ -455,14 +456,21 @@ export async function releaseHoldAction(formData: FormData) {
     .set({ status: "rejected" })
     .where(eq(changeRequest.id, requestId));
   const config = loadConfig();
-  await postMessage({
-    db: database(),
-    store: createBlobStore(config),
+  const existing = await database()
+    .select()
+    .from(thread)
+    .where(eq(thread.siteId, request.siteId))
+    .limit(1);
+  if (existing[0]) {
+    await database()
+      .update(thread)
+      .set({ status: "queued", updatedAt: new Date() })
+      .where(eq(thread.id, existing[0].id));
+  }
+  await enqueue(config.DATABASE_URL, "agent-turn", {
     siteId: request.siteId,
     userId: principal.id,
     body: request.summary,
-    appOrigin: config.APP_URL,
-    runner: editor(),
     allowHold: false
   });
   redirect(`/sites/${request.siteId}`);

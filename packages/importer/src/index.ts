@@ -1,6 +1,7 @@
 export { crawlSite } from "./crawl";
 export { previewFromHost, slugFromHost } from "./host";
 export { approveImport, storeCrawl } from "./persist";
+export { runImport } from "./run";
 export type {
   CrawlResult,
   FidelityReport,

@@ -3,7 +3,7 @@ import pg from "pg";
 
 import { can } from "@flagstage/core";
 import { loadConfig } from "@flagstage/config";
-import { message, site, thread } from "@flagstage/db";
+import { importRun, message, site, thread } from "@flagstage/db";
 
 import { database, requirePrincipal } from "../../../../../src/guard";
 
@@ -25,6 +25,7 @@ export async function GET(_request: Request, context: { params: Promise<{ siteId
       let last = "";
       const send = async () => {
         if (closed) return;
+        const current = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
         const threads = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
         const threadId = threads[0]?.id;
         const rows = threadId
@@ -33,7 +34,16 @@ export async function GET(_request: Request, context: { params: Promise<{ siteId
               .from(message)
               .where(eq(message.threadId, threadId))
           : [];
-        const payload = JSON.stringify(rows);
+        const runs = await db
+          .select({ status: importRun.status })
+          .from(importRun)
+          .where(eq(importRun.siteId, siteId));
+        const payload = JSON.stringify({
+          messages: rows,
+          siteStatus: current[0]?.status ?? null,
+          threadStatus: threads[0]?.status ?? null,
+          importStatus: runs.at(-1)?.status ?? null
+        });
         if (payload === last) return;
         last = payload;
         controller.enqueue(encoder.encode(`data: ${payload}\n\n`));

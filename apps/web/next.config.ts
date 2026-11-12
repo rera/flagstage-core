@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
     "@flagstage/domains",
     "@flagstage/forms",
     "@flagstage/importer",
+    "@flagstage/jobs",
     "@flagstage/publish",
     "@flagstage/storage",
     "@flagstage/ui"

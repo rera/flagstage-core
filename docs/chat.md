@@ -11,7 +11,7 @@ A message on a live site is checked, then either answered, held, or turned into 
 - Preview links expire. A preview host of `{slug}--{token}.localhost` is rewritten to that preview and sets a `flagstage_preview` cookie.
 - The site page listens on Postgres `flagstage_chat` and also polls every 2 seconds.
 
-The editor runs in the web process so a preview comes back in the same request. The worker consumes `agent-turn` with the same function when a job is queued.
+Sending a message stores it and queues an `agent-turn` job. The worker runs the editor. Approve and roll back stay on the request because they only swap the live snapshot.
 
 `AI_MOCK=1` does not call a model or OpenCode. To use a real model and editor:
 
