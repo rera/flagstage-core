@@ -9,10 +9,11 @@ Discuss proposals in [GitHub Discussions](https://github.com/rera/flagstage-core
 ## Now
 
 - WordPress import, chat edits, preview, approve, publish, and rollback.
-- Organization, accounts, invites, OIDC, SAML, and SCIM.
+- Organization, accounts, invites, OIDC, SAML, SCIM, and a first-run setup wizard.
 - Custom-domain DNS checklist.
-- Lead forms and basic analytics.
+- Lead forms, optional SMTP notice, and 7, 30, and 90 day analytics.
 - OpenTofu module for a single ECS service.
+- `flagstage` commands for an admin, an account, and an import.
 
 ## Next
 

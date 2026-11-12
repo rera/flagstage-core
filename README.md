@@ -7,9 +7,10 @@ Import the site you already have. Change it in chat. Publish when the preview lo
 Flagstage Core is a self-hosted app for an organization that runs many accounts (a department, a section, a brand) and many sites. Live sites are static files. The app is never on the visitor path.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Node](https://img.shields.io/badge/node-22-339933)](https://nodejs.org)
 [![Discussions](https://img.shields.io/badge/community-discussions-0f766e)](https://github.com/rera/flagstage-core/discussions)
 
-![Flagstage Core, import to publish](docs/assets/screenshot-app.svg)
+![Example site in Flagstage Core, live and ready for a chat edit](docs/assets/screenshot-app.png)
 
 ## Features
 
@@ -19,20 +20,23 @@ Flagstage Core is a self-hosted app for an organization that runs many accounts 
 - Organization, accounts, and roles: organization admin, account admin, editor, reviewer.
 - OIDC, SAML 2.0, and SCIM 2.0. Group ids map to roles. No vendor-specific identity code.
 - Custom domains as a copyable DNS checklist with live checks against public resolvers.
-- Lead forms and cookie-free site analytics.
+- Lead forms, with a signed webhook and optional SMTP mail, and cookie-free site analytics.
 - Bring your own model API key, or run the local demo in mock mode with no key.
+- A setup wizard, plus `flagstage admin add`, `flagstage account create`, and `flagstage import`.
 - No telemetry and no update check.
 
 ## Quickstart
 
-```bash
-cp .env.example .env
-docker compose up
-```
+About a minute, with Docker.
 
-Open http://localhost:3000 and sign in as `demo@example.com` with password `demo-demo-demo`. Compose sets `SEED_DEMO=1`, which loads the demo organization, two accounts, and a published example site at `demo.localhost`. Health check: http://localhost:3000/api/health.
+1. `docker compose up`
+2. Open http://localhost:3000
+3. Sign in as `demo@example.com` with password `demo-demo-demo`
+4. Open Example site, describe a change, and approve the preview when it looks right.
 
-Hot reload against the same Postgres:
+The seed publishes that example site at `demo.localhost`. Health check: http://localhost:3000/api/health.
+
+To work on the code against the same Postgres:
 
 ```bash
 docker compose up -d postgres
@@ -40,6 +44,8 @@ pnpm install
 pnpm db:migrate
 pnpm dev
 ```
+
+`pnpm e2e` signs in, imports a fixture, edits in chat, opens the preview, publishes, and reads the DNS checklist.
 
 ## Self-hosting
 
@@ -77,6 +83,8 @@ Agent turns run OpenCode as a subprocess in a temp directory. The subprocess env
 | Approve before it goes live | Yes                            | Depends on plugins   | Their editor            | Your review process     | Varies                        |
 | Identity                    | OIDC, SAML, SCIM               | Plugins              | Their accounts          | Your git host           | Their accounts                |
 | You run it                  | Yes                            | Yes                  | No                      | Yes                     | Usually no                    |
+
+The cells describe the typical shape of each approach. A given product can differ.
 
 ## Roadmap
 
