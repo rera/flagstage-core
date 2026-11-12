@@ -13,11 +13,16 @@
   },
   "dependencies": {
     "@flagstage/config": "workspace:*",
+    "@flagstage/core": "workspace:*",
     "@flagstage/db": "workspace:*",
+    "@flagstage/importer": "workspace:*",
     "@flagstage/storage": "workspace:*",
+    "better-auth": "1.7.21",
+    "drizzle-orm": "^0.45.1",
     "pg": "^8.16.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.3.14",
     "@types/pg": "^8.15.6",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"

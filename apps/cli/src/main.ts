@@ -1,37 +1,44 @@
 import pg from "pg";
 
 import { ConfigError, loadConfig } from "@flagstage/config";
+import { createDb } from "@flagstage/db";
 import { createBlobStore } from "@flagstage/storage";
 
-const [command, ...args] = process.argv.slice(2);
+import { addOrgAdmin, createNamedAccount, importAccountSite, parseCommand } from "./commands";
 
-function usage(): never {
-  console.log(`flagstage commands:
+const usage = `flagstage commands:
   doctor
-  create-admin <email>
-  create-account <name>
-  add-member <account-slug> <email> <role>
-  import <account-slug> <url>
-  reset-password <email>
-  export-site <site-slug> <directory>`);
-  process.exit(command ? 1 : 0);
-}
+  admin add --email <email> [--name <name>]
+  account create <name>
+  import <url> --account <slug> [--name <name>]`;
 
-if (!command || command === "help" || command === "--help") {
-  usage();
-}
-
-if (command === "doctor") {
-  let config;
+const parsed = (() => {
   try {
-    config = loadConfig();
+    return parseCommand(process.argv.slice(2));
   } catch (error) {
-    if (error instanceof ConfigError) {
-      console.error(error.message);
-      process.exit(1);
-    }
-    throw error;
+    console.error(error instanceof Error ? error.message : "Could not read the command.");
+    console.error(usage);
+    process.exit(1);
   }
+})();
+
+if (parsed.kind === "help") {
+  console.log(usage);
+  process.exit(0);
+}
+
+let config;
+try {
+  config = loadConfig();
+} catch (error) {
+  if (error instanceof ConfigError) {
+    console.error(error.message);
+    process.exit(1);
+  }
+  throw error;
+}
+
+if (parsed.kind === "doctor") {
   const lines = [
     `env: ok (${config.NODE_ENV})`,
     `storage: ${config.STORAGE_DRIVER}`,
@@ -62,5 +69,35 @@ if (command === "doctor") {
   process.exit(lines.some((line) => line.includes("fail") || line.includes("missing")) ? 1 : 0);
 }
 
-console.error(`'${command}' is not available yet.`, args.length ? "" : "");
-usage();
+const { db, pool } = createDb(config.DATABASE_URL);
+try {
+  if (parsed.kind === "admin-add") {
+    const result = await addOrgAdmin(db, { email: parsed.email, name: parsed.name });
+    if (result.created) {
+      console.log(`organization admin ${result.email}`);
+      console.log(`password: ${result.password}`);
+    } else {
+      console.log(`${result.email} is an organization admin`);
+    }
+  } else if (parsed.kind === "account-create") {
+    const created = await createNamedAccount(db, parsed.name);
+    console.log(`${created.name} ${created.slug} ${created.id}`);
+  } else if (parsed.kind === "import") {
+    const imported = await importAccountSite({
+      db,
+      store: createBlobStore(config),
+      accountSlug: parsed.account,
+      url: parsed.url,
+      name: parsed.name,
+      appOrigin: config.APP_URL,
+      caps: {
+        maxPages: config.IMPORT_MAX_PAGES,
+        maxDepth: config.IMPORT_MAX_DEPTH,
+        maxAssets: config.IMPORT_MAX_ASSETS
+      }
+    });
+    console.log(`${imported.slug} ${imported.siteId} ${imported.snapshotId}`);
+  }
+} finally {
+  await pool.end();
+}

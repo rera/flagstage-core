@@ -4,7 +4,7 @@
 
 Sign-in is OIDC or SAML 2.0. Provisioning is SCIM 2.0. Any identity provider that speaks those standards can be used. Flagstage Core does not ship a client for a specific vendor. The examples below use placeholder hostnames.
 
-An organization admin saves a provider under Settings. Group mappings use the identity provider's immutable group id (`externalId`), never the display name. A mapped group grants `org_admin` or an account role (`account_admin`, `editor`, `reviewer`). A person with no mapped group and no invitation sees "No access yet".
+An organization admin saves a provider under Setup or Settings. The five-minute path for a department is [Assign department admins](department-admins.md). Group mappings use the identity provider's immutable group id (`externalId`), never the display name. A mapped group grants `org_admin` or an account role (`account_admin`, `editor`, `reviewer`). A person with no mapped group and no invitation sees "No access yet".
 
 ## Redirect and ACS
 

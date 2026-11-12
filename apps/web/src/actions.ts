@@ -50,6 +50,19 @@ function appUrl() {
   return loadConfig().APP_URL;
 }
 
+function nextPath(formData: FormData, fallback: string) {
+  const next = String(formData.get("next") ?? "");
+  if (next.startsWith("/") && !next.startsWith("//") && !next.includes("://")) return next;
+  return fallback;
+}
+
+function failTo(formData: FormData, fallback: string): never {
+  const next = nextPath(formData, fallback);
+  const url = new URL(next, "http://local");
+  url.searchParams.set("error", "1");
+  redirect(`${url.pathname}${url.search}`);
+}
+
 export async function signInWithPassword(formData: FormData) {
   const response = await getAuth().handler(
     new Request(`${appUrl()}/api/auth/sign-in/email`, {
@@ -101,7 +114,7 @@ export async function saveOrganization(formData: FormData) {
   if (!can(principal, "org.manage")) redirect("/no-access");
   const name = String(formData.get("name") ?? "").trim();
   const baseDomain = String(formData.get("baseDomain") ?? "").trim();
-  if (!name || !baseDomain) redirect("/setup?error=1");
+  if (!name || !baseDomain) failTo(formData, "/setup?step=org");
   await database()
     .update(orgSettings)
     .set({
@@ -112,16 +125,16 @@ export async function saveOrganization(formData: FormData) {
       updatedAt: new Date()
     })
     .where(eq(orgSettings.id, "org"));
-  redirect("/accounts");
+  redirect(nextPath(formData, "/accounts"));
 }
 
 export async function createAccountAction(formData: FormData) {
   const principal = await requirePrincipal();
   if (!can(principal, "org.manage")) redirect("/no-access");
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) redirect("/accounts?error=1");
+  if (!name) failTo(formData, "/accounts");
   const created = await createAccount(database(), name);
-  redirect(`/accounts/${created.id}`);
+  redirect(nextPath(formData, `/accounts/${created.id}`));
 }
 
 export async function inviteMember(
@@ -166,7 +179,7 @@ export async function saveOidcProvider(formData: FormData) {
   const clientId = String(formData.get("clientId") ?? "").trim();
   const clientSecret = String(formData.get("clientSecret") ?? "").trim();
   if (!providerId || !domain || !issuer || !clientId || !clientSecret)
-    redirect("/settings?error=1");
+    failTo(formData, "/settings");
   const db = database();
   const existing = await db
     .select()
@@ -194,7 +207,7 @@ export async function saveOidcProvider(formData: FormData) {
       oidcConfig
     });
   }
-  redirect("/settings?saved=1");
+  redirect(nextPath(formData, "/settings?saved=1"));
 }
 
 export async function saveGroupMapping(formData: FormData) {
@@ -204,7 +217,7 @@ export async function saveGroupMapping(formData: FormData) {
   const groupExternalId = String(formData.get("groupExternalId") ?? "").trim();
   const target = String(formData.get("target") ?? "").trim();
   const role = String(formData.get("role") ?? "").trim();
-  if (!providerId || !groupExternalId || !target || !role) redirect("/settings?error=1");
+  if (!providerId || !groupExternalId || !target || !role) failTo(formData, "/settings");
   await database()
     .insert(idpGroupMapping)
     .values({
@@ -215,7 +228,7 @@ export async function saveGroupMapping(formData: FormData) {
       target,
       role
     });
-  redirect("/settings?saved=1");
+  redirect(nextPath(formData, "/settings?saved=1"));
 }
 
 export async function saveSamlProvider(formData: FormData) {
@@ -227,7 +240,7 @@ export async function saveSamlProvider(formData: FormData) {
   const entryPoint = String(formData.get("entryPoint") ?? "").trim();
   const certificate = String(formData.get("certificate") ?? "").trim();
   if (!providerId || !domain || !issuer || !entryPoint || !certificate)
-    redirect("/settings?error=1");
+    failTo(formData, "/settings");
   const config = samlProviderConfig({
     providerId,
     domain,
@@ -253,7 +266,7 @@ export async function saveSamlProvider(formData: FormData) {
       .insert(ssoProvider)
       .values({ id: randomUUID(), providerId, issuer, domain, samlConfig });
   }
-  redirect("/settings?saved=1");
+  redirect(nextPath(formData, "/settings?saved=1"));
 }
 
 export async function issueScimToken(_previous: { secret?: string; error?: string } | null) {
