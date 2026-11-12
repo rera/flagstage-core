@@ -2,7 +2,7 @@
 
 An honest read of what still keeps Flagstage Core from feeling like a mature open-source product. The comparison points are Plausible, Cal.com, Documenso, Infisical, n8n, and Ghost: projects an operator can clone, run, and trust on a weekday afternoon.
 
-The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm test` pass. The gaps below are what a second look finds. Work deferred past v1 is [TODO.md](../TODO.md), and those items are not repeated here.
+The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm test` pass. The gaps below are what a second look finds. Work deferred past v1 is filed on [rera/flagstage-core](https://github.com/rera/flagstage-core/issues) and is not repeated here.
 
 ## Fix before a first release
 
@@ -56,3 +56,15 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - `flagstage member add` grants an account role. `flagstage user reset-password` works in local development, and in production only with `FLAGSTAGE_BREAK_GLASS=1`. `flagstage site export <site> --out file.tgz` packs the published snapshot and `content.json`. `flagstage backup` prints the `pg_dump` and storage commands and does not call AWS.
 - Issue templates, the pull request template, `CODEOWNERS` (`@rera`), and Dependabot are in the repo. `CHANGELOG.md` follows Keep a Changelog for 0.1.0, which is unreleased. Vulnerability reports go through GitHub private reporting, as `SECURITY.md` describes. There is no `FUNDING.yml`.
 - Operator docs cover getting started, a CloudFormation deploy, roles, the DNS checklist, upgrading, and the FAQ.
+
+## Deferred
+
+Filed on [rera/flagstage-core](https://github.com/rera/flagstage-core/issues):
+
+- [#1 Trace each chat turn and import with one correlation ID](https://github.com/rera/flagstage-core/issues/1)
+- [#2 Health metrics and alarms in the CloudFormation stack](https://github.com/rera/flagstage-core/issues/2)
+- [#3 Screen-reader accessibility pass](https://github.com/rera/flagstage-core/issues/3)
+- [#4 Revisit CI: repo CI and deploying from CI](https://github.com/rera/flagstage-core/issues/4)
+- [#5 Bring back SSO, SAML and SCIM](https://github.com/rera/flagstage-core/issues/5) from `feature/sso`
+- [#6 Internationalization](https://github.com/rera/flagstage-core/issues/6)
+- [#7 README demo GIF of the builder](https://github.com/rera/flagstage-core/issues/7)

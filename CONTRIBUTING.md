@@ -2,7 +2,7 @@
 
 Thanks for looking. Flagstage Core is the self-hosted edition: an organization runs many accounts, each account runs sites, and people change those sites in chat.
 
-[GAPS.md](docs/GAPS.md) is what is still rough in v1. [TODO.md](TODO.md) is work deferred past v1. Do not add the same item to both.
+[GAPS.md](docs/GAPS.md) is what is still rough in v1, and it links the deferred GitHub issues. Do not copy an issue back into that file as a second list.
 
 ## Development setup
 
