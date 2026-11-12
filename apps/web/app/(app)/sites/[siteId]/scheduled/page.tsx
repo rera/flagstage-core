@@ -11,6 +11,7 @@ import { cancelScheduleAction } from "../../../../../src/actions";
 import { database, requirePrincipal } from "../../../../../src/guard";
 import { Page } from "../../../../../src/page";
 import { SchedulePanel } from "../../../../../src/schedule-form";
+import { SiteNav } from "../../../../../src/site-nav";
 
 export default async function ScheduledPage({ params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
@@ -26,15 +27,8 @@ export default async function ScheduledPage({ params }: { params: Promise<{ site
   const canPublish = can(principal, "site.publish", { accountId: found.accountId });
   return (
     <Page>
-      <PageHeader
-        title="Scheduled"
-        description={`${found.name}. Times use ${zoneTitle(zone)}.`}
-        actions={
-          <a href={`/sites/${found.id}`} className="text-sm font-medium text-primary">
-            {found.name}
-          </a>
-        }
-      />
+      <SiteNav siteId={found.id} current="scheduled" />
+      <PageHeader title="Scheduled" description={`${found.name}. Times use ${zoneTitle(zone)}.`} />
       {schedules.length === 0 ? (
         <EmptyState
           title="Nothing scheduled"

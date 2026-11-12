@@ -9,6 +9,7 @@ import { site } from "@flagstage/db";
 import { updateSiteTimeZoneAction } from "../../../../../src/actions";
 import { database, requirePrincipal } from "../../../../../src/guard";
 import { Page } from "../../../../../src/page";
+import { SiteNav } from "../../../../../src/site-nav";
 
 const ZONES = [
   "America/Los_Angeles",
@@ -44,14 +45,10 @@ export default async function SiteSettingsPage({
   const canManage = can(principal, "site.manage", { accountId: found.accountId });
   return (
     <Page>
+      <SiteNav siteId={found.id} current="settings" />
       <PageHeader
         title="Site settings"
         description={`${found.name} uses ${zoneTitle(found.timeZone)} for scheduled publishes.`}
-        actions={
-          <a href={`/sites/${found.id}`} className="text-sm font-medium text-primary">
-            {found.name}
-          </a>
-        }
       />
       {query.error ? (
         <p className="text-sm text-destructive">That time zone was not recognized.</p>

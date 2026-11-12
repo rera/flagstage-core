@@ -250,7 +250,7 @@ export async function approveSiteAction(formData: FormData) {
     hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`
   });
   await publishHostMap(liveHost(found.slug), snapshotPrefix(siteId, snapshotId));
-  redirect(`/sites/${siteId}`);
+  redirect(nextPath(formData, `/sites/${siteId}`));
 }
 
 function editor() {
@@ -277,7 +277,7 @@ export async function sendMessageAction(formData: FormData) {
   const canEdit = can(principal, "site.edit", { accountId });
   if (!canComment && !canEdit) redirect("/no-access");
   const body = String(formData.get("body") ?? "").trim();
-  if (!body) redirect(`/sites/${siteId}`);
+  if (!body) redirect(nextPath(formData, `/sites/${siteId}/edit`));
   const db = database();
   const existing = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
   const threadId = existing[0]?.id ?? randomUUID();
@@ -310,10 +310,10 @@ export async function sendMessageAction(formData: FormData) {
         .update(thread)
         .set({ status: "open", updatedAt: new Date() })
         .where(eq(thread.id, threadId));
-      redirect(`/sites/${siteId}?error=1`);
+      redirect(`${nextPath(formData, `/sites/${siteId}/edit`)}?error=1`);
     }
   }
-  redirect(`/sites/${siteId}`);
+  redirect(nextPath(formData, `/sites/${siteId}/edit`));
 }
 
 export async function approveChangeAction(formData: FormData) {
@@ -337,7 +337,7 @@ export async function approveChangeAction(formData: FormData) {
   if (published.ok && found) {
     await publishHostMap(liveHost(found.slug), snapshotPrefix(siteId, published.snapshotId));
   }
-  redirect(`/sites/${siteId}`);
+  redirect(nextPath(formData, `/sites/${siteId}`));
 }
 
 export async function publishDraftAction(formData: FormData) {
@@ -364,7 +364,7 @@ export async function publishDraftAction(formData: FormData) {
     kind: "publish"
   });
   await publishHostMap(liveHost(found.slug), snaps[0].storagePrefix);
-  redirect(`/sites/${siteId}`);
+  redirect(nextPath(formData, `/sites/${siteId}`));
 }
 
 export async function schedulePublishAction(formData: FormData) {
@@ -485,10 +485,10 @@ export async function setBudgetAction(formData: FormData) {
   const raw = String(formData.get("monthlyBudgetUsd") ?? "").trim();
   const monthlyBudgetUsd = raw === "" ? null : Number(raw);
   if (monthlyBudgetUsd != null && (!Number.isFinite(monthlyBudgetUsd) || monthlyBudgetUsd < 0)) {
-    redirect("/admin/usage");
+    redirect(nextPath(formData, "/admin/usage"));
   }
   await database().update(account).set({ monthlyBudgetUsd }).where(eq(account.id, accountId));
-  redirect("/admin/usage");
+  redirect(nextPath(formData, "/admin/usage"));
 }
 
 export async function undoEditAction(formData: FormData) {
@@ -497,7 +497,7 @@ export async function undoEditAction(formData: FormData) {
   const accountId = String(formData.get("accountId") ?? "");
   if (!can(principal, "site.edit", { accountId })) redirect("/no-access");
   await undoEdit(database(), siteId);
-  redirect(`/sites/${siteId}`);
+  redirect(nextPath(formData, `/sites/${siteId}/edit`));
 }
 
 export async function addDomainAction(formData: FormData) {

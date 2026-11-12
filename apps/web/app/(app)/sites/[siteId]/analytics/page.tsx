@@ -17,6 +17,7 @@ import {
 
 import { database, requirePrincipal } from "../../../../../src/guard";
 import { Page } from "../../../../../src/page";
+import { SiteNav } from "../../../../../src/site-nav";
 
 const RANGES = [7, 30, 90] as const;
 type Range = (typeof RANGES)[number];
@@ -68,6 +69,7 @@ export default async function AnalyticsPage({
   const peak = Math.max(1, ...series.map((item) => item.pageviews));
   return (
     <Page>
+      <SiteNav siteId={found.id} current="analytics" />
       <PageHeader title={t("analytics.title")} description={found.name} />
       <nav className="flex gap-2" aria-label={t("analytics.range")}>
         {RANGES.map((item) => (

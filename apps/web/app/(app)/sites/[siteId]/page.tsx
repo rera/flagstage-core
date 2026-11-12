@@ -1,398 +1,273 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
-import { Alert, Button, EmptyState, FlagstageMark, Textarea, t } from "@flagstage/ui";
+import { visitsInRange } from "@flagstage/analytics";
 import { can } from "@flagstage/core";
-import { changeRequest, importRun, message, site, snapshot, thread } from "@flagstage/db";
-
 import {
-  approveChangeAction,
-  approveSiteAction,
-  publishDraftAction,
-  rollbackAction,
-  sendMessageAction,
-  undoEditAction
-} from "../../../../src/actions";
-import { BrowserFrame } from "../../../../src/browser-frame";
-import { SchedulePanel } from "../../../../src/schedule-form";
+  analyticsDaily,
+  analyticsEvent,
+  formSubmission,
+  leadForm,
+  membership,
+  site,
+  siteDomain,
+  siteSchedule,
+  snapshot,
+  user
+} from "@flagstage/db";
+import { describeSchedule } from "@flagstage/publish";
+import { Badge, Button, buttonVariants, EmptyState } from "@flagstage/ui";
+
+import { approveSiteAction, rollbackAction } from "../../../../src/actions";
 import { database, requirePrincipal } from "../../../../src/guard";
-import { chatBody, friendlyWhen, versionLabel } from "../../../../src/time";
-import { ChatStream } from "./chat-stream";
+import { Page } from "../../../../src/page";
+import { SiteNav } from "../../../../src/site-nav";
+import { friendlyWhen, versionLabel } from "../../../../src/time";
 
-type Report = {
-  forms?: Array<{ page: string; kind: string; detail: string }>;
-  plugins?: Array<{ page: string; kind: string; detail: string }>;
-  missingAssets?: string[];
-  cssBackgrounds?: string[];
-};
-
-function Thinking({ label }: { label: string }) {
-  return (
-    <div className="mb-4 flex gap-3">
-      <span className="grid size-[30px] shrink-0 place-items-center overflow-hidden rounded-[9px] bg-[#14161a]">
-        <FlagstageMark className="size-7" />
-      </span>
-      <p className="thinking-label pt-1 text-[14.5px] font-medium">{label}</p>
-    </div>
-  );
+function statusLabel(status: string) {
+  if (status === "live") return "Live";
+  if (status === "importing") return "Importing";
+  if (status === "preview") return "Ready to publish";
+  if (status === "failed") return "Didn't finish";
+  return status;
 }
 
-function Steps({
-  items
-}: {
-  items: Array<{ id: string; label: string; state: "done" | "active" | "wait" }>;
-}) {
-  if (items.length === 0) return null;
-  return (
-    <ol className="mb-5 overflow-hidden rounded-2xl border border-border bg-card">
-      {items.map((item) => (
-        <li
-          key={item.id}
-          className="flex items-center gap-2.5 border-b border-border px-4 py-2.5 text-[13.5px] last:border-b-0"
-        >
-          <span
-            className={
-              item.state === "done"
-                ? "size-2 rounded-full bg-[var(--done)]"
-                : item.state === "active"
-                  ? "size-2 animate-spin rounded-full border-2 border-[var(--prog)] border-t-transparent"
-                  : "size-2 rounded-full bg-border"
-            }
-            aria-hidden
-          />
-          <span>{item.label}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-export default async function SitePage({
-  params,
-  searchParams
+export default async function SiteOverviewPage({
+  params
 }: {
   params: Promise<{ siteId: string }>;
-  searchParams: Promise<{ error?: string }>;
 }) {
   const { siteId } = await params;
-  const query = await searchParams;
   const principal = await requirePrincipal();
   const db = database();
   const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
   const found = rows[0];
   if (!found || !can(principal, "site.read", { accountId: found.accountId })) notFound();
-  const runs = await db.select().from(importRun).where(eq(importRun.siteId, siteId));
-  const latest = runs[runs.length - 1];
-  const report = (latest?.fidelityReport ?? null) as Report | null;
-  const notes = [
-    ...(report?.forms ?? []).map((item) => `${item.page}: ${item.detail}`),
-    ...(report?.plugins ?? []).map((item) => `${item.page}: ${item.detail}`),
-    ...(report?.missingAssets ?? []).map((asset) => `${t("sites.missing")} ${asset}`)
-  ];
-  const threads = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
-  const threadId = threads[0]?.id;
-  const messages = threadId
-    ? await db.select().from(message).where(eq(message.threadId, threadId))
-    : [];
-  const requests = await db.select().from(changeRequest).where(eq(changeRequest.siteId, siteId));
-  const ready = requests.filter((item) => item.status === "preview_ready");
-  const readyChange = ready.find((item) => item.resultSnapshotId === found.draftSnapshotId);
-  const progress = (latest?.stats ?? {}) as {
-    pagesFound?: number;
-    pagesDone?: number;
-    skipped?: Array<{ path: string; reason: string }>;
-  };
-  const draftId = found.draftSnapshotId ?? found.currentSnapshotId;
-  const snaps = await db.select().from(snapshot).where(eq(snapshot.siteId, siteId));
-  const pendingSnapshot = snaps
-    .filter((item) => item.kind === "import")
-    .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())
-    .at(-1);
-  const canPublish = can(principal, "site.publish", { accountId: found.accountId });
-  const canEdit = can(principal, "site.edit", { accountId: found.accountId });
   const host = `${found.slug}.localhost`;
-  const siblings = await db.select().from(site).where(eq(site.accountId, found.accountId));
-  const working = threads[0]?.status === "queued";
-  const importing = found.status === "importing";
+  const zone = found.timeZone || "UTC";
+  const snaps = (await db.select().from(snapshot).where(eq(snapshot.siteId, siteId))).sort(
+    (left, right) => right.createdAt.getTime() - left.createdAt.getTime()
+  );
+  const current = snaps.find((item) => item.id === found.currentSnapshotId);
+  const schedules = await db.select().from(siteSchedule).where(eq(siteSchedule.siteId, siteId));
+  const upcoming = schedules.filter((item) => item.status === "scheduled");
+  const domains = await db.select().from(siteDomain).where(eq(siteDomain.siteId, siteId));
+  const forms = await db.select().from(leadForm).where(eq(leadForm.siteId, siteId));
+  const submissions =
+    forms.length === 0
+      ? []
+      : await db
+          .select()
+          .from(formSubmission)
+          .where(
+            inArray(
+              formSubmission.leadFormId,
+              forms.map((form) => form.id)
+            )
+          );
+  const daily = await db.select().from(analyticsDaily).where(eq(analyticsDaily.siteId, siteId));
+  const recent = await db.select().from(analyticsEvent).where(eq(analyticsEvent.siteId, siteId));
+  const week = visitsInRange(
+    daily,
+    recent.map((event) => ({
+      siteId: event.siteId,
+      path: event.path,
+      referrer: event.referrer,
+      visitorHash: event.visitorHash,
+      createdAt: event.createdAt
+    })),
+    new Date(),
+    7
+  );
+  const pageviews = week.reduce((sum, row) => sum + row.pageviews, 0);
+  const visitors = week.reduce((sum, row) => sum + row.visitors, 0);
+  const members = await db
+    .select()
+    .from(membership)
+    .where(eq(membership.accountId, found.accountId));
+  const people =
+    members.length === 0
+      ? []
+      : await db
+          .select()
+          .from(user)
+          .where(
+            inArray(
+              user.id,
+              members.map((member) => member.userId)
+            )
+          );
+  const byId = new Map(people.map((person) => [person.id, person]));
+  const canPublish = can(principal, "site.publish", { accountId: found.accountId });
+  const pending = snaps.find((item) => item.kind === "import");
+  const showGoLive =
+    canPublish && !found.currentSnapshotId && found.status === "preview" && Boolean(pending);
   return (
-    <div className="flex h-[calc(100dvh-60px)] min-h-0 flex-col">
-      <ChatStream siteId={found.id} />
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+    <Page>
+      <SiteNav siteId={found.id} current="overview" editor={false} />
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-semibold tracking-tight">{found.name}</h1>
-          <details className="relative">
-            <summary className="cursor-pointer list-none font-mono text-xs text-muted-foreground marker:content-none">
-              {host}
-            </summary>
-            <div className="absolute z-overlay mt-1 min-w-52 rounded-xl border border-border bg-popover p-1 shadow-sm">
-              {siblings.map((item) => (
-                <a
-                  key={item.id}
-                  href={`/sites/${item.id}`}
-                  className="block rounded-lg px-3 py-2 text-sm hover:bg-[var(--wash)]"
-                >
-                  {item.name}
-                  <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
-                    {item.slug}.localhost
-                  </span>
-                </a>
-              ))}
-            </div>
-          </details>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">{found.name}</h1>
+            <Badge variant={found.status === "live" ? "success" : "default"}>
+              {statusLabel(found.status)}
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            <span className="font-mono">{host}</span>
+            {current
+              ? ` · Published ${friendlyWhen(current.createdAt, zone)}`
+              : " · Nothing published yet"}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={`/sites/${found.id}/domain`}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            {t("domains.title")}
-          </a>
-          <a
-            href={`/sites/${found.id}/forms`}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            {t("forms.title")}
-          </a>
-          <a
-            href={`/sites/${found.id}/analytics`}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            {t("analytics.title")}
-          </a>
-          <a
-            href={`/sites/${found.id}/scheduled`}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            Scheduled
-          </a>
-          <a
-            href={`/sites/${found.id}/settings`}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            Settings
-          </a>
-          {pendingSnapshot &&
-          canPublish &&
-          !found.currentSnapshotId &&
-          found.status === "preview" ? (
+          {showGoLive && pending ? (
             <form action={approveSiteAction}>
               <input type="hidden" name="siteId" value={found.id} />
               <input type="hidden" name="accountId" value={found.accountId} />
-              <input type="hidden" name="snapshotId" value={pendingSnapshot.id} />
-              <Button type="submit">{t("sites.goLive")}</Button>
+              <input type="hidden" name="snapshotId" value={pending.id} />
+              <Button type="submit">Go live</Button>
             </form>
           ) : null}
-          {canEdit && found.draftSnapshotId ? (
-            <form action={undoEditAction}>
-              <input type="hidden" name="siteId" value={found.id} />
-              <input type="hidden" name="accountId" value={found.accountId} />
-              <Button type="submit" variant="outline">
-                {t("chat.undo")}
-              </Button>
-            </form>
-          ) : null}
-          {canPublish &&
-          found.currentSnapshotId &&
-          found.draftSnapshotId &&
-          found.draftSnapshotId !== found.currentSnapshotId ? (
-            <div className="inline-flex items-stretch">
-              <form action={readyChange ? approveChangeAction : publishDraftAction}>
-                <input type="hidden" name="siteId" value={found.id} />
-                <input type="hidden" name="accountId" value={found.accountId} />
-                {readyChange ? (
-                  <input type="hidden" name="changeRequestId" value={readyChange.id} />
-                ) : (
-                  <input type="hidden" name="snapshotId" value={found.draftSnapshotId} />
-                )}
-                <Button
-                  type="submit"
-                  style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
-                >
-                  {t("chat.approve")}
-                </Button>
-              </form>
-              <SchedulePanel
-                joined
-                siteId={found.id}
-                accountId={found.accountId}
-                snapshotId={found.draftSnapshotId}
-                timeZone={found.timeZone || "UTC"}
-              />
-            </div>
-          ) : null}
+          <a href={`/sites/${found.id}/edit`} className={buttonVariants()}>
+            Make changes
+          </a>
         </div>
-      </div>
-      <div className="builder-grid grid min-h-0 flex-1">
-        <section className="flex min-h-0 flex-col border-border md:border-r">
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-            {query.error ? <Alert variant="destructive">{t("sites.failed")}</Alert> : null}
-            {importing ? (
-              <>
-                <Thinking label={t("sites.importing")} />
-                <Steps
-                  items={[
-                    {
-                      id: "found",
-                      label: `${t("sites.pagesFound")} ${progress.pagesFound ?? 0}`,
-                      state: (progress.pagesDone ?? 0) > 0 ? "done" : "active"
-                    },
-                    {
-                      id: "done",
-                      label: `${t("sites.pagesDone")} ${progress.pagesDone ?? 0}`,
-                      state: "active"
-                    },
-                    ...(progress.skipped ?? []).map((item) => ({
-                      id: item.path,
-                      label: `${t("sites.skipped")} ${item.path}: ${item.reason}`,
-                      state: "wait" as const
-                    }))
-                  ]}
-                />
-              </>
-            ) : null}
-            {found.status === "failed" ? (
-              <Alert variant="destructive">{latest?.error ?? t("sites.failed")}</Alert>
-            ) : null}
-            {found.status === "live" &&
-            (!found.draftSnapshotId || found.draftSnapshotId === found.currentSnapshotId) ? (
-              <p
-                role="status"
-                className="rounded-md border border-[var(--brand-signal)]/30 bg-[var(--done-wash)] px-4 py-3 text-sm"
-              >
-                {t("sites.live")}
-              </p>
-            ) : null}
-            {working ? (
-              <>
-                <Thinking label={t("chat.working")} />
-                <Steps items={[{ id: "draft", label: "Updating the draft", state: "active" }]} />
-              </>
-            ) : null}
-            {messages.some((item) => item.body === "Someone else is editing this site.") ? (
-              <Alert variant="warning">{t("chat.locked")}</Alert>
-            ) : null}
-            <div>
-              {messages.map((item) => {
-                const you = item.author === "user";
+      </header>
+      {found.status === "live" &&
+      (!found.draftSnapshotId || found.draftSnapshotId === found.currentSnapshotId) ? (
+        <p
+          role="status"
+          className="rounded-md border border-[var(--brand-signal)]/30 bg-[var(--done-wash)] px-4 py-3 text-sm"
+        >
+          This snapshot is live.
+        </p>
+      ) : null}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-xl border border-border bg-card px-4 py-4">
+          <h2 className="text-base font-semibold">History</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Publishes and earlier versions.</p>
+          {snaps.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">No versions yet.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-border text-sm">
+              {snaps.map((item) => {
+                const label = versionLabel(item.kind, item.id, found.currentSnapshotId);
+                const restore =
+                  canPublish && label === "Published" && item.id !== found.currentSnapshotId;
                 return (
-                  <div key={item.id} className={you ? "mb-4 flex justify-end" : "mb-4 flex gap-3"}>
-                    {you ? null : (
-                      <span className="grid size-[30px] shrink-0 place-items-center rounded-[9px] bg-[#14161a]">
-                        <FlagstageMark className="size-7" />
-                      </span>
-                    )}
-                    <p
-                      className={
-                        you
-                          ? "max-w-[85%] rounded-2xl bg-[var(--you)] px-3 py-2 text-sm whitespace-pre-wrap"
-                          : "max-w-[85%] rounded-2xl bg-muted px-3 py-2 text-sm whitespace-pre-wrap"
-                      }
-                    >
-                      {chatBody(item.body)}
-                    </p>
-                  </div>
+                  <li key={item.id} className="flex items-center gap-3 py-2.5">
+                    <span className="font-medium">{label}</span>
+                    <span className="ml-auto text-muted-foreground">
+                      {friendlyWhen(item.createdAt, zone)}
+                    </span>
+                    {restore ? (
+                      <form action={rollbackAction}>
+                        <input type="hidden" name="siteId" value={found.id} />
+                        <input type="hidden" name="accountId" value={found.accountId} />
+                        <input type="hidden" name="snapshotId" value={item.id} />
+                        <Button type="submit" variant="outline" size="sm">
+                          Restore
+                        </Button>
+                      </form>
+                    ) : null}
+                  </li>
                 );
               })}
-            </div>
-            {notes.length > 0 ? (
-              <section>
-                <h2 className="mb-2 text-sm font-semibold">{t("sites.fidelity")}</h2>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  {notes.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-            <section>
-              <h2 className="mb-2 text-sm font-semibold">{t("versions.title")}</h2>
-              {snaps.length === 0 ? (
-                <EmptyState
-                  title={t("versions.emptyTitle")}
-                  description={t("versions.emptyBody")}
-                  action={
-                    <a href="#composer" className="text-sm font-medium text-primary">
-                      {t("versions.emptyAction")}
-                    </a>
-                  }
-                />
-              ) : (
-                <ul className="divide-y divide-border rounded-xl border border-border text-sm">
-                  {snaps.map((item) => {
-                    const label = versionLabel(item.kind, item.id, found.currentSnapshotId);
-                    const restore =
-                      canPublish && label === "Published" && item.id !== found.currentSnapshotId;
-                    return (
-                      <li key={item.id} className="flex items-center gap-3 px-3 py-2.5">
-                        <span className="font-medium">{label}</span>
-                        <span className="ml-auto text-muted-foreground">
-                          {friendlyWhen(item.createdAt, found.timeZone || "UTC")}
-                        </span>
-                        {restore ? (
-                          <form action={rollbackAction}>
-                            <input type="hidden" name="siteId" value={found.id} />
-                            <input type="hidden" name="accountId" value={found.accountId} />
-                            <input type="hidden" name="snapshotId" value={item.id} />
-                            <Button type="submit" variant="outline" size="sm">
-                              Restore
-                            </Button>
-                          </form>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-          </div>
-          <div className="border-t border-border p-3">
-            {draftId ? (
-              <a
-                className="preview-link mb-3 text-sm font-medium text-primary"
-                href={`/sites/${found.id}/live`}
-              >
-                {t("chat.preview")}
-              </a>
-            ) : null}
-            {can(principal, "site.comment", { accountId: found.accountId }) ? (
-              <form
-                id="composer"
-                action={sendMessageAction}
-                className="rounded-[18px] border border-[#dcdde1] bg-background px-4 pt-3.5 pb-2.5 shadow-[0_1px_2px_rgba(16,18,24,0.04),0_8px_24px_rgba(16,18,24,0.06)]"
-              >
-                <input type="hidden" name="siteId" value={found.id} />
-                <input type="hidden" name="accountId" value={found.accountId} />
-                <label className="sr-only" htmlFor="body">
-                  {t("chat.placeholder")}
-                </label>
-                <Textarea
-                  id="body"
-                  name="body"
-                  required
-                  rows={3}
-                  placeholder={t("chat.placeholder")}
-                  className="min-h-14 resize-none border-0 p-0 shadow-none focus-visible:ring-0"
-                />
-                <div className="mt-2 flex justify-end">
-                  <Button
-                    type="submit"
-                    size="icon"
-                    aria-label={t("chat.send")}
-                    className="rounded-full bg-[#14161a] text-white hover:bg-[#14161a]/90"
-                  >
-                    <span aria-hidden>↑</span>
-                  </Button>
-                </div>
-              </form>
-            ) : null}
-          </div>
+            </ul>
+          )}
         </section>
-        <BrowserFrame
-          url={host}
-          title={t("chat.preview")}
-          src={draftId ? `/sites/${found.id}/live?v=${draftId}` : undefined}
-        />
+        <section className="rounded-xl border border-border bg-card px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">Scheduled</h2>
+            <a href={`/sites/${found.id}/scheduled`} className="text-sm font-medium text-primary">
+              All schedules
+            </a>
+          </div>
+          {upcoming.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">Nothing is waiting to go live.</p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm">
+              {upcoming.map((item) => (
+                <li key={item.id} className="font-medium">
+                  {describeSchedule(item, zone)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section className="rounded-xl border border-border bg-card px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">Domain</h2>
+            <a href={`/sites/${found.id}/domain`} className="text-sm font-medium text-primary">
+              Domain settings
+            </a>
+          </div>
+          {domains.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              No custom domain yet. The site answers on {host}.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm">
+              {domains.map((domain) => (
+                <li key={domain.id} className="flex items-center justify-between gap-3">
+                  <span className="font-mono text-xs">{domain.hostname}</span>
+                  <Badge variant={domain.status === "active" ? "success" : "warning"}>
+                    {domain.status}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section className="rounded-xl border border-border bg-card px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">Forms</h2>
+            <a href={`/sites/${found.id}/forms`} className="text-sm font-medium text-primary">
+              View submissions
+            </a>
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {forms.length} {forms.length === 1 ? "form" : "forms"} · {submissions.length}{" "}
+            {submissions.length === 1 ? "submission" : "submissions"}
+          </p>
+        </section>
+        <section className="rounded-xl border border-border bg-card px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">Analytics</h2>
+            <a href={`/sites/${found.id}/analytics`} className="text-sm font-medium text-primary">
+              Last 7 days
+            </a>
+          </div>
+          <p className="mt-3 text-2xl font-semibold tracking-tight">{pageviews}</p>
+          <p className="text-sm text-muted-foreground">
+            page views · {visitors} {visitors === 1 ? "visitor" : "visitors"}
+          </p>
+        </section>
+        <section className="rounded-xl border border-border bg-card px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">People</h2>
+            <a href={`/accounts/${found.accountId}`} className="text-sm font-medium text-primary">
+              Manage access
+            </a>
+          </div>
+          {members.length === 0 ? (
+            <EmptyState
+              title="No one has access yet"
+              description="Invite someone from the account."
+            />
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm">
+              {members.map((member) => (
+                <li key={member.id} className="flex items-center justify-between gap-3">
+                  <span>{byId.get(member.userId)?.email ?? member.userId}</span>
+                  <span className="text-muted-foreground">Account admin</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
-    </div>
+    </Page>
   );
 }

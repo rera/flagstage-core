@@ -34,7 +34,9 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await page.getByLabel("Site name").fill(siteName);
   await page.getByLabel("Site address").fill(fixture);
   await page.getByRole("button", { name: "Import a site" }).click();
-  await expect(page).toHaveURL(/\/sites\/.+/);
+  await expect(page).toHaveURL(/\/sites\/[^/]+$/);
+  await page.getByRole("link", { name: "Make changes" }).click();
+  await expect(page).toHaveURL(/\/edit$/);
 
   await expect(async () => {
     await page.reload();
@@ -67,7 +69,8 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await expect(page.getByRole("button", { name: "Publish now", exact: true })).toHaveCount(0);
   await expect(page.getByRole("status")).toHaveText("This snapshot is live.");
 
-  await page.getByRole("link", { name: "Domain" }).click();
+  await page.getByRole("link", { name: siteName }).click();
+  await page.getByRole("link", { name: "Domain", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Domain" })).toBeVisible();
   await page.getByLabel("Hostname").fill(hostname);
   await page.getByRole("button", { name: "Add hostname" }).click();
@@ -77,7 +80,7 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await page.getByRole("button", { name: "Check again" }).click();
   await expect(page.getByText("Not found yet")).toBeVisible();
 
-  await page.getByRole("link", { name: "Forms" }).click();
+  await page.getByRole("link", { name: "Forms", exact: true }).click();
   await expect(page.getByRole("heading", { name: "No form submissions" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open the site" })).toBeVisible();
   await expectAccessible(page);

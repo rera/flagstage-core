@@ -7,6 +7,7 @@ import { EmptyState, PageHeader, Table, TableBody, TableCell, TableRow, t } from
 
 import { database, requirePrincipal } from "../../../../../src/guard";
 import { Page } from "../../../../../src/page";
+import { SiteNav } from "../../../../../src/site-nav";
 
 export default async function FormsPage({ params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
@@ -31,6 +32,7 @@ export default async function FormsPage({ params }: { params: Promise<{ siteId: 
   const names = new Map(forms.map((form) => [form.id, form.name]));
   return (
     <Page>
+      <SiteNav siteId={found.id} current="forms" />
       <PageHeader title={t("forms.title")} description={found.name} />
       {submissions.length === 0 ? (
         <EmptyState

@@ -9,6 +9,7 @@ import { Badge, Button, Field, PageHeader, t } from "@flagstage/ui";
 import { addDomainAction, recheckDomainAction } from "../../../../../src/actions";
 import { database, requirePrincipal } from "../../../../../src/guard";
 import { Page } from "../../../../../src/page";
+import { SiteNav } from "../../../../../src/site-nav";
 
 export default async function DomainPage({ params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
@@ -21,23 +22,8 @@ export default async function DomainPage({ params }: { params: Promise<{ siteId:
   const canManage = can(principal, "domain.manage", { accountId: found.accountId });
   return (
     <Page>
-      <PageHeader
-        title={t("domains.title")}
-        description={found.name}
-        actions={
-          <>
-            <a href={`/sites/${found.id}`} className="text-sm font-medium text-primary">
-              {found.name}
-            </a>
-            <a href={`/sites/${found.id}/forms`} className="text-sm font-medium text-primary">
-              {t("forms.title")}
-            </a>
-            <a href={`/sites/${found.id}/analytics`} className="text-sm font-medium text-primary">
-              {t("analytics.title")}
-            </a>
-          </>
-        }
-      />
+      <SiteNav siteId={found.id} current="domain" />
+      <PageHeader title={t("domains.title")} description={found.name} />
       <p className="text-sm text-muted-foreground">{t("domains.lead")}</p>
       {canManage ? (
         <form action={addDomainAction} className="max-w-md space-y-4">
