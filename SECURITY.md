@@ -27,5 +27,5 @@ Out of scope: vulnerabilities that require a compromised host, a leaked `BETTER_
 
 - Set a unique `BETTER_AUTH_SECRET` of at least 32 characters.
 - Do not expose Postgres or the metrics endpoint without `METRICS_TOKEN`.
-- The OpenCode subprocess receives only the model key and model settings. It does not receive `DATABASE_URL` or cloud credentials.
+- The OpenCode subprocess receives the region, the model id, and the task role credential URI so it can call Bedrock. It does not receive `DATABASE_URL` or static access keys.
 - Flagstage Core does not phone home.

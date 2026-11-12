@@ -4,29 +4,31 @@ An honest read of what still keeps Flagstage Core from feeling like a mature ope
 
 The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm test` pass. The gaps below are what a second look finds.
 
-## Fix before calling the demo done
+## Fix before a first release
 
 1. **The image is local only.** `docker image ls` reports 428MB, down from 2.8GB. `docker image inspect` reports 101,331,623 bytes, down from 682,365,327. The worker and the CLI are bundled JavaScript, the web process is the Next.js standalone server, and the container user is uid 10001. Nothing publishes the image. The single-VM compose file is for evaluation only.
 
 ## What mature projects have that this repo does not
 
-2. **Edits run through OpenCode.** The worker downloads the snapshot, runs `opencode`, and uploads the diff. Intent uses a deterministic rule unless a model client is configured. CI does not call a model. The end-to-end test puts a local `opencode` double on `PATH`; that script is not in the product.
+2. **Edits run through OpenCode on Bedrock.** The worker downloads the snapshot, runs `opencode` with the amazon-bedrock provider, and uploads the diff. The task role is the only credential. Intent stays a deterministic rule unless a model client is passed in. CI does not call Bedrock. The end-to-end test puts a local `opencode` double on `PATH`; that script is not in the product. `flagstage doctor` calls Bedrock and reports fail when the caller has no AWS credentials.
+
+3. **A hostname you add is a checklist, not an alias.** Published sites on the configured domain are `https://{slug}.{domain}`, from S3 through CloudFront, using a key value store. The stack does not add other hostnames as CloudFront aliases. `DOMAINS_DRIVER` stays `none` in that stack. The checklist tells the operator which DNS records to create. Nothing calls a registrar.
 
 ## Smaller, still real
 
-3. **Strings live in one JSON file.** `t()` reads `packages/ui/src/messages/en.json`. next-intl is not wired, so there is no locale switch and no extraction pipeline. Version times are ISO strings, not `Intl` formatters.
+4. **Strings live in one JSON file.** `t()` reads `packages/ui/src/messages/en.json`. next-intl is not wired, so there is no locale switch and no extraction pipeline. Version times are ISO strings, not `Intl` formatters.
 
-4. **CI workflows sit in `docs/ci/workflows/`.** They are not under `.github/workflows/` because this branch lives in a private repository where those files would run. Move them when the public repository exists.
+5. **CI workflows sit in `docs/ci/workflows/`.** They are not under `.github/workflows/` because this branch lives in a private repository where those files would run. Move them when the public repository exists.
 
-5. **The release recipe is written and not wired.** [docs/ci/release.md](ci/release.md) uses Changesets for the version pull request and a multi-arch GHCR image on a `v*` tag. Those workflows sit in `docs/ci/workflows/` and do not run. There is no tag, no GitHub release, and no published image. `@changesets/cli` is not installed yet, so `pnpm exec changeset version` in [RELEASING.md](../RELEASING.md) does not run until that package is added. The image has not been built for `linux/arm64`.
+6. **The release recipe is written and not wired.** [docs/ci/release.md](ci/release.md) uses Changesets for the version pull request and a multi-arch GHCR image on a `v*` tag. Those workflows sit in `docs/ci/workflows/` and do not run. There is no tag, no GitHub release, and no published image. `@changesets/cli` is not installed yet, so `pnpm exec changeset version` in [RELEASING.md](../RELEASING.md) does not run until that package is added. The image has not been built for `linux/arm64`.
 
-6. **No manual screen-reader pass.** Playwright runs axe on the signed-in flow, and the empty pages name one next action. Form fields are labelled, focus is visible, and `eslint-plugin-jsx-a11y` is on. The components are our own, not Radix. Nobody has walked the app with a screen reader.
+7. **No manual screen-reader pass.** Playwright runs axe on the signed-in flow, and the empty pages name one next action. Form fields are labelled, focus is visible, and `eslint-plugin-jsx-a11y` is on. The components are our own, not Radix. Nobody has walked the app with a screen reader.
 
-7. **HTTP logs have no request id.** pino writes JSON and `LOG_LEVEL` selects the level. A request is not stamped onto those lines.
+8. **HTTP logs have no request id.** pino writes JSON and `LOG_LEVEL` selects the level. A request is not stamped onto those lines.
 
-8. **Metrics are totals, not queue health.** `/api/metrics` is Prometheus text behind `METRICS_TOKEN`, and 404 when the token is unset. It counts import runs, publish events, and change requests. It does not report jobs queued or jobs failed.
+9. **Metrics are totals, not queue health.** `/api/metrics` is Prometheus text behind `METRICS_TOKEN`, and 404 when the token is unset. It counts import runs, publish events, and change requests. It does not report jobs queued or jobs failed.
 
-9. **The README has a still, not a GIF.** `docs/assets/screenshot-app.png` is a still of the app. There is no recording of import, chat, and publish. There is no latest-release badge because nothing is tagged. A build badge waits until the workflows actually run.
+10. **The README has a still, not a GIF.** `docs/assets/screenshot-app.png` is a still of the app. There is no recording of import, chat, and publish. There is no latest-release badge because nothing is tagged. A build badge waits until the workflows actually run.
 
 Section 12 of the spec still asks for a live import progress view (pages found, assets, warnings). The site page shows importing, failed, or live. The CLI verbs are `admin add`, `account create`, `member add`, and `site export`, not `create-admin` or `export-site`.
 
@@ -35,7 +37,7 @@ Section 12 of the spec still asks for a live import progress view (pages found, 
 Checked against the mature-OSS checklist. Items above are the ones that are still open. The rest of that checklist is in the tree:
 
 - `docker compose up`, `.env.example`, and `docs/configuration.md` generated from the env schema. A first run has no sites until someone imports one.
-- Setup wizard, including a logo and a model-key check, and `flagstage doctor`.
+- `flagstage.config.json` holds the domain, organization name, first admin email, Bedrock model, region, SES from-address, and brand. `flagstage doctor` checks Bedrock with the caller credentials. There is no setup wizard and no model-key form.
 - `docs/index.md` links getting started, the CloudFormation deploy, configuration, roles, the DNS checklist, importing, upgrading, backup, architecture, troubleshooting, and the FAQ. A docs site is explicitly later.
 - README: screenshot, license and Discussions badges, features, quickstart, comparison, roadmap, community, contributing, security, license, trademarks, and the hosted option. `ROADMAP.md` points at Discussions.
 - `/api/health` and `/api/ready` (database, storage, and that the `pgboss` schema exists).
@@ -54,7 +56,7 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 ## Closed
 
 - Import and chat turns are queued on pg-boss. The web process writes the row and returns. The worker crawls and runs the editor. The site page follows import status, thread status, and new messages.
-- `DOMAINS_DRIVER=cloudfront-tenants` creates and updates a distribution tenant and its managed certificate, then reads the certificate status into the DNS checklist. `none` stays the local default.
+- Published sites are S3 to CloudFront. The app does not serve them. Previews are auth-gated at `/preview/<token>`. Local viewing is `pnpm dev:sites`. `none` stays the domains driver in the stack.
 - A first run is empty. `adminEmail` in `flagstage.config.json` creates the first admin and prints a one-time sign-in link. There is no demo organization, demo site, or demo password.
 - An admin creates an account from the app or with `flagstage account create`. `flagstage member add` invites an account admin. See [Invite account admins](account-admins.md).
 - `pnpm e2e` signs in, imports a local fixture, sends a chat edit, opens the preview, publishes, and reads the DNS checklist. The workflow file is `docs/ci/workflows/e2e.yml`.

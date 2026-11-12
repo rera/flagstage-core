@@ -11,7 +11,7 @@ cp .env.example .env
 docker compose up
 ```
 
-The web log prints a one-time sign-in link for `adminEmail` in `flagstage.config.json`. Nothing is seeded.
+The web log prints a one-time sign-in link for `adminEmail` in `flagstage.config.json`. Nothing is seeded. `pnpm dev:sites` serves published files on 127.0.0.1:8088.
 
 ## App against compose Postgres
 

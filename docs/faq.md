@@ -8,7 +8,7 @@ No. There is no telemetry and no update check.
 
 ## Where do visitors' requests go?
 
-To CloudFront, then to the current snapshot in object storage. The app serves previews and the local demo, not production traffic.
+To CloudFront, then to the current snapshot in object storage. The app serves auth-gated previews at `/preview/<token>`. It does not serve a published site.
 
 ## How do people sign in?
 
@@ -16,7 +16,7 @@ With an email and a password. An admin invites someone to an account, or `flagst
 
 ## Do we have to bring a model key?
 
-For real edits, install OpenCode and set a model. There is no mock editor.
+No. OpenCode calls Amazon Bedrock with the task role. `flagstage doctor` checks that call. There is no model API key and no mock editor.
 
 ## What is the difference between hosted Flagstage and this repository?
 
@@ -24,7 +24,7 @@ Hosted Flagstage is the operated service at https://flagstage.com. This reposito
 
 ## Can we run Compose in production?
 
-Compose is the local demo and an evaluation install. The supported production layout is the CloudFormation stack. See [Deploy on AWS](self-hosting/aws.md).
+Compose is an evaluation install. The supported production layout is the CloudFormation stack. See [Deploy on AWS](self-hosting/aws.md).
 
 ## Where does data live?
 
@@ -36,7 +36,7 @@ No. A visitor is an HMAC of the day, the address, and the user agent. The analyt
 
 ## How do we reset a password?
 
-`flagstage user reset-password --email you@example.com` works in local development. In production it runs only for one command with `FLAGSTAGE_BREAK_GLASS=1`. Prefer the identity provider for staff passwords.
+The sign-in page can email a new password through SES. `flagstage user reset-password --email you@example.com` works in local development. In production that command runs only with `FLAGSTAGE_BREAK_GLASS=1`.
 
 ## Is the container image published?
 

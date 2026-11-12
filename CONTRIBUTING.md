@@ -4,7 +4,7 @@ Thanks for looking. Flagstage Core is the self-hosted edition: an organization r
 
 ## Development setup
 
-Requirements: Node.js 22, pnpm 10, and Docker (for Postgres and the full demo).
+Requirements: Node.js 22, pnpm 10, and Docker (for Postgres and the evaluation stack). `flagstage.config.json` in the repo root is the product config.
 
 ```bash
 cp .env.example .env
@@ -14,32 +14,32 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstage.config.json`. The web log prints a one-time sign-in link. A first run has no accounts and no sites.
+Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstage.config.json`. The web log prints a one-time sign-in link. A first run has no accounts and no sites. `pnpm dev:sites` serves a published site from local files. It is a development script, not an app route.
 
-`docker compose up` from a clean checkout starts Postgres, the web app, and the worker. Edits need OpenCode on the worker `PATH` and a model.
+`docker compose up` from a clean checkout starts Postgres, the web app, and the worker. Edits need OpenCode on the worker `PATH`. The model is Amazon Bedrock, called with the task role.
 
 ## Repo tour
 
-| Path                 | What it is                                              |
-| -------------------- | ------------------------------------------------------- |
-| `apps/web`           | Next.js UI, API, auth, and auth-gated previews          |
-| `apps/worker`        | pg-boss consumers                                       |
-| `apps/cli`           | `flagstage` admin CLI                                   |
-| `packages/config`    | Environment schema. Docs are generated from it.         |
-| `packages/db`        | Drizzle schema and migrations                       |
-| `packages/auth`      | Better Auth email and password                      |
-| `packages/core`      | Accounts, memberships, `can()`                          |
-| `packages/storage`   | `BlobStore` (`fs` and `s3`)                             |
-| `packages/importer`  | Crawl of a public site                                  |
-| `packages/agent`     | OpenCode subprocess runner and skills                   |
-| `packages/ai`        | Intent, trust judge, and reply calls                    |
-| `packages/publish`   | Preview, promote, rollback                              |
-| `packages/domains`   | DNS checklist and CloudFront tenants                    |
-| `packages/forms`     | Lead forms                                              |
-| `packages/analytics` | Beacon, collect, rollups                                |
-| `packages/ui`        | Shared primitives and the English message catalog       |
-| `infra/cloudformation` | CloudFormation stack. `./deploy.sh` is not run from CI. |
-| `docs/`              | Self-hosting and operator docs                          |
+| Path                   | What it is                                                                              |
+| ---------------------- | --------------------------------------------------------------------------------------- |
+| `apps/web`             | Next.js UI, API, auth, and auth-gated previews                                          |
+| `apps/worker`          | pg-boss consumers                                                                       |
+| `apps/cli`             | `flagstage` admin CLI                                                                   |
+| `packages/config`      | `flagstage.config.json` and the environment schema. Docs are generated from the schema. |
+| `packages/db`          | Drizzle schema and migrations                                                           |
+| `packages/auth`        | Better Auth email and password                                                          |
+| `packages/core`        | Accounts, memberships, `can()`                                                          |
+| `packages/storage`     | `BlobStore` (`fs` and `s3`)                                                             |
+| `packages/importer`    | Crawl of a public site                                                                  |
+| `packages/agent`       | OpenCode subprocess runner and skills                                                   |
+| `packages/ai`          | Intent, trust judge, and reply calls                                                    |
+| `packages/publish`     | Preview, promote, rollback                                                              |
+| `packages/domains`     | DNS checklist and CloudFront tenants                                                    |
+| `packages/forms`       | Lead forms                                                                              |
+| `packages/analytics`   | Beacon, collect, rollups                                                                |
+| `packages/ui`          | Shared primitives and the English message catalog                                       |
+| `infra/cloudformation` | CloudFormation stack. `./deploy.sh` is not run from CI.                                 |
+| `docs/`                | Self-hosting and operator docs                                                          |
 
 ## Conventions
 
