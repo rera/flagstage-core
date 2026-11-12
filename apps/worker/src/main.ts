@@ -4,6 +4,7 @@ import { postMessage, buildAgentEnv, skillsDirectory, subprocessRunner } from "@
 import { createLogger, loadConfig } from "@flagstage/config";
 import { getDb, migrateWithLock, QUEUE_NAMES, type QueueName } from "@flagstage/db";
 import { publicDnsLookup, recheckDueDomains } from "@flagstage/domains";
+import { rollupStored } from "@flagstage/analytics";
 import { createBlobStore } from "@flagstage/storage";
 import { PgBoss, type Job } from "pg-boss";
 
@@ -45,7 +46,10 @@ await boss.work("agent-turn", async (jobs) => {
 });
 await boss.work("publish", async (jobs) => note("publish", jobs));
 await boss.work("dns-check", async (jobs) => note("dns-check", jobs));
-await boss.work("analytics-rollup", async (jobs) => note("analytics-rollup", jobs));
+await boss.work("analytics-rollup", async () => {
+  await rollupStored(getDb(config.DATABASE_URL));
+});
+await boss.schedule("analytics-rollup", "15 * * * *", {});
 await boss.work("domain-recheck", async () => {
   await recheckDueDomains(getDb(config.DATABASE_URL), publicDnsLookup());
 });

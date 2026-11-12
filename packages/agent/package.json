@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@flagstage/ai": "workspace:*",
+    "@flagstage/analytics": "workspace:*",
     "@flagstage/core": "workspace:*",
     "@flagstage/db": "workspace:*",
     "@flagstage/publish": "workspace:*",

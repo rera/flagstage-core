@@ -7,10 +7,27 @@ import { changeRequest, message, previewSession, site, snapshot, thread } from "
 import { recordPublish, swapLive, writeHostMap } from "@flagstage/publish";
 import { snapshotPrefix, type BlobStore } from "@flagstage/storage";
 
+import { injectAnalytics } from "@flagstage/analytics";
+
 import { checkTrust, decideIntent, mockEdit } from "./runner";
 import type { AgentRunner } from "./subprocess";
 
 const text = new TextDecoder();
+const encoder = new TextEncoder();
+
+function withAnalytics(
+  files: Map<string, Uint8Array>,
+  enabled: boolean,
+  appOrigin: string,
+  siteId: string
+) {
+  const next = new Map(files);
+  for (const [path, body] of files) {
+    if (!path.endsWith(".html")) continue;
+    next.set(path, encoder.encode(injectAnalytics(text.decode(body), appOrigin, siteId, enabled)));
+  }
+  return next;
+}
 
 async function notify(db: Database, threadId: string) {
   try {
@@ -143,7 +160,12 @@ export async function postMessage(input: {
     store: input.store,
     siteId: input.siteId,
     parentSnapshotId: current,
-    files: edited.files
+    files: withAnalytics(
+      edited.files,
+      sites[0]?.analyticsEnabled !== false,
+      input.appOrigin,
+      input.siteId
+    )
   });
   const requestId = randomUUID();
   await db.insert(changeRequest).values({
@@ -196,6 +218,7 @@ export async function approveChange(input: {
   host?: string;
   hostMapPath?: string;
   runner?: AgentRunner;
+  appOrigin?: string;
 }): Promise<{ ok: true; snapshotId: string } | { ok: false; reason: string }> {
   const requests = await input.db
     .select()
@@ -224,7 +247,14 @@ export async function approveChange(input: {
       store: input.store,
       siteId: request.siteId,
       parentSnapshotId: live,
-      files: edited.files
+      files: input.appOrigin
+        ? withAnalytics(
+            edited.files,
+            sites[0]?.analyticsEnabled !== false,
+            input.appOrigin,
+            request.siteId
+          )
+        : edited.files
     });
   }
   const expected = live;

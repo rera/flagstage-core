@@ -404,7 +404,8 @@ export async function approveChangeAction(formData: FormData) {
     actorUserId: principal.id,
     host: found ? `${found.slug}.localhost` : undefined,
     hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`,
-    runner: editor()
+    runner: editor(),
+    appOrigin: config.APP_URL
   });
   redirect(`/sites/${siteId}`);
 }

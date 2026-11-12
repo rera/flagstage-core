@@ -56,7 +56,12 @@ export default async function SitePage({
       <PageHeader
         title={found.name}
         description={`${found.slug}.localhost`}
-        actions={<a href={`/sites/${found.id}/domain`}>{t("domains.title")}</a>}
+        actions={
+          <>
+            <a href={`/sites/${found.id}/domain`}>{t("domains.title")}</a>
+            <a href={`/sites/${found.id}/analytics`}>{t("analytics.title")}</a>
+          </>
+        }
       />
       <ChatStream siteId={found.id} />
       {found.status === "live" ? <Alert tone="ok">{t("sites.live")}</Alert> : null}

@@ -72,6 +72,9 @@ importers:
       '@flagstage/agent':
         specifier: workspace:*
         version: link:../../packages/agent
+      '@flagstage/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@flagstage/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -87,6 +90,9 @@ importers:
       '@flagstage/domains':
         specifier: workspace:*
         version: link:../../packages/domains
+      '@flagstage/forms':
+        specifier: workspace:*
+        version: link:../../packages/forms
       '@flagstage/importer':
         specifier: workspace:*
         version: link:../../packages/importer
@@ -142,6 +148,9 @@ importers:
       '@flagstage/agent':
         specifier: workspace:*
         version: link:../../packages/agent
+      '@flagstage/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@flagstage/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -170,6 +179,9 @@ importers:
       '@flagstage/ai':
         specifier: workspace:*
         version: link:../ai
+      '@flagstage/analytics':
+        specifier: workspace:*
+        version: link:../analytics
       '@flagstage/core':
         specifier: workspace:*
         version: link:../core
@@ -195,6 +207,22 @@ importers:
 
   packages/ai:
     devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/analytics:
+    dependencies:
+      '@flagstage/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.1
+        version: 0.45.4(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1)
+    devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.3.14
+        version: 0.3.16
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -282,6 +310,22 @@ importers:
         version: 5.9.3
 
   packages/domains:
+    dependencies:
+      '@flagstage/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.1
+        version: 0.45.4(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1)
+    devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.3.14
+        version: 0.3.16
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/forms:
     dependencies:
       '@flagstage/db':
         specifier: workspace:*

@@ -13,6 +13,7 @@
     "@flagstage/config": "workspace:*",
     "@flagstage/db": "workspace:*",
     "@flagstage/domains": "workspace:*",
+    "@flagstage/analytics": "workspace:*",
     "@flagstage/storage": "workspace:*",
     "pg-boss": "^12.8.0"
   },

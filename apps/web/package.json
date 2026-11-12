@@ -18,6 +18,8 @@
     "@flagstage/core": "workspace:*",
     "@flagstage/db": "workspace:*",
     "@flagstage/domains": "workspace:*",
+    "@flagstage/forms": "workspace:*",
+    "@flagstage/analytics": "workspace:*",
     "@flagstage/importer": "workspace:*",
     "@flagstage/publish": "workspace:*",
     "@flagstage/storage": "workspace:*",

@@ -5,11 +5,13 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     "@flagstage/agent",
     "@flagstage/ai",
+    "@flagstage/analytics",
     "@flagstage/auth",
     "@flagstage/config",
     "@flagstage/core",
     "@flagstage/db",
     "@flagstage/domains",
+    "@flagstage/forms",
     "@flagstage/importer",
     "@flagstage/publish",
     "@flagstage/storage",
