@@ -48,8 +48,8 @@ SQL lives in `packages/db/drizzle`. The web and worker processes apply it at sta
 
 ```bash
 pnpm flagstage doctor
-pnpm flagstage create-admin you@example.com
-pnpm flagstage create-account "Membership"
+pnpm flagstage admin add --email you@example.com
+pnpm flagstage account create "Membership"
 ```
 
 ## Copy review
