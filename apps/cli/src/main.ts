@@ -108,10 +108,10 @@ try {
   if (parsed.kind === "admin-add") {
     const result = await addOrgAdmin(db, { email: parsed.email, name: parsed.name });
     if (result.created) {
-      console.log(`organization admin ${result.email}`);
+      console.log(`admin ${result.email}`);
       console.log(`password: ${result.password}`);
     } else {
-      console.log(`${result.email} is an organization admin`);
+      console.log(`${result.email} is an admin`);
     }
   } else if (parsed.kind === "account-create") {
     const created = await createNamedAccount(db, parsed.name);

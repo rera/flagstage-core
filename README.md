@@ -4,7 +4,7 @@
 
 Import the site you already have. Change it in chat. Publish when the preview looks right.
 
-Flagstage Core is a self-hosted app for an organization that runs many accounts (a department, a section, a brand) and many sites. Live sites are static files. The app is never on the visitor path.
+Flagstage Core is a self-hosted app for an organization that runs many accounts and many sites. Live sites are static files. The app is never on the visitor path.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Node](https://img.shields.io/badge/node-22-339933)](https://nodejs.org)

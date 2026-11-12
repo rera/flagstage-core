@@ -56,7 +56,7 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - Import and chat turns are queued on pg-boss. The web process writes the row and returns. The worker crawls and runs the editor. The site page follows import status, thread status, and new messages.
 - `DOMAINS_DRIVER=cloudfront-tenants` creates and updates a distribution tenant and its managed certificate, then reads the certificate status into the DNS checklist. `none` stays the local default.
 - A first run is empty. `BOOTSTRAP_ADMIN_EMAIL` creates the first admin and prints a one-time sign-in link. There is no demo organization, demo site, or demo password.
-- Setup is a four-step wizard: organization, identity provider, first account, then a group-to-role mapping. `flagstage admin add`, `flagstage account create`, and `flagstage import` do the same work from a shell. See [Assign department admins](department-admins.md).
+- An admin creates an account from the app or with `flagstage account create`. `flagstage member add` invites an account admin. See [Invite account admins](account-admins.md).
 - `pnpm e2e` signs in, imports a local fixture, sends a chat edit, opens the preview, publishes, and reads the DNS checklist. The workflow file is `docs/ci/workflows/e2e.yml`.
 - The runtime image no longer copies the workspace or runs TypeScript through `tsx`. Displayed size went from 2.8GB to 428MB.
 - Analytics shows 7, 30, and 90 day totals, a bar for each day, and the top pages. Form submissions keep the signed webhook and, when `SMTP_URL` is set, mail `FORM_NOTIFY_EMAIL` plus the form's own list.

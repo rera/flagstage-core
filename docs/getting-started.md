@@ -32,7 +32,7 @@ pnpm flagstage import https://example.com --account parks --name "Parks site"
 
 Then open the site in the app, choose Go live, and ask for a change in chat. Approve the preview to publish.
 
-`flagstage admin add --email you@example.com` creates an organization admin and prints a password once. `flagstage member add` grants an account role. See [Assign department admins](department-admins.md).
+`flagstage admin add --email you@example.com` creates an admin and prints a password once. `flagstage member add` grants account admin on an account. See [Invite account admins](account-admins.md).
 
 ## What to do next
 

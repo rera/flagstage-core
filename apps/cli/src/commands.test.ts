@@ -95,7 +95,7 @@ describe("flagstage commands", () => {
     expect(passwordResetAllowed({ NODE_ENV: "production", FLAGSTAGE_BREAK_GLASS: "1" })).toBe(true);
   });
 
-  it("adds an organization admin and creates an account", async () => {
+  it("adds an admin and creates an account", async () => {
     const client = new PGlite();
     await applyMigrations(client);
     const db = drizzle(client, { schema: fullSchema }) as unknown as Database;

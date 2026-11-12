@@ -35,7 +35,7 @@ source = "git::https://github.com/rera/flagstage.git//infra/opentofu?ref=core/ma
 
 When the public repository exists, point that at `github.com/rera/flagstage-core` and a release tag. Until then, this branch is the source.
 
-Replace every example secret. Set `image` to the registry you pushed. Leave `ai_mock = "1"` until you want real edits. For real edits, set `ai_mock = "0"` and set `ai_api_key`. Set `bootstrap_admin_email` to the first organization admin. That address receives a one-time link in the web container logs, only while the database has no users.
+Replace every example secret. Set `image` to the registry you pushed. Leave `ai_mock = "1"` until you want real edits. For real edits, set `ai_mock = "0"` and set `ai_api_key`. Set `bootstrap_admin_email` to the first admin. That address receives a one-time link in the web container logs, only while the database has no users.
 
 Leave `create_route53_records` at its default, false, unless `app_domain` and `preview_domain` both live in one Route 53 hosted zone. Then set `create_route53_records = true` and `route53_zone_id`. Site hostnames are never created by the module.
 
@@ -74,7 +74,7 @@ Wait until the certificate is issued and the app hostname resolves. Then open `h
 
 ## 5. Sign in and finish setup
 
-If you set `bootstrap_admin_email`, the web log prints `{APP_URL}/bootstrap?token=…` once. Open it. The link signs that person in as organization admin and then stops working.
+If you set `bootstrap_admin_email`, the web log prints `{APP_URL}/bootstrap?token=…` once. Open it. The link signs that person in as an admin and then stops working.
 
 Sign in with the one-time link from the web log. The first admin email is `BOOTSTRAP_ADMIN_EMAIL`. Create an account, then import a site.
 

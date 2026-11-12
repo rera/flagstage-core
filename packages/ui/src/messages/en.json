@@ -11,7 +11,7 @@
   "health.ok": "The app is up.",
   "setup.title": "Set up this organization",
   "accounts.title": "Accounts",
-  "accounts.empty": "Create an account for a department, then invite its admin.",
+  "accounts.empty": "Create an account, then invite its admin.",
   "sites.title": "Sites",
   "sites.pending": "Import a site into an account. The importer arrives with the sites milestone.",
   "sites.lead": "Paste the address of a site. WordPress sitemaps and the REST API are used when they exist.",
@@ -83,7 +83,7 @@
   "setup.step.account": "First account",
   "setup.step.groups": "Group mapping",
   "setup.idpLead": "Paste OIDC or SAML metadata from the identity provider. Skip this if people will use email and a password.",
-  "setup.accountLead": "An account is a department. Its admins import sites and publish changes.",
+  "setup.accountLead": "Account admins import sites and publish changes.",
   "setup.groupsLead": "Map an identity-provider group id to this account. Use the group id, not the display name. People in the group become account admins on their next sign-in.",
   "setup.skip": "Skip for now",
   "setup.name": "Organization name",
@@ -146,5 +146,5 @@
   "analytics.emptyBody": "Publish the site, then open it. Visits for this range show up here.",
   "analytics.openSite": "Open the site",
   "noAccess.title": "No access yet",
-  "noAccess.body": "An organization admin has to map your group or invite you to an account."
+  "noAccess.body": "An admin has to invite you to an account."
 }
