@@ -132,6 +132,7 @@ export async function crawlSite(input: {
   }
   const wpJson = await getText(input.fetchPage, new URL("/wp-json", origin).toString());
   const wordpress = wpJson != null && wpJson.includes("{");
+  // Extra sitemap, content, and form-plugin work stays in this import job.
   const seeds = new Set<string>(["/"]);
   const redirects: RedirectRule[] = [
     { fromPath: "/feed", toPath: "/", source: "wordpress" },

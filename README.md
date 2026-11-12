@@ -14,7 +14,7 @@ Flagstage Core is a self-hosted app for an organization that runs many accounts 
 
 ## Features
 
-- WordPress import into a versioned static snapshot, with a plain-language fidelity report.
+- Import into a versioned static snapshot, with a plain-language fidelity report.
 - Chat is the only way to request a change. An agent edits files in a sandbox and opens a preview.
 - Approve publishes with a compare-and-swap. Roll back the same way.
 - Organization, accounts, and two roles: admin and account admin.
@@ -71,14 +71,14 @@ flowchart LR
 
 The web process is Next.js: the UI, auth, previews, forms, and the analytics collect endpoint. The worker is the same image running pg-boss: import, agent turns, publish, DNS checks, and analytics rollups. Postgres holds the data and the job queue. There is no Redis.
 
-Agent turns run OpenCode as a subprocess in a temp directory. The subprocess environment has the model key and model settings only. It does not receive the database URL or cloud credentials. A mock runner ships for local development.
+Agent turns run OpenCode as a subprocess in a temp directory. The subprocess environment has the model settings it needs. It does not receive the database URL.
 
 ## Compare
 
-|                             | Flagstage Core                 | WordPress            | Webflow or Squarespace  | A static-site generator | An AI app builder             |
+|                             | Flagstage Core                 | A traditional CMS    | Webflow or Squarespace  | A static-site generator | An AI app builder             |
 | --------------------------- | ------------------------------ | -------------------- | ----------------------- | ----------------------- | ----------------------------- |
 | You already have a site     | Import it                      | It is the site       | Rebuild                 | Rebuild                 | Clone into a new codebase     |
-| Who edits                   | Anyone in the account, in chat | Whoever has wp-admin | Whoever has the project | Whoever has the repo    | Whoever can prompt a codebase |
+| Who edits                   | Anyone in the account, in chat | Whoever has the admin | Whoever has the project | Whoever has the repo    | Whoever can prompt a codebase |
 | What visitors hit           | Static files                   | PHP                  | Their hosting           | Static files            | Their hosting                 |
 | Approve before it goes live | Yes                            | Depends on plugins   | Their editor            | Your review process     | Varies                        |
 | Identity                    | Email and password             | Plugins              | Their accounts          | Your git host           | Their accounts                |

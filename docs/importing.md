@@ -1,6 +1,6 @@
 # Importing
 
-Paste a URL and start an import. Core checks that the site answers, then seeds URLs from a WordPress sitemap and the REST API when those exist, and crawls the rest.
+Paste a URL and start an import. Core checks that the site answers, crawls the public pages, and, when the site exposes a sitemap or a content listing, includes those URLs in the same job.
 
 Defaults: 500 pages, depth 6, 10,000 assets. Caps are environment settings.
 

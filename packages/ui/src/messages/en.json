@@ -14,7 +14,7 @@
   "accounts.empty": "Create an account, then invite its admin.",
   "sites.title": "Sites",
   "sites.pending": "Import a site into an account. The importer arrives with the sites milestone.",
-  "sites.lead": "Paste the address of a site. WordPress sitemaps and the REST API are used when they exist.",
+  "sites.lead": "Paste your site's address.",
   "sites.name": "Site name",
   "sites.url": "Site address",
   "sites.account": "Account",

@@ -8,7 +8,7 @@ Discuss proposals in [GitHub Discussions](https://github.com/rera/flagstage-core
 
 ## Now
 
-- WordPress import, chat edits, preview, approve, publish, and rollback.
+- Site import, chat edits, preview, approve, publish, and rollback.
 - Organization, accounts, invites, email and password, and a first-run setup wizard.
 - Custom-domain DNS checklist.
 - Lead forms, optional SMTP notice, and 7, 30, and 90 day analytics.
@@ -17,7 +17,7 @@ Discuss proposals in [GitHub Discussions](https://github.com/rera/flagstage-core
 
 ## Next
 
-- More import sources than WordPress, still static output.
+- More kinds of imported sites, still static output.
 - A documented `ecs-task` agent runner for stronger isolation than the in-container subprocess.
 - Backup and restore commands that cover database and object storage in one invocation.
 - Helm chart, if operators ask for Kubernetes.

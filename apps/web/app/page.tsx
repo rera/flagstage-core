@@ -8,7 +8,7 @@ export default function HomePage() {
       <div className="grid">
         <article className="card">
           <h2>Import</h2>
-          <p>Paste a WordPress address. Core crawls the public pages and keeps a snapshot.</p>
+          <p>Paste your site's address. Core crawls the public pages and keeps a snapshot.</p>
         </article>
         <article className="card">
           <h2>Chat</h2>

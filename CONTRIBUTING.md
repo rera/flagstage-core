@@ -30,7 +30,7 @@ Open http://localhost:3000. The first admin comes from `BOOTSTRAP_ADMIN_EMAIL`. 
 | `packages/auth`      | Better Auth email and password                      |
 | `packages/core`      | Accounts, memberships, `can()`                          |
 | `packages/storage`   | `BlobStore` (`fs` and `s3`)                             |
-| `packages/importer`  | WordPress-first crawl                                   |
+| `packages/importer`  | Crawl of a public site                                  |
 | `packages/agent`     | OpenCode subprocess runner and skills                   |
 | `packages/ai`        | Intent, trust judge, and reply calls                    |
 | `packages/publish`   | Preview, promote, rollback                              |
