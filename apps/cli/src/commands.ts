@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { and, eq } from "drizzle-orm";
 
+import { newCorrelationId, runWithCorrelation } from "@flagstage/config";
 import { createAccount, slugify, type MembershipRole } from "@flagstage/core";
 import { setUserPassword } from "@flagstage/auth";
 import type { Database } from "@flagstage/db";
@@ -160,21 +161,25 @@ export async function importAccountSite(input: {
     sourceUrl: input.url,
     status: "importing"
   });
+  const correlationId = newCorrelationId();
   await input.db.insert(importRun).values({
     id: runId,
     siteId,
     sourceUrl: input.url,
-    status: "queued"
+    status: "queued",
+    correlationId
   });
-  const stored = await runImport({
-    db: input.db,
-    store: input.store,
-    siteId,
-    importRunId: runId,
-    sourceUrl: input.url,
-    appOrigin: input.appOrigin,
-    caps: input.caps
-  });
+  const stored = await runWithCorrelation(correlationId, () =>
+    runImport({
+      db: input.db,
+      store: input.store,
+      siteId,
+      importRunId: runId,
+      sourceUrl: input.url,
+      appOrigin: input.appOrigin,
+      caps: input.caps
+    })
+  );
   if (!stored.snapshotId) throw new Error("Import failed.");
   return { siteId, snapshotId: stored.snapshotId, slug: slugify(name) };
 }

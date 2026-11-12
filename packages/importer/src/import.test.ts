@@ -52,7 +52,7 @@ function memoryStore(): BlobStore & { files: Map<string, StoredObject> } {
 
 async function applyMigrations(client: PGlite) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle");
-  for (const file of ["0000_init.sql", "0001_auth_plugins.sql"]) {
+  for (const file of ["0000_init.sql", "0001_auth_plugins.sql", "0003_correlation.sql"]) {
     const sqlText = readFileSync(join(root, file), "utf8");
     for (const statement of sqlText.split("--> statement-breakpoint")) {
       const query = statement.trim();

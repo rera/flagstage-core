@@ -2,7 +2,7 @@
 
 Thanks for looking. Flagstage Core is the self-hosted edition: an organization runs many accounts, each account runs sites, and people change those sites in chat.
 
-[GAPS.md](docs/GAPS.md) is what is still rough in v1. [TODO.md](TODO.md) is work deferred past v1. Do not add the same item to both.
+[GAPS.md](docs/GAPS.md) lists the v1 gaps and the deferred work that will become GitHub issues.
 
 ## Development setup
 
@@ -42,7 +42,6 @@ Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstag
 | `packages/ui`          | Shared primitives and the English message catalog                                       |
 | `infra/cloudformation` | CloudFormation stack. `./deploy.sh` is not run from CI.                                 |
 | `docs/`                | Self-hosting and operator docs                                                          |
-| `TODO.md`              | Work deferred past v1                                                                   |
 
 ## Conventions
 

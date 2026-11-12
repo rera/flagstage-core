@@ -12,7 +12,8 @@ export function buildAgentEnv(env: Record<string, string | undefined>): Record<s
     "AWS_DEFAULT_REGION",
     "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
     "AWS_CONTAINER_CREDENTIALS_FULL_URI",
-    "AWS_CONTAINER_AUTHORIZATION_TOKEN"
+    "AWS_CONTAINER_AUTHORIZATION_TOKEN",
+    "CORRELATION_ID"
   ];
   const out: Record<string, string> = {};
   for (const key of allow) {

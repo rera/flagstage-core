@@ -81,6 +81,7 @@ export async function postMessage(input: {
   userId: string;
   body: string;
   appOrigin: string;
+  correlationId?: string;
   runner?: AgentRunner;
   commentOnly?: boolean;
   allowHold?: boolean;
@@ -101,7 +102,8 @@ export async function postMessage(input: {
       threadId,
       author: "user",
       userId: input.userId,
-      body: input.body
+      body: input.body,
+      correlationId: input.correlationId
     });
   }
   const finish = async (status: string, reply: string, previewUrl?: string) => {
@@ -113,27 +115,49 @@ export async function postMessage(input: {
     return { threadId, reply: "" };
   }
   if (!trust.ok) {
-    await db
-      .insert(message)
-      .values({ id: randomUUID(), threadId, author: "system", body: trust.reason });
+    await db.insert(message).values({
+      id: randomUUID(),
+      threadId,
+      author: "system",
+      body: trust.reason,
+      correlationId: input.correlationId
+    });
     return finish("open", trust.reason);
   }
   const intent = decideIntent(input.body);
   if (intent.kind === "ask") {
     const reply = "Which page should change, and what should it say?";
-    await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
+    await db.insert(message).values({
+      id: randomUUID(),
+      threadId,
+      author: "system",
+      body: reply,
+      correlationId: input.correlationId
+    });
     return finish("open", reply);
   }
   if (intent.kind === "satisfied") {
     const reply = "Nothing needed changing.";
-    await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
+    await db.insert(message).values({
+      id: randomUUID(),
+      threadId,
+      author: "system",
+      body: reply,
+      correlationId: input.correlationId
+    });
     return finish("open", reply);
   }
   const sites = await db.select().from(site).where(eq(site.id, input.siteId)).limit(1);
   const current = sites[0]?.currentSnapshotId;
   if (!current) {
     const reply = "Publish the import before requesting a change.";
-    await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
+    await db.insert(message).values({
+      id: randomUUID(),
+      threadId,
+      author: "system",
+      body: reply,
+      correlationId: input.correlationId
+    });
     return finish("open", reply);
   }
   const snaps = await db.select().from(snapshot).where(eq(snapshot.id, current)).limit(1);
@@ -147,17 +171,30 @@ export async function postMessage(input: {
       status: "needs_human",
       sourceSnapshotId: current,
       summary: input.body,
-      holdReason: "An account admin has to let this request run."
+      holdReason: "An account admin has to let this request run.",
+      correlationId: input.correlationId
     });
     const reply = "An account admin has to approve this request before it runs.";
-    await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
+    await db.insert(message).values({
+      id: randomUUID(),
+      threadId,
+      author: "system",
+      body: reply,
+      correlationId: input.correlationId
+    });
     return finish("open", reply);
   }
   if (!input.runner) throw new Error("No editor is configured.");
   const edited = await input.runner.edit(await readSnapshot(input.store, prefix), input.body);
   if (!edited.changed) {
     const reply = "Nothing needed changing.";
-    await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
+    await db.insert(message).values({
+      id: randomUUID(),
+      threadId,
+      author: "system",
+      body: reply,
+      correlationId: input.correlationId
+    });
     return finish("open", reply);
   }
   const resultId = await writeSnapshot({
@@ -180,7 +217,8 @@ export async function postMessage(input: {
     status: "preview_ready",
     sourceSnapshotId: current,
     resultSnapshotId: resultId,
-    summary: input.body
+    summary: input.body,
+    correlationId: input.correlationId
   });
   const token = randomBytes(18).toString("base64url");
   await db.insert(previewSession).values({
@@ -193,7 +231,13 @@ export async function postMessage(input: {
   });
   const previewUrl = `${input.appOrigin}/preview/${token}`;
   const reply = `Preview ready: ${previewUrl}`;
-  await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
+  await db.insert(message).values({
+    id: randomUUID(),
+    threadId,
+    author: "system",
+    body: reply,
+    correlationId: input.correlationId
+  });
   return finish("preview_ready", reply, previewUrl);
 }
 

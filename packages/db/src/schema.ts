@@ -180,6 +180,7 @@ export const importRun = pgTable("import_run", {
     .default(sql`'{}'::jsonb`),
   fidelityReport: jsonb("fidelity_report"),
   error: text("error"),
+  correlationId: text("correlation_id"),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow()
 });
@@ -219,6 +220,7 @@ export const message = pgTable("message", {
   author: text("author").notNull(),
   userId: text("user_id").references(() => user.id),
   body: text("body").notNull(),
+  correlationId: text("correlation_id"),
   attachments: jsonb("attachments")
     .notNull()
     .default(sql`'[]'::jsonb`),
@@ -240,6 +242,7 @@ export const changeRequest = pgTable("change_request", {
   summary: text("summary"),
   usage: jsonb("usage"),
   error: text("error"),
+  correlationId: text("correlation_id"),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow()
 });

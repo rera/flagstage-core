@@ -1,5 +1,6 @@
 import pino from "pino";
 
+import { correlationMixin } from "./correlation";
 import type { Config } from "./schema";
 
 export function createLogger(config: Pick<Config, "LOG_LEVEL">, name = "flagstage") {
@@ -7,6 +8,7 @@ export function createLogger(config: Pick<Config, "LOG_LEVEL">, name = "flagstag
     name,
     level: config.LOG_LEVEL,
     base: { service: name },
+    mixin: correlationMixin,
     timestamp: pino.stdTimeFunctions.isoTime
   });
 }

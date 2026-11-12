@@ -3,9 +3,15 @@
 import { randomUUID } from "node:crypto";
 
 import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { loadConfig } from "@flagstage/config";
+import {
+  CORRELATION_HEADER,
+  loadConfig,
+  newCorrelationId,
+  runWithCorrelation
+} from "@flagstage/config";
 import { setUserPassword } from "@flagstage/auth";
 import { acceptInvitation, can, createAccount, createInvitation, slugify } from "@flagstage/core";
 import { importRun, message, site, thread, user } from "@flagstage/db";
@@ -173,37 +179,46 @@ export async function setOrgRoleAction(formData: FormData) {
 }
 
 export async function importSiteAction(formData: FormData) {
-  const principal = await requirePrincipal();
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "site.manage", { accountId })) redirect("/no-access");
-  const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
-  const name = String(formData.get("name") ?? "").trim();
-  if (!sourceUrl || !name) redirect("/sites?error=1");
-  const config = loadConfig();
-  const db = database();
-  const siteId = randomUUID();
-  const runId = randomUUID();
-  await db.insert(site).values({
-    id: siteId,
-    accountId,
-    name,
-    slug: slugify(name),
-    sourceUrl,
-    status: "importing"
+  const correlationId = (await headers()).get(CORRELATION_HEADER) || newCorrelationId();
+  return runWithCorrelation(correlationId, async () => {
+    const principal = await requirePrincipal();
+    const accountId = String(formData.get("accountId") ?? "");
+    if (!can(principal, "site.manage", { accountId })) redirect("/no-access");
+    const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
+    const name = String(formData.get("name") ?? "").trim();
+    if (!sourceUrl || !name) redirect("/sites?error=1");
+    const config = loadConfig();
+    const db = database();
+    const siteId = randomUUID();
+    const runId = randomUUID();
+    await db.insert(site).values({
+      id: siteId,
+      accountId,
+      name,
+      slug: slugify(name),
+      sourceUrl,
+      status: "importing"
+    });
+    await db.insert(importRun).values({
+      id: runId,
+      siteId,
+      sourceUrl,
+      status: "queued",
+      correlationId
+    });
+    try {
+      await enqueue(config.DATABASE_URL, "import", { siteId, runId, sourceUrl, correlationId });
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : "Import failed";
+      await db
+        .update(importRun)
+        .set({ status: "failed", error: messageText, updatedAt: new Date() })
+        .where(eq(importRun.id, runId));
+      await db.update(site).set({ status: "failed" }).where(eq(site.id, siteId));
+      redirect("/sites?error=1");
+    }
+    redirect(`/sites/${siteId}`);
   });
-  await db.insert(importRun).values({ id: runId, siteId, sourceUrl, status: "queued" });
-  try {
-    await enqueue(config.DATABASE_URL, "import", { siteId, runId, sourceUrl });
-  } catch (error) {
-    const messageText = error instanceof Error ? error.message : "Import failed";
-    await db
-      .update(importRun)
-      .set({ status: "failed", error: messageText, updatedAt: new Date() })
-      .where(eq(importRun.id, runId));
-    await db.update(site).set({ status: "failed" }).where(eq(site.id, siteId));
-    redirect("/sites?error=1");
-  }
-  redirect(`/sites/${siteId}`);
 }
 
 export async function approveSiteAction(formData: FormData) {
@@ -246,56 +261,61 @@ function editor() {
 }
 
 export async function sendMessageAction(formData: FormData) {
-  const principal = await requirePrincipal();
-  const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  const canComment = can(principal, "site.comment", { accountId });
-  const canEdit = can(principal, "site.edit", { accountId });
-  if (!canComment && !canEdit) redirect("/no-access");
-  const body = String(formData.get("body") ?? "").trim();
-  if (!body) redirect(`/sites/${siteId}`);
-  const config = loadConfig();
-  const db = database();
-  const existing = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
-  const threadId = existing[0]?.id ?? randomUUID();
-  if (!existing[0]) {
-    await db.insert(thread).values({
-      id: threadId,
-      siteId,
-      title: "Changes",
-      createdBy: principal.id,
-      status: canEdit ? "queued" : "open"
-    });
-  } else if (canEdit) {
-    await db
-      .update(thread)
-      .set({ status: "queued", updatedAt: new Date() })
-      .where(eq(thread.id, threadId));
-  }
-  await db.insert(message).values({
-    id: randomUUID(),
-    threadId,
-    author: "user",
-    userId: principal.id,
-    body
-  });
-  if (canEdit) {
-    try {
-      await enqueue(config.DATABASE_URL, "agent-turn", {
+  const correlationId = (await headers()).get(CORRELATION_HEADER) || newCorrelationId();
+  return runWithCorrelation(correlationId, async () => {
+    const principal = await requirePrincipal();
+    const siteId = String(formData.get("siteId") ?? "");
+    const accountId = String(formData.get("accountId") ?? "");
+    const canComment = can(principal, "site.comment", { accountId });
+    const canEdit = can(principal, "site.edit", { accountId });
+    if (!canComment && !canEdit) redirect("/no-access");
+    const body = String(formData.get("body") ?? "").trim();
+    if (!body) redirect(`/sites/${siteId}`);
+    const config = loadConfig();
+    const db = database();
+    const existing = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
+    const threadId = existing[0]?.id ?? randomUUID();
+    if (!existing[0]) {
+      await db.insert(thread).values({
+        id: threadId,
         siteId,
-        userId: principal.id,
-        body,
-        userRecorded: true
+        title: "Changes",
+        createdBy: principal.id,
+        status: canEdit ? "queued" : "open"
       });
-    } catch {
+    } else if (canEdit) {
       await db
         .update(thread)
-        .set({ status: "open", updatedAt: new Date() })
+        .set({ status: "queued", updatedAt: new Date() })
         .where(eq(thread.id, threadId));
-      redirect(`/sites/${siteId}?error=1`);
     }
-  }
-  redirect(`/sites/${siteId}`);
+    await db.insert(message).values({
+      id: randomUUID(),
+      threadId,
+      author: "user",
+      userId: principal.id,
+      body,
+      correlationId
+    });
+    if (canEdit) {
+      try {
+        await enqueue(config.DATABASE_URL, "agent-turn", {
+          siteId,
+          userId: principal.id,
+          body,
+          correlationId,
+          userRecorded: true
+        });
+      } catch {
+        await db
+          .update(thread)
+          .set({ status: "open", updatedAt: new Date() })
+          .where(eq(thread.id, threadId));
+        redirect(`/sites/${siteId}?error=1`);
+      }
+    }
+    redirect(`/sites/${siteId}`);
+  });
 }
 
 export async function approveChangeAction(formData: FormData) {
@@ -350,42 +370,46 @@ export async function rollbackAction(formData: FormData) {
 }
 
 export async function releaseHoldAction(formData: FormData) {
-  const principal = await requirePrincipal();
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "member.manage", { accountId }) && !can(principal, "org.manage")) {
-    redirect("/no-access");
-  }
-  const requestId = String(formData.get("changeRequestId") ?? "");
-  const rows = await database()
-    .select()
-    .from(changeRequest)
-    .where(eq(changeRequest.id, requestId))
-    .limit(1);
-  const request = rows[0];
-  if (!request?.summary) redirect("/sites");
-  await database()
-    .update(changeRequest)
-    .set({ status: "rejected" })
-    .where(eq(changeRequest.id, requestId));
-  const config = loadConfig();
-  const existing = await database()
-    .select()
-    .from(thread)
-    .where(eq(thread.siteId, request.siteId))
-    .limit(1);
-  if (existing[0]) {
+  const correlationId = (await headers()).get(CORRELATION_HEADER) || newCorrelationId();
+  return runWithCorrelation(correlationId, async () => {
+    const principal = await requirePrincipal();
+    const accountId = String(formData.get("accountId") ?? "");
+    if (!can(principal, "member.manage", { accountId }) && !can(principal, "org.manage")) {
+      redirect("/no-access");
+    }
+    const requestId = String(formData.get("changeRequestId") ?? "");
+    const rows = await database()
+      .select()
+      .from(changeRequest)
+      .where(eq(changeRequest.id, requestId))
+      .limit(1);
+    const request = rows[0];
+    if (!request?.summary) redirect("/sites");
     await database()
-      .update(thread)
-      .set({ status: "queued", updatedAt: new Date() })
-      .where(eq(thread.id, existing[0].id));
-  }
-  await enqueue(config.DATABASE_URL, "agent-turn", {
-    siteId: request.siteId,
-    userId: principal.id,
-    body: request.summary,
-    allowHold: false
+      .update(changeRequest)
+      .set({ status: "rejected" })
+      .where(eq(changeRequest.id, requestId));
+    const config = loadConfig();
+    const existing = await database()
+      .select()
+      .from(thread)
+      .where(eq(thread.siteId, request.siteId))
+      .limit(1);
+    if (existing[0]) {
+      await database()
+        .update(thread)
+        .set({ status: "queued", updatedAt: new Date() })
+        .where(eq(thread.id, existing[0].id));
+    }
+    await enqueue(config.DATABASE_URL, "agent-turn", {
+      siteId: request.siteId,
+      userId: principal.id,
+      body: request.summary,
+      correlationId,
+      allowHold: false
+    });
+    redirect(`/sites/${request.siteId}`);
   });
-  redirect(`/sites/${request.siteId}`);
 }
 
 export async function addDomainAction(formData: FormData) {

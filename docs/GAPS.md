@@ -2,7 +2,7 @@
 
 An honest read of what still keeps Flagstage Core from feeling like a mature open-source product. The comparison points are Plausible, Cal.com, Documenso, Infisical, n8n, and Ghost: projects an operator can clone, run, and trust on a weekday afternoon.
 
-The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm test` pass. The gaps below are what a second look finds. Work deferred past v1 is [TODO.md](../TODO.md), and those items are not repeated here.
+The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm test` pass. The gaps below are what a second look finds.
 
 ## Fix before a first release
 
@@ -56,3 +56,13 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - `flagstage member add` grants an account role. `flagstage user reset-password` works in local development, and in production only with `FLAGSTAGE_BREAK_GLASS=1`. `flagstage site export <site> --out file.tgz` packs the published snapshot and `content.json`. `flagstage backup` prints the `pg_dump` and storage commands and does not call AWS.
 - Issue templates, the pull request template, `CODEOWNERS` (`@rera`), and Dependabot are in the repo. `CHANGELOG.md` follows Keep a Changelog for 0.1.0, which is unreleased. Vulnerability reports go through GitHub private reporting, as `SECURITY.md` describes. There is no `FUNDING.yml`.
 - Operator docs cover getting started, a CloudFormation deploy, roles, the DNS checklist, upgrading, and the FAQ.
+- Each chat turn and each import has one correlation id. It is on the `x-correlation-id` response header, the job payload, the Postgres row, and every log line for that work. See [Operations](operations.md).
+
+## Deferred (to become issues)
+
+These will be GitHub issues in rera/flagstage-core.
+
+- Screen-reader pass (VoiceOver and NVDA) on all screens.
+- Revisit CI: OSS repo CI, and deploying from CI.
+- Bring back SSO, SAML, and SCIM from `feature/sso`.
+- Internationalization.
