@@ -2,6 +2,8 @@
 
 Thanks for looking. Flagstage Core is the self-hosted edition: an organization runs many accounts, each account runs sites, and people change those sites in chat.
 
+[GAPS.md](docs/GAPS.md) is what is still rough in v1. [TODO.md](TODO.md) is work deferred past v1. Do not add the same item to both.
+
 ## Development setup
 
 Requirements: Node.js 22, pnpm 10, and Docker (for Postgres and the evaluation stack). `flagstage.config.json` in the repo root is the product config.
@@ -40,6 +42,7 @@ Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstag
 | `packages/ui`          | Shared primitives and the English message catalog                                       |
 | `infra/cloudformation` | CloudFormation stack. `./deploy.sh` is not run from CI.                                 |
 | `docs/`                | Self-hosting and operator docs                                                          |
+| `TODO.md`              | Work deferred past v1                                                                   |
 
 ## Conventions
 
@@ -49,7 +52,7 @@ Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstag
 - The product word is Account. Do not introduce a Customer entity.
 - Sign-in is email and password. Do not add an identity-provider client in `src/`.
 - Chat is the only way to request a change. Do not add inbound email, SMS, or Slack.
-- UI strings live in `packages/ui/src/messages/en.json`.
+- UI strings live in `packages/ui/src/messages/en.json`. v1 is English only.
 - Customer websites keep their own voice. Do not apply Flagstage's marketing voice to imported sites.
 
 ## Tests

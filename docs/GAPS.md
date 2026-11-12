@@ -2,7 +2,7 @@
 
 An honest read of what still keeps Flagstage Core from feeling like a mature open-source product. The comparison points are Plausible, Cal.com, Documenso, Infisical, n8n, and Ghost: projects an operator can clone, run, and trust on a weekday afternoon.
 
-The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm test` pass. The gaps below are what a second look finds.
+The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm test` pass. The gaps below are what a second look finds. Work deferred past v1 is [TODO.md](../TODO.md), and those items are not repeated here.
 
 ## Fix before a first release
 
@@ -19,16 +19,6 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 4. **Import progress is a status, not a live count.** The site page shows importing, failed, or live. It does not yet show pages found, pages done, and pages skipped with a reason.
 
 The CLI verbs are `admin add`, `account create`, `member add`, and `site export`.
-
-These are tracked on [rera/flagstage-core](https://github.com/rera/flagstage-core/issues), not repeated here:
-
-- [Tracing](https://github.com/rera/flagstage-core/issues/1)
-- [Health alarms](https://github.com/rera/flagstage-core/issues/2)
-- [Screen-reader pass](https://github.com/rera/flagstage-core/issues/3)
-- [CI](https://github.com/rera/flagstage-core/issues/4)
-- [SSO, SAML, and SCIM](https://github.com/rera/flagstage-core/issues/5)
-- [Internationalization](https://github.com/rera/flagstage-core/issues/6)
-- [README demo GIF](https://github.com/rera/flagstage-core/issues/7)
 
 ## Spec §13, what is in place
 
