@@ -22,6 +22,12 @@ The Lambda reads `sites/<id>/session/` from S3. A finished marker of `ok` means 
 
 Provisioned concurrency defaults to 0, so the first message after idle waits for the Lambda to start. The web returns as soon as the invoke is accepted. The page follows the thread over the existing event stream and a two-second poll. Set the stack parameter `ProvisionedConcurrency` to 1 when that wait is too long.
 
+## A scheduled publish
+
+Publish can go live later. The builder's Schedule control, or a chat line such as "publish this Friday at 9am", pins the current draft snapshot and a time in the site's time zone. The zone starts as UTC and is set from the browser the first time someone saves a schedule. An optional revert time republishes the snapshot that was live just before that scheduled publish. Later edits do not change a pinned snapshot. Cancel and reschedule are on the site's Scheduled list.
+
+On AWS, EventBridge Scheduler creates a one-time schedule that invokes the chat Lambda with the schedule id. The Lambda calls the same publish path as the button. Locally, the web process checks for due schedules every five seconds. A run is idempotent: a missing snapshot or one that is already live is skipped, and a second delivery does not publish again. Each publish or revert is a row in the version history and the usage log. There are no recurring schedules and no notifications.
+
 ## Mobile preview
 
 Below 800 pixels the preview pane is hidden. Chat stays on the page, with an Open preview link to the same draft full screen. Desktop keeps chat on the left and the live preview on the right. The preview reloads when the draft snapshot changes.

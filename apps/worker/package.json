@@ -16,6 +16,7 @@
     "@flagstage/analytics": "workspace:*",
     "@flagstage/importer": "workspace:*",
     "@flagstage/jobs": "workspace:*",
+    "@flagstage/publish": "workspace:*",
     "@flagstage/storage": "workspace:*",
     "@aws-sdk/client-lambda": "3.940.0",
     "drizzle-orm": "^0.45.1"

@@ -22,6 +22,7 @@ import {
   undoEditAction
 } from "../../../../src/actions";
 import { BrowserFrame } from "../../../../src/browser-frame";
+import { SchedulePanel } from "../../../../src/schedule-form";
 import { database, requirePrincipal } from "../../../../src/guard";
 import { chatBody, friendlyWhen, versionLabel } from "../../../../src/time";
 import { ChatStream } from "./chat-stream";
@@ -151,6 +152,9 @@ export default async function SitePage({
           <a href={`/sites/${found.id}/analytics`} className="text-sm font-medium text-primary">
             {t("analytics.title")}
           </a>
+          <a href={`/sites/${found.id}/scheduled`} className="text-sm font-medium text-primary">
+            Scheduled
+          </a>
           {pendingSnapshot &&
           canPublish &&
           !found.currentSnapshotId &&
@@ -181,6 +185,13 @@ export default async function SitePage({
                 </form>
               ))
             : null}
+          {canPublish && found.draftSnapshotId && found.draftSnapshotId !== found.currentSnapshotId ? (
+            <SchedulePanel
+              siteId={found.id}
+              accountId={found.accountId}
+              snapshotId={found.draftSnapshotId}
+            />
+          ) : null}
         </div>
       </div>
       <div className="builder-grid grid min-h-0 flex-1">

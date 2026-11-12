@@ -4,6 +4,7 @@ import { bootstrapAdmin } from "@flagstage/auth";
 import { syncOrganization } from "@flagstage/core";
 import { rollupStored } from "@flagstage/analytics";
 import { publicDnsLookup, recheckDueDomains, selectDomainsDriver } from "@flagstage/domains";
+import { runDueSchedules, syncScheduleHost } from "@flagstage/publish";
 
 let started = false;
 
@@ -32,6 +33,14 @@ export async function boot(): Promise<void> {
     }).catch(() => undefined);
   };
   setInterval(() => void maintenance(), 10 * 60 * 1000);
+  const tickSchedules = async () => {
+    const current = loadConfig();
+    const db = getDb(current.DATABASE_URL);
+    const applied = await runDueSchedules(db, new Date()).catch(() => [] as string[]);
+    for (const id of applied) await syncScheduleHost(db, id).catch(() => undefined);
+  };
+  setInterval(() => void tickSchedules(), 5_000);
+  void tickSchedules();
   started = true;
   log.info("web boot complete");
 }

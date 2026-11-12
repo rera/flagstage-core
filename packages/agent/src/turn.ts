@@ -3,8 +3,24 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 
 import type { Database } from "@flagstage/db";
-import { changeRequest, message, previewSession, site, snapshot, thread } from "@flagstage/db";
-import { recordPublish, swapLive, writeHostMap } from "@flagstage/publish";
+import {
+  changeRequest,
+  message,
+  previewSession,
+  site,
+  siteSchedule,
+  snapshot,
+  thread
+} from "@flagstage/db";
+import {
+  armSchedule,
+  confirmSchedule,
+  insertSchedule,
+  parseSchedulePhrase,
+  recordPublish,
+  swapLive,
+  writeHostMap
+} from "@flagstage/publish";
 import { snapshotPrefix, type BlobStore } from "@flagstage/storage";
 
 import { injectAnalytics } from "@flagstage/analytics";
@@ -171,6 +187,56 @@ export async function postMessage(input: {
   }
   const sites = await db.select().from(site).where(eq(site.id, input.siteId)).limit(1);
   const currentSite = sites[0];
+  const zone = currentSite?.timeZone || "UTC";
+  const intent = parseSchedulePhrase(input.body, zone, new Date());
+  if (intent && currentSite) {
+    if (intent.action === "publish") {
+      const snapshotId = currentSite.draftSnapshotId ?? currentSite.currentSnapshotId;
+      const reply = snapshotId
+        ? confirmSchedule(intent, zone)
+        : "Import the site before scheduling a publish.";
+      if (snapshotId) {
+        await insertSchedule(input.db, {
+          siteId: input.siteId,
+          snapshotId,
+          publishAt: intent.at,
+          revertAt: null,
+          actorUserId: input.userId,
+          summary: input.body,
+          timeZone: zone
+        });
+      }
+      await input.db.insert(message).values({
+        id: randomUUID(),
+        threadId,
+        author: "system",
+        body: reply
+      });
+      return finish("open", reply);
+    }
+    const open = await input.db
+      .select()
+      .from(siteSchedule)
+      .where(eq(siteSchedule.siteId, input.siteId));
+    const target = open.find((row) => row.status === "scheduled" || row.status === "live");
+    const reply = target
+      ? confirmSchedule(intent, zone)
+      : "There isn't a scheduled publish to take down.";
+    if (target) {
+      await input.db
+        .update(siteSchedule)
+        .set({ revertAt: intent.at, updatedAt: new Date() })
+        .where(eq(siteSchedule.id, target.id));
+      await armSchedule(target.id, intent.at, "revert").catch(() => undefined);
+    }
+    await input.db.insert(message).values({
+      id: randomUUID(),
+      threadId,
+      author: "system",
+      body: reply
+    });
+    return finish("open", reply);
+  }
   const lockFresh =
     currentSite?.draftLockedAt != null &&
     Date.now() - currentSite.draftLockedAt.getTime() < LOCK_MS;

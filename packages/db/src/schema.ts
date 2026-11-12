@@ -137,7 +137,26 @@ export const site = pgTable("site", {
   draftLockedAt: ts("draft_locked_at"),
   status: text("status").notNull().default("importing"),
   analyticsEnabled: boolean("analytics_enabled").notNull().default(true),
+  timeZone: text("time_zone").notNull().default("UTC"),
   createdAt: ts("created_at").notNull().defaultNow()
+});
+
+export const siteSchedule = pgTable("site_schedule", {
+  id: text("id").primaryKey(),
+  siteId: text("site_id")
+    .notNull()
+    .references(() => site.id, { onDelete: "cascade" }),
+  snapshotId: text("snapshot_id")
+    .notNull()
+    .references(() => snapshot.id),
+  publishAt: ts("publish_at").notNull(),
+  revertAt: ts("revert_at"),
+  revertToSnapshotId: text("revert_to_snapshot_id").references(() => snapshot.id),
+  status: text("status").notNull().default("scheduled"),
+  actorUserId: text("actor_user_id"),
+  summary: text("summary").notNull().default(""),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow()
 });
 
 export const snapshot = pgTable("snapshot", {

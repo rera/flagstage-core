@@ -20,7 +20,13 @@ import {
   subprocessRunner,
   undoEdit
 } from "@flagstage/agent";
-import { rollbackTo } from "@flagstage/publish";
+import {
+  disarmSchedule,
+  insertSchedule,
+  localInputToUtc,
+  rollbackTo
+} from "@flagstage/publish";
+import { siteSchedule } from "@flagstage/db";
 import { account, siteDomain, snapshot } from "@flagstage/db";
 import {
   checkDnsRecords,
@@ -319,6 +325,73 @@ export async function approveChangeAction(formData: FormData) {
     await publishHostMap(liveHost(found.slug), snapshotPrefix(siteId, published.snapshotId));
   }
   redirect(`/sites/${siteId}`);
+}
+
+export async function schedulePublishAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
+  const zone = String(formData.get("timeZone") || "UTC");
+  const publish = localInputToUtc(String(formData.get("publishAt") ?? ""), zone);
+  const revertRaw = String(formData.get("revertAt") ?? "");
+  const revert = revertRaw ? localInputToUtc(revertRaw, zone) : null;
+  const snapshotId = String(formData.get("snapshotId") ?? "");
+  if (!publish || !snapshotId) redirect(`/sites/${siteId}?error=1`);
+  if (revert && revert.date.getTime() <= publish.date.getTime()) {
+    redirect(`/sites/${siteId}?error=1`);
+  }
+  await insertSchedule(database(), {
+    siteId,
+    snapshotId,
+    publishAt: publish.date,
+    revertAt: revert?.date ?? null,
+    actorUserId: principal.id,
+    summary: "Scheduled from the builder",
+    timeZone: zone
+  });
+  redirect(`/sites/${siteId}/scheduled`);
+}
+
+export async function cancelScheduleAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
+  const id = String(formData.get("scheduleId") ?? "");
+  await disarmSchedule(id, "publish").catch(() => undefined);
+  await disarmSchedule(id, "revert").catch(() => undefined);
+  await database()
+    .update(siteSchedule)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(eq(siteSchedule.id, id));
+  redirect(`/sites/${siteId}/scheduled`);
+}
+
+export async function rescheduleAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
+  const id = String(formData.get("scheduleId") ?? "");
+  const zone = String(formData.get("timeZone") || "UTC");
+  const publish = localInputToUtc(String(formData.get("publishAt") ?? ""), zone);
+  if (!publish) redirect(`/sites/${siteId}/scheduled?error=1`);
+  const revertRaw = String(formData.get("revertAt") ?? "");
+  const revert = revertRaw ? localInputToUtc(revertRaw, zone) : null;
+  await database()
+    .update(siteSchedule)
+    .set({
+      publishAt: publish.date,
+      revertAt: revert?.date ?? null,
+      status: "scheduled",
+      updatedAt: new Date()
+    })
+    .where(eq(siteSchedule.id, id));
+  const { armSchedule } = await import("@flagstage/publish");
+  await armSchedule(id, publish.date, "publish").catch(() => undefined);
+  if (revert) await armSchedule(id, revert.date, "revert").catch(() => undefined);
+  redirect(`/sites/${siteId}/scheduled`);
 }
 
 export async function rollbackAction(formData: FormData) {

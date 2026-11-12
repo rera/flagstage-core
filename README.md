@@ -16,6 +16,8 @@ Flagstage Core is self-hosted software for a team that runs many accounts and ma
 
 The app is `https://{domain}`. A published site is `https://{slug}.{domain}`, served from S3 through CloudFront. The web log prints a one-time sign-in link for `adminEmail`. A first run has no accounts and no sites.
 
+Publish can also be scheduled. In the builder, Schedule pins the current draft and a time in the site's time zone, with an optional revert time. Chat accepts the same request in plain words. On AWS, EventBridge Scheduler fires the publish. Locally, the web process checks every few seconds. See [What happens when](docs/design/what-happens-when.md).
+
 To work on a checkout instead:
 
 ```bash
