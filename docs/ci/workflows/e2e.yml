@@ -1,0 +1,37 @@
+name: e2e
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  happy:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: flagstage
+          POSTGRES_PASSWORD: flagstage
+          POSTGRES_DB: flagstage
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U flagstage -d flagstage"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm e2e
+        env:
+          DATABASE_URL: postgres://flagstage:flagstage@127.0.0.1:5432/flagstage
+          CI: "1"

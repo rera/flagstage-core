@@ -10,31 +10,29 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 ## What mature projects have that this repo does not
 
-2. **No proof the happy path survives a browser.** Plausible, Cal.com, Documenso, and Ghost ship Playwright (or an equivalent) that signs in and finishes the main task. Core has unit tests and two Better Auth integration tests. There is no browser test that imports a fixture, sends a chat message, approves it, and opens the preview.
+2. **The analytics screen is a list, not a product.** Plausible's bar is a date range, top pages, and top referrers without cookies. Core hashes visitors the same way, rolls raw events into daily rows after 48 hours, and removes the script on the next publish when analytics is off. The page does not offer 7, 30, or 90 days, and it does not chart anything.
 
-3. **The analytics screen is a list, not a product.** Plausible's bar is a date range, top pages, and top referrers without cookies. Core hashes visitors the same way, rolls raw events into daily rows after 48 hours, and removes the script on the next publish when analytics is off. The page does not offer 7, 30, or 90 days, and it does not chart anything.
+3. **Forms notify by webhook only.** A signed webhook and a CSV download exist. SMTP is a config field and is not used to mail a submission. Ghost and Documenso both send mail as part of the main loop.
 
-4. **Forms notify by webhook only.** A signed webhook and a CSV download exist. SMTP is a config field and is not used to mail a submission. Ghost and Documenso both send mail as part of the main loop.
+4. **First run still skips the last mile.** Setup walks through the organization, an OIDC or SAML provider, the first account, and a group-to-role mapping. There is no logo upload and no button that tests the model key.
 
-5. **First run still skips the last mile.** Setup walks through the organization, an OIDC or SAML provider, the first account, and a group-to-role mapping. There is no logo upload and no button that tests the model key.
+5. **The editor is a mock unless you bring a binary.** `AI_MOCK=1` appends the request to `index.html`. With the mock off, the subprocess runner executes `opencode` with a scrubbed prompt and a short skill set (clarify, forms, images, contrast). The Vercel AI SDK is not a dependency. Intent uses a deterministic rule, or one OpenAI-compatible chat call when a model is configured. The commercial skill shelf was rewritten down, not copied. Nobody has run this against a real key in CI.
 
-6. **The editor is a mock unless you bring a binary.** `AI_MOCK=1` appends the request to `index.html`. With the mock off, the subprocess runner executes `opencode` with a scrubbed prompt and a short skill set (clarify, forms, images, contrast). The Vercel AI SDK is not a dependency. Intent uses a deterministic rule, or one OpenAI-compatible chat call when a model is configured. The commercial skill shelf was rewritten down, not copied. Nobody has run this against a real key in CI.
+6. **Some operator commands are still missing.** `flagstage admin add`, `flagstage account create`, and `flagstage import <url> --account` work. Resetting a password, exporting a site, and adding a member from the terminal do not.
 
-7. **Some operator commands are still missing.** `flagstage admin add`, `flagstage account create`, and `flagstage import <url> --account` work. Resetting a password, exporting a site, and adding a member from the terminal do not.
-
-8. **Screenshots are a placeholder SVG.** The README describes the product and points at `docs/assets/screenshot-app.svg`. Ghost, Plausible, and Documenso lead with pictures of the real UI. Replace the placeholder before any announcement. README and docs that describe the product are marked `copy-review: required before announce`.
+7. **Screenshots are a placeholder SVG.** The README describes the product and points at `docs/assets/screenshot-app.svg`. Ghost, Plausible, and Documenso lead with pictures of the real UI. Replace the placeholder before any announcement. README and docs that describe the product are marked `copy-review: required before announce`.
 
 ## Smaller, still real
 
-9. **Strings live in one JSON file.** `t()` reads `packages/ui/src/messages/en.json`. next-intl is not wired, so there is no locale switch and no extraction pipeline.
+8. **Strings live in one JSON file.** `t()` reads `packages/ui/src/messages/en.json`. next-intl is not wired, so there is no locale switch and no extraction pipeline.
 
-10. **SSO settings write provider rows directly.** Sign-in uses Better Auth. The settings page inserts the provider row instead of calling Better Auth's register endpoint. Behavior matches the tests. The path is not the one the library documents.
+9. **SSO settings write provider rows directly.** Sign-in uses Better Auth. The settings page inserts the provider row instead of calling Better Auth's register endpoint. Behavior matches the tests. The path is not the one the library documents.
 
-11. **CI workflows sit in `docs/ci/workflows/`.** They are not under `.github/workflows/` because this branch lives in a private repository where those files would run. Move them when the public repository exists. The OpenTofu examples point at `github.com/rera/flagstage` `core/main` for the same reason. Point them at `github.com/rera/flagstage-core` and a release tag when that repository exists.
+10. **CI workflows sit in `docs/ci/workflows/`.** They are not under `.github/workflows/` because this branch lives in a private repository where those files would run. Move them when the public repository exists. The OpenTofu examples point at `github.com/rera/flagstage` `core/main` for the same reason. Point them at `github.com/rera/flagstage-core` and a release tag when that repository exists.
 
-12. **No release automation beyond changesets.** There is a changelog stub and changeset files. There is no tag, no GitHub release, no image publish. The image workflow is written to build and not push.
+11. **No release automation beyond changesets.** There is a changelog stub and changeset files. There is no tag, no GitHub release, no image publish. The image workflow is written to build and not push.
 
-13. **Accessibility and empty states are thin.** Buttons and fields use the shared components. There is no keyboard pass, no screen-reader pass, and several pages are unstyled tables. Cal.com and Documenso treat this as part of the product, not a follow-up.
+12. **Accessibility and empty states are thin.** Buttons and fields use the shared components. There is no keyboard pass, no screen-reader pass, and several pages are unstyled tables. Cal.com and Documenso treat this as part of the product, not a follow-up.
 
 ## Intentionally out
 
@@ -46,3 +44,4 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - `DOMAINS_DRIVER=cloudfront-tenants` creates and updates a distribution tenant and its managed certificate, then reads the certificate status into the DNS checklist. `none` stays the local default.
 - `SEED_DEMO=1` publishes an example site on the Digital account. Chat, preview, and publish work in mock mode without an import. A later publish is left in place.
 - Setup is a four-step wizard: organization, identity provider, first account, then a group-to-role mapping. `flagstage admin add`, `flagstage account create`, and `flagstage import` do the same work from a shell. See [Assign department admins](department-admins.md).
+- `pnpm e2e` signs in, imports a local fixture, sends a chat edit, opens the preview, publishes, and reads the DNS checklist. The workflow file is `docs/ci/workflows/e2e.yml`.
