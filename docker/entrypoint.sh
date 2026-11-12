@@ -3,13 +3,13 @@ set -eu
 
 if [ "${1:-web}" = "worker" ]; then
   cd /app
-  exec node --import tsx apps/worker/src/main.ts
+  exec node dist/worker.mjs
 fi
 
 if [ "${1:-web}" = "flagstage" ]; then
   shift
   cd /app
-  exec node --import tsx apps/cli/src/main.ts "$@"
+  exec node dist/cli.mjs "$@"
 fi
 
 cd /srv

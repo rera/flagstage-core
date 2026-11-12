@@ -6,7 +6,7 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 ## Fix before calling the demo done
 
-1. **The image runs, and it is not small.** `docker compose up` starts Postgres, the web app, and the worker. The demo signs in as `demo@example.com` / `demo-demo-demo` and shows the two seeded accounts. The web process is the Next.js standalone server, bound to `0.0.0.0` so the image health check can reach it. The worker still runs `node --import tsx` against TypeScript, and the image copies the whole workspace install so those links resolve. A production image would compile the worker and leave the workspace out. The single-VM compose file is for evaluation only. The image is not published.
+1. **The image is local only.** `docker image ls` reports 428MB, down from 2.8GB. `docker image inspect` reports 101,331,623 bytes, down from 682,365,327. The worker and the CLI are bundled JavaScript, the web process is the Next.js standalone server, and the container user is uid 10001. Nothing publishes the image. The single-VM compose file is for evaluation only.
 
 ## What mature projects have that this repo does not
 
@@ -45,3 +45,4 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - `SEED_DEMO=1` publishes an example site on the Digital account. Chat, preview, and publish work in mock mode without an import. A later publish is left in place.
 - Setup is a four-step wizard: organization, identity provider, first account, then a group-to-role mapping. `flagstage admin add`, `flagstage account create`, and `flagstage import` do the same work from a shell. See [Assign department admins](department-admins.md).
 - `pnpm e2e` signs in, imports a local fixture, sends a chat edit, opens the preview, publishes, and reads the DNS checklist. The workflow file is `docs/ci/workflows/e2e.yml`.
+- The runtime image no longer copies the workspace or runs TypeScript through `tsx`. Displayed size went from 2.8GB to 428MB.

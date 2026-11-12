@@ -1,5 +1,7 @@
 node_modules
 **/.next
 .git
+dist
+e2e
 infra/opentofu/**/.terraform
 **/*.tsbuildinfo
