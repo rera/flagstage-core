@@ -3,7 +3,7 @@
 # Build: docker build -f docker/Dockerfile -t flagstage-core .
 # Nothing in this file pushes the image.
 
-FROM node:22-bookworm-slim AS build
+FROM node:25-bookworm-slim AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable
@@ -16,7 +16,7 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @flagstage/web build
 RUN node docker/bundle.mjs
 
-FROM node:22-bookworm-slim AS runtime
+FROM node:25-bookworm-slim AS runtime
 ARG OPENCODE_VERSION=2.2.7
 ARG OPENCODE_SHA256=89a6cee227b54bc011179c528a5e63176032462b1a5e21723b616801cddc2ca7
 RUN apt-get update \
