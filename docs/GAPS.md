@@ -16,7 +16,7 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 3. **Strings live in one JSON file.** `t()` reads `packages/ui/src/messages/en.json`. next-intl is not wired, so there is no locale switch and no extraction pipeline. Version times are ISO strings, not `Intl` formatters.
 
-4. **CI workflows sit in `docs/ci/workflows/`.** They are not under `.github/workflows/` because this branch lives in a private repository where those files would run. Move them when the public repository exists. The OpenTofu examples point at `github.com/rera/flagstage` `core/main` for the same reason. Point them at `github.com/rera/flagstage-core` and a release tag when that repository exists.
+4. **CI workflows sit in `docs/ci/workflows/`.** They are not under `.github/workflows/` because this branch lives in a private repository where those files would run. Move them when the public repository exists.
 
 5. **The release recipe is written and not wired.** [docs/ci/release.md](ci/release.md) uses Changesets for the version pull request and a multi-arch GHCR image on a `v*` tag. Those workflows sit in `docs/ci/workflows/` and do not run. There is no tag, no GitHub release, and no published image. `@changesets/cli` is not installed yet, so `pnpm exec changeset version` in [RELEASING.md](../RELEASING.md) does not run until that package is added. The image has not been built for `linux/arm64`.
 
@@ -36,14 +36,14 @@ Checked against the mature-OSS checklist. Items above are the ones that are stil
 
 - `docker compose up`, `.env.example`, and `docs/configuration.md` generated from the env schema. A first run has no sites until someone imports one.
 - Setup wizard, including a logo and a model-key check, and `flagstage doctor`.
-- `docs/index.md` links getting started, the OpenTofu deploy, configuration, roles, the DNS checklist, importing, upgrading, backup, architecture, troubleshooting, and the FAQ. A docs site is explicitly later.
+- `docs/index.md` links getting started, the CloudFormation deploy, configuration, roles, the DNS checklist, importing, upgrading, backup, architecture, troubleshooting, and the FAQ. A docs site is explicitly later.
 - README: screenshot, license and Discussions badges, features, quickstart, comparison, roadmap, community, contributing, security, license, trademarks, and the hosted option. `ROADMAP.md` points at Discussions.
 - `/api/health` and `/api/ready` (database, storage, and that the `pgboss` schema exists).
 - RDS backups of 7 days, S3 versioning, `docs/backup-restore.md`, and `flagstage site export`.
 - Migrations at boot behind an advisory lock. `docs/upgrading.md`. Changelog section for 0.1.0, unreleased, with no breaking changes yet.
 - Optional SMTP, console when it is unset.
 - Image: multi-stage, uid 10001, healthcheck, OCI source and license labels.
-- OpenTofu `examples/minimal`, `examples/existing-vpc`, and the cost table. Helm is later.
+- CloudFormation in `infra/cloudformation`, deployed with `./deploy.sh`. Helm is later.
 - `docs/roles.md` matches the `can()` roles. `LICENSE`, `NOTICE`, `TRADEMARKS.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CONTRIBUTING.md`, issue forms, discussion forms, the pull request template, and `docs/contributing/starter-issues.md`.
 - "Powered by Flagstage" is in the app footer. Published HTML is the snapshot, not that layout. README and the docs index carry `copy-review: required before announce`.
 
@@ -65,4 +65,4 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - Accounts, sites, versions, form submissions, and analytics each show an empty state with one next action. Focus is visible on links, buttons, and fields, and the first Tab stop is "Skip to content". `pnpm e2e` runs axe.
 - `flagstage member add` grants an account role. `flagstage user reset-password` works in local development, and in production only with `FLAGSTAGE_BREAK_GLASS=1`. `flagstage site export <site> --out file.tgz` packs the published snapshot and `content.json`. `flagstage backup` prints the `pg_dump` and storage commands and does not call AWS.
 - Issue templates, the pull request template, `CODEOWNERS` (`@rera`), and Dependabot are in the repo. `CHANGELOG.md` follows Keep a Changelog for 0.1.0, which is unreleased. Vulnerability reports go through GitHub private reporting, as `SECURITY.md` describes. There is no `FUNDING.yml`.
-- Operator docs cover getting started, a step-by-step OpenTofu deploy, roles, the DNS checklist, upgrading, and the FAQ.
+- Operator docs cover getting started, a CloudFormation deploy, roles, the DNS checklist, upgrading, and the FAQ.

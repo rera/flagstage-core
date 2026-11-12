@@ -44,4 +44,4 @@ The first public release still needs, in the GitHub settings, and not in a workf
 - Private vulnerability reporting enabled, so `SECURITY.md` matches the repository
 - The GHCR package set to public when the repository is public
 
-No workflow in this recipe applies OpenTofu or restarts a running install.
+No workflow in this recipe deploys the CloudFormation stack or restarts a running install.

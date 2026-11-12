@@ -38,7 +38,7 @@ Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstag
 | `packages/forms`     | Lead forms                                              |
 | `packages/analytics` | Beacon, collect, rollups                                |
 | `packages/ui`        | Shared primitives and the English message catalog       |
-| `infra/opentofu`     | AWS module. Never applied from CI in this repo's build. |
+| `infra/cloudformation` | CloudFormation stack. `./deploy.sh` is not run from CI. |
 | `docs/`              | Self-hosting and operator docs                          |
 
 ## Conventions

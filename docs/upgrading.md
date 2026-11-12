@@ -18,7 +18,7 @@ docker compose pull
 docker compose up -d
 ```
 
-That file is not the production layout. On AWS, update the image in the OpenTofu example and apply, or roll the ECS service to the new image. The module does not apply itself from this repository.
+That file is not the production layout. On AWS, run `./deploy.sh` again with the new image, or roll the ECS service to it. This repository does not deploy from CI.
 
 ## Rolling back
 

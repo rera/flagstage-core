@@ -18,11 +18,13 @@ import { rollbackTo } from "@flagstage/publish";
 import { changeRequest, siteDomain, snapshot } from "@flagstage/db";
 import {
   checkDnsRecords,
+  cloudfrontKeyValueStore,
   domainStatus,
   isValidHostname,
   normalizeHostname,
   publicDnsLookup,
   selectDomainsDriver,
+  writeHostPrefix,
   type DnsRecord
 } from "@flagstage/domains";
 
@@ -49,6 +51,19 @@ const MODEL_DETAIL: Record<
 
 function appUrl() {
   return loadConfig().APP_URL;
+}
+
+function liveHost(slug: string) {
+  const config = loadConfig();
+  const domain = config.NODE_ENV === "production" ? config.product?.domain : undefined;
+  return domain ? `${slug}.${domain}` : `${slug}.localhost`;
+}
+
+async function publishHostMap(host: string | undefined, prefix: string | undefined) {
+  if (!host || !prefix) return;
+  const config = loadConfig();
+  if (config.HOSTMAP_DRIVER !== "cloudfront-kvs" || !config.CLOUDFRONT_KVS_ARN) return;
+  await writeHostPrefix(cloudfrontKeyValueStore(config.CLOUDFRONT_KVS_ARN), host, prefix);
 }
 
 function nextPath(formData: FormData, fallback: string) {
@@ -218,10 +233,11 @@ export async function approveSiteAction(formData: FormData) {
     db: database(),
     siteId,
     snapshotId,
-    host: `${found.slug}.localhost`,
+    host: liveHost(found.slug),
     prefix: snapshotPrefix(siteId, snapshotId),
     hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`
   });
+  await publishHostMap(liveHost(found.slug), snapshotPrefix(siteId, snapshotId));
   redirect(`/sites/${siteId}`);
 }
 
@@ -295,16 +311,19 @@ export async function approveChangeAction(formData: FormData) {
   const config = loadConfig();
   const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
   const found = rows[0];
-  await approveChange({
+  const published = await approveChange({
     db: database(),
     store: createBlobStore(config),
     changeRequestId: String(formData.get("changeRequestId") ?? ""),
     actorUserId: principal.id,
-    host: found ? `${found.slug}.localhost` : undefined,
+    host: found ? liveHost(found.slug) : undefined,
     hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`,
     runner: editor(),
     appOrigin: config.APP_URL
   });
+  if (published.ok && found) {
+    await publishHostMap(liveHost(found.slug), snapshotPrefix(siteId, published.snapshotId));
+  }
   redirect(`/sites/${siteId}`);
 }
 
@@ -327,10 +346,11 @@ export async function rollbackAction(formData: FormData) {
     siteId,
     toSnapshotId: snapshotId,
     actorUserId: principal.id,
-    host: found ? `${found.slug}.localhost` : undefined,
+    host: found ? liveHost(found.slug) : undefined,
     hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`,
     prefix: snaps[0]?.storagePrefix
   });
+  await publishHostMap(found ? liveHost(found.slug) : undefined, snaps[0]?.storagePrefix);
   redirect(`/sites/${siteId}`);
 }
 

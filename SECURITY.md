@@ -19,7 +19,7 @@ We aim to acknowledge a report within 3 business days and to ship a fix or a mit
 
 ## Scope
 
-In scope: the application, the worker, the container image, the OpenTofu module, authentication, the import fetcher, preview tokens, and publish compare-and-swap.
+In scope: the application, the worker, the container image, the CloudFormation stack, authentication, the import fetcher, preview tokens, and publish compare-and-swap.
 
 Out of scope: vulnerabilities that require a compromised host, a leaked `BETTER_AUTH_SECRET`, or a model provider account you configured yourself. The coding agent is intentionally limited to files in a temp directory; a report that it can edit those files is expected.
 

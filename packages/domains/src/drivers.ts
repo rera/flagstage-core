@@ -1,3 +1,9 @@
+import {
+  CloudFrontKeyValueStoreClient,
+  DescribeKeyValueStoreCommand,
+  UpdateKeysCommand
+} from "@aws-sdk/client-cloudfront-keyvaluestore";
+
 import type { DnsRecord } from "./records";
 import { goLiveRecords, recordsForHostname } from "./records";
 
@@ -131,6 +137,22 @@ export function memoryKeyValueStore(): KeyValueWriter & { entries: Map<string, s
     entries,
     async put(key, value) {
       entries.set(key, value);
+    }
+  };
+}
+
+export function cloudfrontKeyValueStore(arn: string): KeyValueWriter {
+  const client = new CloudFrontKeyValueStoreClient({ region: "us-east-1" });
+  return {
+    async put(key, value) {
+      const described = await client.send(new DescribeKeyValueStoreCommand({ KvsARN: arn }));
+      await client.send(
+        new UpdateKeysCommand({
+          KvsARN: arn,
+          IfMatch: described.ETag,
+          Puts: [{ Key: key, Value: value }]
+        })
+      );
     }
   };
 }

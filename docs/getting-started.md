@@ -2,7 +2,7 @@
 
 # Getting started
 
-Flagstage Core imports a site, takes change requests in chat, and publishes a static snapshot. This page is the local path. A production install is [Deploy on AWS](self-hosting/aws-opentofu.md).
+Flagstage Core imports a site, takes change requests in chat, and publishes a static snapshot. This page is the local path. A production install is [Deploy on AWS](self-hosting/aws.md).
 
 You need Docker, and nothing else, for the evaluation stack. Node.js 22 and pnpm 10 are only for running from a checkout.
 
@@ -19,7 +19,7 @@ Compose starts Postgres, the web app, and the worker. A first run is empty. `adm
 
 Open http://localhost:3000 and sign in with the one-time link from the web log. Import a site before chat, preview, and publish have anything to work on.
 
-`docker compose` is for evaluation. It has no failover, and it serves the live site from the app process. Use the OpenTofu module for a real deployment.
+`docker compose` is for evaluation. It has no failover. Use `./deploy.sh` for a real deployment. Published sites are not served by the app.
 
 ## Import a site from the shell
 
@@ -38,7 +38,7 @@ Then open the site in the app, choose Go live, and ask for a change in chat. App
 
 | You want to…               | Read                                                                                     |
 | -------------------------- | ---------------------------------------------------------------------------------------- |
-| Put it on AWS              | [Deploy on AWS](self-hosting/aws-opentofu.md)                                            |
+| Put it on AWS              | [Deploy on AWS](self-hosting/aws.md)                                            |
 | Sign people in             | Email and password. The first admin is `adminEmail` in `flagstage.config.json`, or `flagstage admin add`. |
 | Point a hostname at a site | [DNS checklist](domains.md)                                                              |
 | Upgrade later              | [Upgrading](upgrading.md)                                                                |

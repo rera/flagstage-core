@@ -49,7 +49,7 @@ pnpm dev
 
 ## Self-hosting
 
-The supported install is one container service on AWS, described in [docs/self-hosting/aws-opentofu.md](docs/self-hosting/aws-opentofu.md) and built by the OpenTofu module in `infra/opentofu`. You create the DNS records the module prints. Core does not talk to a registrar.
+The supported install is one container service on AWS, described in [docs/self-hosting/aws.md](docs/self-hosting/aws.md). `./deploy.sh` builds the image and deploys the CloudFormation stack. Delegate the name servers it prints. Core does not talk to a registrar.
 
 A single virtual machine with Compose is [evaluation only](docs/self-hosting/single-vm.md).
 

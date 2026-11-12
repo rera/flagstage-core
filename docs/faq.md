@@ -24,7 +24,7 @@ Hosted Flagstage is the operated service at https://flagstage.com. This reposito
 
 ## Can we run Compose in production?
 
-Compose is the local demo and an evaluation install. The supported production layout is the OpenTofu module. See [Deploy on AWS](self-hosting/aws-opentofu.md).
+Compose is the local demo and an evaluation install. The supported production layout is the CloudFormation stack. See [Deploy on AWS](self-hosting/aws.md).
 
 ## Where does data live?
 

@@ -2,6 +2,7 @@ export { checkDnsRecords, publicDnsLookup } from "./dns-check";
 export type { DnsLookup } from "./dns-check";
 export {
   cloudfrontDriver,
+  cloudfrontKeyValueStore,
   domainStatus,
   dueForRecheck,
   memoryKeyValueStore,

@@ -2,7 +2,7 @@
 
 ## Database
 
-The OpenTofu module turns on 7 days of automated RDS backups. For a copy you can move:
+The CloudFormation stack turns on 7 days of automated RDS backups. For a copy you can move:
 
 ```bash
 pg_dump "$DATABASE_URL" --format=custom --file=flagstage.dump

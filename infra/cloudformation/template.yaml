@@ -1,0 +1,858 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Flagstage Core. One VPC, one Fargate service (web and worker), RDS Postgres,
+  a private S3 bucket, and CloudFront in front of published sites. The stack
+  creates the hosted zone, the certificate, the auth secret, and the SES
+  identity. Deploy this stack in us-east-1 so CloudFront can use the certificate.
+  No account ids are hardcoded.
+
+Parameters:
+  Domain:
+    Type: String
+    Description: Public domain, such as sites.example.com. The stack creates a hosted zone for it.
+    AllowedPattern: "^[a-z0-9][a-z0-9.-]+[a-z0-9]$"
+  BedrockModelId:
+    Type: String
+    Description: Amazon Bedrock model id the editor calls.
+    Default: amazon.nova-micro-v1:0
+  SesFrom:
+    Type: String
+    Description: From address for invite, password reset, and form mail.
+  Image:
+    Type: String
+    Description: ECR image URI for the web and worker containers.
+  Name:
+    Type: String
+    Default: flagstage
+    AllowedPattern: "^[a-z][a-z0-9-]{1,20}$"
+    Description: Short prefix for resource names.
+
+Resources:
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Ref Domain
+
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref Domain
+      SubjectAlternativeNames:
+        - !Sub "*.${Domain}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref Domain
+          HostedZoneId: !Ref HostedZone
+        - DomainName: !Sub "*.${Domain}"
+          HostedZoneId: !Ref HostedZone
+
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Name}-vpc"
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${Name}-igw"
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.0.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Name}-public-a"
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Name}-public-b"
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.10.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub "${Name}-private-a"
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.11.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub "${Name}-private-b"
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Name}-public"
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicRouteAssociationA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicRouteAssociationB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Name}-private"
+
+  PrivateRouteAssociationA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateRouteAssociationB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      RouteTableId: !Ref PrivateRouteTable
+
+  S3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref Vpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PublicRouteTable
+        - !Ref PrivateRouteTable
+
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public web load balancer
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Fargate tasks
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Postgres from the tasks only
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref TaskSecurityGroup
+
+  DatabasePassword:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${Name}/database-password"
+      GenerateSecretString:
+        PasswordLength: 32
+        ExcludePunctuation: true
+
+  DatabaseUrl:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${Name}/database-url"
+      SecretString: !Sub
+        - "postgres://flagstage:${Password}@${Host}:5432/flagstage"
+        - Password: "{{resolve:secretsmanager:${DatabasePassword}:SecretString}}"
+          Host: !GetAtt Database.Endpoint.Address
+
+  AuthSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${Name}/auth-secret"
+      Description: Better Auth secret. Generated by the stack. Not in flagstage.config.json.
+      GenerateSecretString:
+        PasswordLength: 48
+        ExcludePunctuation: true
+
+  SitesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${Name}-sites"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  HostMap:
+    Type: AWS::CloudFront::KeyValueStore
+    Properties:
+      Name: !Sub "${Name}-hosts"
+      Comment: Hostname to live snapshot prefix
+
+  ViewerRequestFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub "${Name}-viewer-request"
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Rewrite the host onto the live snapshot prefix
+        Runtime: cloudfront-js-2.0
+        KeyValueStoreAssociations:
+          - KeyValueStoreARN: !GetAtt HostMap.Arn
+      FunctionCode: |
+          // Ported from rera/flagstage infrastructure/026-custom-domains/template.yaml @ 27a19bd0c040d40ce2356d6758bb7127657ab782
+          import cf from "cloudfront";
+          var kvsHandle = cf.kvs();
+
+          function notFound() {
+            return {
+              statusCode: 404,
+              statusDescription: "Not Found",
+              headers: {
+                "content-type": { value: "text/plain; charset=utf-8" }
+              },
+              body: "Not Found"
+            };
+          }
+
+          async function handler(event) {
+            var request = event.request;
+            var hostHeader = request.headers.host;
+            if (!hostHeader || !hostHeader.value) {
+              return notFound();
+            }
+            var host = hostHeader.value.toLowerCase();
+            var colon = host.indexOf(":");
+            if (colon !== -1) {
+              host = host.substring(0, colon);
+            }
+            var prefix;
+            try {
+              prefix = await kvsHandle.get(host);
+            } catch (err) {
+              return notFound();
+            }
+            if (!prefix) {
+              return notFound();
+            }
+            if (prefix.charAt(prefix.length - 1) !== "/") {
+              prefix = prefix + "/";
+            }
+            var uri = request.uri;
+            try {
+              uri = decodeURIComponent(uri);
+            } catch (err) {
+              return notFound();
+            }
+            if (uri.indexOf("\\") !== -1) {
+              return notFound();
+            }
+            var parts = uri.split("/");
+            for (var i = 0; i < parts.length; i++) {
+              if (parts[i] === "." || parts[i] === "..") {
+                return notFound();
+              }
+            }
+            if (uri === "/" || uri === "") {
+              request.uri = "/" + prefix + "index.html";
+              return request;
+            }
+            if (uri.charAt(0) === "/") {
+              uri = uri.substring(1);
+            }
+            if (uri.charAt(uri.length - 1) === "/") {
+              request.uri = "/" + prefix + uri + "index.html";
+              return request;
+            }
+            var lastSlash = uri.lastIndexOf("/");
+            var lastSeg = lastSlash === -1 ? uri : uri.substring(lastSlash + 1);
+            if (lastSeg.indexOf(".") === -1) {
+              request.uri = "/" + prefix + uri + "/index.html";
+              return request;
+            }
+            request.uri = "/" + prefix + uri;
+            return request;
+          }
+  ViewerResponseFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub "${Name}-viewer-response"
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Set content type and cache headers
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+          // Ported from rera/flagstage infrastructure/026-custom-domains/template.yaml @ 27a19bd0c040d40ce2356d6758bb7127657ab782
+          var CONTENT_TYPES = {
+            html: "text/html; charset=utf-8",
+            htm: "text/html; charset=utf-8",
+            css: "text/css; charset=utf-8",
+            js: "application/javascript; charset=utf-8",
+            mjs: "application/javascript; charset=utf-8",
+            json: "application/json; charset=utf-8",
+            map: "application/json; charset=utf-8",
+            webmanifest: "application/manifest+json; charset=utf-8",
+            xml: "application/xml; charset=utf-8",
+            txt: "text/plain; charset=utf-8",
+            csv: "text/csv; charset=utf-8",
+            svg: "image/svg+xml",
+            png: "image/png",
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            gif: "image/gif",
+            webp: "image/webp",
+            avif: "image/avif",
+            ico: "image/x-icon",
+            woff2: "font/woff2",
+            woff: "font/woff",
+            ttf: "font/ttf",
+            otf: "font/otf",
+            eot: "application/vnd.ms-fontobject",
+            pdf: "application/pdf",
+            mp4: "video/mp4",
+            webm: "video/webm",
+            mp3: "audio/mpeg",
+            wasm: "application/wasm"
+          };
+
+          function snapshotRelative(uri) {
+            var marker = "/snapshots/";
+            var at = uri.indexOf(marker);
+            if (at === -1) {
+              return "";
+            }
+            var rest = uri.substring(at + marker.length);
+            var slash = rest.indexOf("/");
+            if (slash === -1) {
+              return "";
+            }
+            return rest.substring(slash + 1);
+          }
+
+          function contentType(filename) {
+            var slash = filename.lastIndexOf("/");
+            var base = slash === -1 ? filename : filename.substring(slash + 1);
+            var dot = base.lastIndexOf(".");
+            var ext = dot === -1 ? "" : base.substring(dot + 1).toLowerCase();
+            return CONTENT_TYPES[ext] || "application/octet-stream";
+          }
+
+          function cacheControl(filename) {
+            var lower = filename.toLowerCase();
+            if (lower.substring(lower.length - 5) === ".html") {
+              return "no-cache";
+            }
+            if (lower.indexOf("assets/") === 0) {
+              return "public, max-age=31536000, immutable";
+            }
+            if (/\.(css|js|mjs|map|png|jpe?g|gif|webp|svg|avif|ico|woff2?|ttf|eot|pdf|xml|json|txt)$/i.test(lower)) {
+              return "public, max-age=86400";
+            }
+            return "no-store";
+          }
+
+          function handler(event) {
+            var response = event.response;
+            if (!response || (response.statusCode !== 200 && response.statusCode !== 206 && response.statusCode !== 304)) {
+              return response;
+            }
+            var request = event.request || {};
+            var relative = snapshotRelative(request.uri || "");
+            if (!relative) {
+              return response;
+            }
+            if (!response.headers) {
+              response.headers = {};
+            }
+            response.headers["content-type"] = { value: contentType(relative) };
+            response.headers["cache-control"] = { value: cacheControl(relative) };
+            return response;
+          }
+  SitesDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "${Name} published sites"
+        Aliases:
+          - !Sub "*.${Domain}"
+        Origins:
+          - Id: sites
+            DomainName: !GetAtt SitesBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        DefaultCacheBehavior:
+          TargetOriginId: sites
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt ViewerRequestFunction.FunctionARN
+            - EventType: viewer-response
+              FunctionARN: !GetAtt ViewerResponseFunction.FunctionARN
+        ViewerCertificate:
+          AcmCertificateArn: !Ref Certificate
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        HttpVersion: http2
+        IPV6Enabled: true
+
+  SitesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SitesBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFront
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${SitesBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${SitesDistribution}"
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/flagstage/${Name}"
+      RetentionInDays: 14
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Name}-task"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: task
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: Snapshots
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt SitesBucket.Arn
+                  - !Sub "${SitesBucket.Arn}/*"
+              - Sid: HostMap
+                Effect: Allow
+                Action:
+                  - cloudfront-keyvaluestore:DescribeKeyValueStore
+                  - cloudfront-keyvaluestore:GetKey
+                  - cloudfront-keyvaluestore:ListKeys
+                  - cloudfront-keyvaluestore:PutKey
+                  - cloudfront-keyvaluestore:UpdateKeys
+                Resource: !GetAtt HostMap.Arn
+              - Sid: Bedrock
+                Effect: Allow
+                # InvokeModel authorizes the Converse API. The task role has no model API key.
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/*"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/*"
+              - Sid: Mail
+                Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${Domain}"
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Name}-execution"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: secrets
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref DatabaseUrl
+                  - !Ref AuthSecret
+
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref Name
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref Name
+      Cpu: "1024"
+      Memory: "2048"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: web
+          Image: !Ref Image
+          Essential: true
+          Command:
+            - web
+          PortMappings:
+            - ContainerPort: 3000
+              Protocol: tcp
+          Environment:
+            - Name: APP_URL
+              Value: !Sub "https://${Domain}"
+            - Name: STORAGE_DRIVER
+              Value: s3
+            - Name: S3_BUCKET
+              Value: !Ref SitesBucket
+            - Name: S3_REGION
+              Value: !Ref AWS::Region
+            - Name: HOSTMAP_DRIVER
+              Value: cloudfront-kvs
+            - Name: CLOUDFRONT_KVS_ARN
+              Value: !GetAtt HostMap.Arn
+            - Name: DOMAINS_DRIVER
+              Value: none
+            - Name: AI_PROVIDER
+              Value: bedrock
+            - Name: AI_MODEL_SMALL
+              Value: !Ref BedrockModelId
+            - Name: AGENT_MODEL
+              Value: !Ref BedrockModelId
+            - Name: MAIL_FROM
+              Value: !Ref SesFrom
+            - Name: EMAIL_PASSWORD_ENABLED
+              Value: "1"
+            - Name: NODE_ENV
+              Value: production
+          Secrets:
+            - Name: DATABASE_URL
+              ValueFrom: !Ref DatabaseUrl
+            - Name: BETTER_AUTH_SECRET
+              ValueFrom: !Ref AuthSecret
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: web
+        - Name: worker
+          Image: !Ref Image
+          Essential: true
+          Command:
+            - worker
+          Environment:
+            - Name: APP_URL
+              Value: !Sub "https://${Domain}"
+            - Name: STORAGE_DRIVER
+              Value: s3
+            - Name: S3_BUCKET
+              Value: !Ref SitesBucket
+            - Name: S3_REGION
+              Value: !Ref AWS::Region
+            - Name: HOSTMAP_DRIVER
+              Value: cloudfront-kvs
+            - Name: CLOUDFRONT_KVS_ARN
+              Value: !GetAtt HostMap.Arn
+            - Name: DOMAINS_DRIVER
+              Value: none
+            - Name: AI_PROVIDER
+              Value: bedrock
+            - Name: AI_MODEL_SMALL
+              Value: !Ref BedrockModelId
+            - Name: AGENT_MODEL
+              Value: !Ref BedrockModelId
+            - Name: MAIL_FROM
+              Value: !Ref SesFrom
+            - Name: NODE_ENV
+              Value: production
+          Secrets:
+            - Name: DATABASE_URL
+              ValueFrom: !Ref DatabaseUrl
+            - Name: BETTER_AUTH_SECRET
+              ValueFrom: !Ref AuthSecret
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: worker
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      Subnets:
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 3000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref Vpc
+      HealthCheckPath: /api/health
+      Matcher:
+        HttpCode: "200"
+
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref Certificate
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: "443"
+            StatusCode: HTTP_301
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Private subnets for Postgres
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBInstanceIdentifier: !Sub "${Name}-db"
+      Engine: postgres
+      EngineVersion: "17.6"
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: 20
+      StorageEncrypted: true
+      DBName: flagstage
+      MasterUsername: flagstage
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DatabasePassword}:SecretString}}"
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+      BackupRetentionPeriod: 7
+      PubliclyAccessible: false
+      DeletionProtection: false
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - HttpsListener
+      - Database
+    Properties:
+      ServiceName: !Ref Name
+      Cluster: !Ref Cluster
+      DesiredCount: 1
+      LaunchType: FARGATE
+      TaskDefinition: !Ref TaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !Ref PublicSubnetA
+            - !Ref PublicSubnetB
+          SecurityGroups:
+            - !Ref TaskSecurityGroup
+      LoadBalancers:
+        - ContainerName: web
+          ContainerPort: 3000
+          TargetGroupArn: !Ref TargetGroup
+
+  AppAlias:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Ref Domain
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancer.DNSName
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+        EvaluateTargetHealth: true
+
+  SitesAlias:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Sub "*.${Domain}"
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt SitesDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+        EvaluateTargetHealth: false
+
+  MailIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref Domain
+
+  DkimRecord1:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !GetAtt MailIdentity.DkimDNSTokenName1
+      Type: CNAME
+      TTL: 300
+      ResourceRecords:
+        - !GetAtt MailIdentity.DkimDNSTokenValue1
+
+  DkimRecord2:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !GetAtt MailIdentity.DkimDNSTokenName2
+      Type: CNAME
+      TTL: 300
+      ResourceRecords:
+        - !GetAtt MailIdentity.DkimDNSTokenValue2
+
+  DkimRecord3:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !GetAtt MailIdentity.DkimDNSTokenName3
+      Type: CNAME
+      TTL: 300
+      ResourceRecords:
+        - !GetAtt MailIdentity.DkimDNSTokenValue3
+
+Outputs:
+  NameServers:
+    Description: Delegate the domain to these name servers.
+    Value: !Join [", ", !GetAtt HostedZone.NameServers]
+  AppUrl:
+    Description: App URL after the name servers are delegated.
+    Value: !Sub "https://${Domain}"
+  CloudFrontDomain:
+    Description: CloudFront domain. Site hostnames under the domain alias here.
+    Value: !GetAtt SitesDistribution.DomainName
+  BucketName:
+    Description: Private bucket that holds published snapshots.
+    Value: !Ref SitesBucket
+  HostedZoneId:
+    Description: Hosted zone id.
+    Value: !Ref HostedZone

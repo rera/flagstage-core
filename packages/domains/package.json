@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-cloudfront": "^3.940.0",
+    "@aws-sdk/client-cloudfront-keyvaluestore": "3.940.0",
     "@flagstage/db": "workspace:*",
     "drizzle-orm": "^0.45.1"
   },

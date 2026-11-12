@@ -26,7 +26,7 @@ A trailing dot on a DNS name is ignored, and the comparison is case-insensitive.
 
 `DOMAINS_DRIVER=none`, the local default, does not create a tenant. The checklist still shows the routing record, and the status can become `active` once that record resolves. There is no certificate row.
 
-`DOMAINS_DRIVER=cloudfront-tenants` creates the distribution tenant and a managed certificate when you add the hostname, updates them when you save it again, and reads the certificate status back on Check again. The OpenTofu module sets this driver. You still create the records yourself. Nothing in the checklist calls a registrar.
+Published sites on the configured domain are `https://{slug}.{domain}` and are served by CloudFront. A hostname you add still needs the DNS records in the checklist. Nothing in the checklist calls a registrar. The stack does not create a distribution tenant per hostname.
 
 ## Order that works
 

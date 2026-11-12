@@ -17,7 +17,7 @@ body:
       label: Deployment
       options:
         - Docker Compose (local or evaluation)
-        - OpenTofu on AWS
+        - CloudFormation on AWS
         - Other
     validations:
       required: true

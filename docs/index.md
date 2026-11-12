@@ -10,7 +10,7 @@ Flagstage Core is the self-hosted edition. An organization runs accounts. An acc
 | [Development](development.md)                 | Local app, tests, and the demo                   |
 | [Configuration](configuration.md)             | Every environment variable                       |
 | [Architecture](architecture.md)               | Processes, storage, and the static plane         |
-| [Deploy on AWS](self-hosting/aws-opentofu.md) | OpenTofu, step by step                           |
+| [Deploy on AWS](self-hosting/aws.md)          | CloudFormation, step by step                     |
 | [Single VM](self-hosting/single-vm.md)        | Compose, evaluation only                         |
 | [Account admins](account-admins.md)            | Invite the people who run an account             |
 | [Roles](roles.md)                             | Who can do what                                  |
