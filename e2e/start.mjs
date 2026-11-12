@@ -141,7 +141,6 @@ const env = {
   DATABASE_URL: databaseUrl,
   BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? "local-dev-secret-that-is-long-enough",
   APP_URL: `http://127.0.0.1:${port}`,
-  PREVIEW_DOMAIN: "localhost",
   STORAGE_DRIVER: "fs",
   FS_STORAGE_DIR: storageDir,
   HOSTMAP_DRIVER: "fs",

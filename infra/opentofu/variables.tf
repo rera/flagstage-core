@@ -15,11 +15,6 @@ variable "app_domain" {
   description = "Hostname for the Flagstage Core app, such as sites.example.com."
 }
 
-variable "preview_domain" {
-  type        = string
-  description = "Domain whose wildcard (*.preview.example.com) serves previews on the load balancer."
-}
-
 variable "image" {
   type        = string
   description = "Container image for the web and worker containers. Nothing is published by this repository; the default is a name placeholder."
@@ -89,6 +84,6 @@ variable "create_route53_records" {
 
 variable "route53_zone_id" {
   type        = string
-  description = "Hosted zone for app_domain and preview_domain. Required when create_route53_records is true."
+  description = "Hosted zone for app_domain. Required when create_route53_records is true."
   default     = null
 }

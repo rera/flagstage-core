@@ -39,7 +39,6 @@ export const envSchema = z
     DATABASE_URL: z.string().min(1),
     BETTER_AUTH_SECRET: z.string().min(32),
     APP_URL: z.string().url(),
-    PREVIEW_DOMAIN: z.string().min(1),
     STORAGE_DRIVER: z.enum(["fs", "s3"]).default("fs"),
     S3_BUCKET: optionalString,
     S3_REGION: optionalString,

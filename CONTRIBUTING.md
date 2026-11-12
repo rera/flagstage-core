@@ -22,7 +22,7 @@ Open http://localhost:3000. The first admin comes from `BOOTSTRAP_ADMIN_EMAIL`. 
 
 | Path                 | What it is                                              |
 | -------------------- | ------------------------------------------------------- |
-| `apps/web`           | Next.js UI, API, auth, preview host, dev live host      |
+| `apps/web`           | Next.js UI, API, auth, and auth-gated previews          |
 | `apps/worker`        | pg-boss consumers                                       |
 | `apps/cli`           | `flagstage` admin CLI                                   |
 | `packages/config`    | Environment schema. Docs are generated from it.         |

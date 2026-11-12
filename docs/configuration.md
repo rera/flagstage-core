@@ -15,7 +15,6 @@ rejected when `NODE_ENV=production`.
 | `DATABASE_URL` | yes | `` | Postgres connection string. Required at boot. |
 | `BETTER_AUTH_SECRET` | yes | `` | Session signing secret. At least 32 characters. Required. Never commit a production value. |
 | `APP_URL` | yes | `` | Public origin of the app, including scheme and no trailing slash. |
-| `PREVIEW_DOMAIN` | yes | `` | Domain that serves previews. Locally this is localhost, so a preview host looks like slug--token.localhost. |
 | `STORAGE_DRIVER` | no | `fs` | Where snapshots and media are stored. fs for local disk, s3 for any S3-compatible store. |
 | `S3_BUCKET` | no | `` | Bucket name. Required when STORAGE_DRIVER=s3. |
 | `S3_REGION` | no | `` | Region for the S3 client. Required when STORAGE_DRIVER=s3. |

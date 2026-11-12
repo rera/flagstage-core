@@ -19,7 +19,6 @@ module "flagstage" {
   source = "git::https://github.com/rera/flagstage.git//infra/opentofu?ref=core/main"
 
   app_domain            = "sites.example.com"
-  preview_domain        = "preview.example.com"
   db_password           = "replace-with-a-long-password"
   better_auth_secret    = "replace-me-with-32-chars-minimum-secret"
   image                 = "ghcr.io/rera/flagstage-core:latest"

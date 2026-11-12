@@ -51,9 +51,8 @@ resource "aws_vpc_endpoint" "s3" {
 }
 
 resource "aws_acm_certificate" "app" {
-  domain_name               = var.app_domain
-  subject_alternative_names = ["*.${var.preview_domain}"]
-  validation_method         = "DNS"
+  domain_name       = var.app_domain
+  validation_method = "DNS"
 
   tags = {
     Name = var.app_domain
@@ -107,7 +106,6 @@ module "service" {
   public_subnet_ids         = local.public_subnet_ids
   image                     = var.image
   app_domain                = var.app_domain
-  preview_domain            = var.preview_domain
   certificate_arn           = aws_acm_certificate.app.arn
   task_role_arn             = module.iam.task_role_arn
   execution_role_arn        = module.iam.execution_role_arn
@@ -136,15 +134,6 @@ resource "aws_route53_record" "app" {
     zone_id                = module.service.alb_zone_id
     evaluate_target_health = true
   }
-}
-
-resource "aws_route53_record" "preview" {
-  count   = var.create_route53_records ? 1 : 0
-  zone_id = var.route53_zone_id
-  name    = "*.${var.preview_domain}"
-  type    = "CNAME"
-  ttl     = 300
-  records = [module.service.alb_dns_name]
 }
 
 resource "aws_route53_record" "cert" {

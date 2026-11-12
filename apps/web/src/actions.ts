@@ -117,7 +117,7 @@ export async function saveOrganization(formData: FormData) {
     .set({
       name,
       baseDomain,
-      previewDomain: baseDomain,
+      previewDomain: "",
       configuredAt: new Date(),
       updatedAt: new Date(),
       ...(logoUrl ? { logoUrl } : {})

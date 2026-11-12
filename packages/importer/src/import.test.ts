@@ -15,14 +15,7 @@ import { account, importRun, leadForm, site, siteRedirect, type Database } from 
 import * as fullSchema from "@flagstage/db";
 import type { BlobStore, StoredObject } from "@flagstage/storage";
 
-import {
-  approveImport,
-  crawlSite,
-  previewFromHost,
-  runImport,
-  slugFromHost,
-  storeCrawl
-} from "./index";
+import { approveImport, crawlSite, runImport, storeCrawl } from "./index";
 
 const html = `<!doctype html><html><head>
 <style>.hero{background:url(/wp-content/uploads/bg.png)}</style>
@@ -68,16 +61,7 @@ async function applyMigrations(client: PGlite) {
   }
 }
 
-describe("WordPress import", () => {
-  it("maps a group host", () => {
-    expect(slugFromHost("demo.localhost:3000", "localhost")).toBe("demo");
-    expect(slugFromHost("localhost:3000", "localhost")).toBeNull();
-    expect(previewFromHost("demo--token.localhost:3000", "localhost")).toEqual({
-      slug: "demo",
-      token: "token"
-    });
-  });
-
+describe("site import", () => {
   it("imports a fixture site, records redirects and the form, and goes live on approval", async () => {
     const server = createServer((request, response) => {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");

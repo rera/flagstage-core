@@ -37,14 +37,6 @@ export const ENV_FIELDS = [
     example: "http://localhost:3000"
   },
   {
-    name: "PREVIEW_DOMAIN",
-    description:
-      "Domain that serves previews. Locally this is localhost, so a preview host looks like slug--token.localhost.",
-    requirement: "always",
-    secret: false,
-    example: "localhost"
-  },
-  {
     name: "STORAGE_DRIVER",
     description:
       "Where snapshots and media are stored. fs for local disk, s3 for any S3-compatible store.",
@@ -149,8 +141,7 @@ export const ENV_FIELDS = [
   },
   {
     name: "AI_API_KEY",
-    description:
-      "Bring-your-own model API key. Bedrock may use the task role instead of a key.",
+    description: "Bring-your-own model API key. Bedrock may use the task role instead of a key.",
     requirement: "optional",
     secret: true,
     example: ""

@@ -38,12 +38,6 @@ output "dns_records" {
       purpose = "Application"
     },
     {
-      name    = "*.${var.preview_domain}"
-      type    = "CNAME"
-      value   = module.service.alb_dns_name
-      purpose = "Previews"
-    },
-    {
       name    = "each site hostname"
       type    = "CNAME"
       value   = module.edge.connection_group_endpoint

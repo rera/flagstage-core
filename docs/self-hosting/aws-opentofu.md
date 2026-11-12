@@ -37,7 +37,7 @@ When the public repository exists, point that at `github.com/rera/flagstage-core
 
 Replace every example secret. Set `image` to the registry you pushed. Leave `ai_mock = "1"` until you want real edits. For real edits, set `ai_mock = "0"` and set `ai_api_key`. Set `bootstrap_admin_email` to the first admin. That address receives a one-time link in the web container logs, only while the database has no users.
 
-Leave `create_route53_records` at its default, false, unless `app_domain` and `preview_domain` both live in one Route 53 hosted zone. Then set `create_route53_records = true` and `route53_zone_id`. Site hostnames are never created by the module.
+Leave `create_route53_records` at its default, false, unless `app_domain` lives in one Route 53 hosted zone. Then set `create_route53_records = true` and `route53_zone_id`. Site hostnames are never created by the module. Previews are a path on the app hostname.
 
 ## 3. Plan
 
@@ -60,12 +60,11 @@ State stays in the example directory unless you configure a remote backend. Move
 
 ## 4. Create the app DNS records
 
-`tofu output dns_records` prints three kinds of name:
+`tofu output dns_records` prints the records to create:
 
 | Name                 | Type       | Points at                     | Purpose                                   |
 | -------------------- | ---------- | ----------------------------- | ----------------------------------------- |
 | The app hostname     | A or ALIAS | The load balancer DNS name    | The Flagstage app                         |
-| `*.{preview domain}` | CNAME      | The load balancer DNS name    | Previews                                  |
 | Each site hostname   | CNAME      | The connection-group endpoint | Published sites, created later in the app |
 
 The app certificate's validation CNAMEs show up in the AWS console until ACM marks the certificate issued. Create those too. The module does not talk to a registrar.

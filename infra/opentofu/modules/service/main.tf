@@ -28,14 +28,9 @@ variable "app_domain" {
   description = "App hostname."
 }
 
-variable "preview_domain" {
-  type        = string
-  description = "Preview domain."
-}
-
 variable "certificate_arn" {
   type        = string
-  description = "ACM certificate for the app and the preview wildcard."
+  description = "ACM certificate for the app hostname."
 }
 
 variable "task_role_arn" {
@@ -168,7 +163,6 @@ resource "aws_ecs_cluster" "main" {
 locals {
   environment = [
     { name = "APP_URL", value = "https://${var.app_domain}" },
-    { name = "PREVIEW_DOMAIN", value = var.preview_domain },
     { name = "STORAGE_DRIVER", value = "s3" },
     { name = "S3_BUCKET", value = var.bucket_name },
     { name = "S3_REGION", value = var.region },
@@ -274,7 +268,7 @@ resource "aws_ecs_service" "app" {
 }
 
 output "alb_dns_name" {
-  description = "Load balancer DNS name. Point the app hostname and the preview wildcard here."
+  description = "Load balancer DNS name. Point the app hostname here."
   value       = aws_lb.app.dns_name
 }
 

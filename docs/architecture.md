@@ -18,9 +18,9 @@ flowchart TB
   cf --> s3
 ```
 
-Live HTML is read from object storage by CloudFront. A viewer-request function reads the hostname from a KeyValueStore and rewrites the URI onto that site's current snapshot prefix. The app is not in that path. In local development the web process serves the same resolution at `http://{slug}.localhost:3000` so you can click the site without CloudFront. That is the only time the app serves live HTML.
+Live HTML is read from object storage by CloudFront. A viewer-request function reads the hostname from a KeyValueStore and rewrites the URI onto that site's current snapshot prefix. The app is not in that path. Form posts and the analytics beacon are the requests that reach the app. In local development, `node script/dev-sites.mjs` serves the published files from the host map. It is not an app route.
 
-Previews are `https://{slug}--{token}.{PREVIEW_DOMAIN}`, served by the web process, and expire.
+Previews are `{APP_URL}/preview/{token}`, served by the web process, signed-in, and they expire. There is no preview hostname.
 
 Jobs live in Postgres via pg-boss. The web process enqueues an import or a chat turn and returns. The worker runs the crawl and the editor. Chat updates use server-sent events fed by `LISTEN/NOTIFY`, and the client falls back to polling every 2 seconds. The event payload includes the import status and the thread status, so the site page reloads when a job finishes.
 

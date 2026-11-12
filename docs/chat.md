@@ -8,7 +8,7 @@ A message on a live site is checked, then either answered, held, or turned into 
 - Anything else is queued for OpenCode, which edits the snapshot and posts a preview link.
 - Approve publishes with a compare-and-swap on the live snapshot. If the live snapshot moved, the change is rebuilt from the current files and the stale preview is not published.
 - Roll back from the site page to an earlier snapshot.
-- Preview links expire. A preview host of `{slug}--{token}.localhost` is rewritten to that preview and sets a `flagstage_preview` cookie.
+- Preview links expire. A preview is `{APP_URL}/preview/{token}` and only opens for someone who can see that site.
 - The site page listens on Postgres `flagstage_chat` and also polls every 2 seconds.
 
 Sending a message stores it and queues an `agent-turn` job. The worker runs OpenCode. Approve and roll back stay on the request because they only swap the live snapshot.

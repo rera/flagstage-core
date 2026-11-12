@@ -31,7 +31,6 @@ services:
       DATABASE_URL: postgres://flagstage:flagstage@postgres:5432/flagstage
       BETTER_AUTH_SECRET: local-dev-secret-that-is-long-enough
       APP_URL: http://localhost:3000
-      PREVIEW_DOMAIN: localhost
       STORAGE_DRIVER: fs
       FS_STORAGE_DIR: /data
       HOSTMAP_DRIVER: fs
@@ -62,7 +61,6 @@ services:
       DATABASE_URL: postgres://flagstage:flagstage@postgres:5432/flagstage
       BETTER_AUTH_SECRET: local-dev-secret-that-is-long-enough
       APP_URL: http://localhost:3000
-      PREVIEW_DOMAIN: localhost
       STORAGE_DRIVER: fs
       FS_STORAGE_DIR: /data
       HOSTMAP_DRIVER: fs

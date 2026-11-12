@@ -8,8 +8,7 @@ import { ConfigError, loadConfig } from "./schema";
 const valid = {
   DATABASE_URL: "postgres://flagstage:flagstage@localhost:5432/flagstage",
   BETTER_AUTH_SECRET: "local-dev-secret-that-is-long-enough",
-  APP_URL: "http://localhost:3000",
-  PREVIEW_DOMAIN: "localhost"
+  APP_URL: "http://localhost:3000"
 };
 
 describe("loadConfig", () => {
@@ -32,7 +31,6 @@ describe("loadConfig", () => {
       expect(message).toContain("DATABASE_URL");
       expect(message).toContain("BETTER_AUTH_SECRET");
       expect(message).toContain("APP_URL");
-      expect(message).toContain("PREVIEW_DOMAIN");
     }
   });
 

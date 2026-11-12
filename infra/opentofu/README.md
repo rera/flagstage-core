@@ -49,7 +49,6 @@ Unless `create_route53_records` is true, create these records yourself:
 | Name | Type | Value |
 | --- | --- | --- |
 | The app hostname | A or ALIAS | The load balancer DNS name |
-| `*.{preview domain}` | CNAME | The load balancer DNS name |
 | Each site hostname | CNAME | The connection-group endpoint |
 | Certificate validation | CNAME | The records AWS shows for the app certificate |
 

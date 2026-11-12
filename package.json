@@ -17,6 +17,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @flagstage/web dev",
+    "dev:sites": "node script/dev-sites.mjs",
     "build": "pnpm -r --if-present run build",
     "lint": "eslint .",
     "typecheck": "pnpm -r --if-present run typecheck",
