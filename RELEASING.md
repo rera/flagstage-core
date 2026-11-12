@@ -2,6 +2,8 @@
 
 Flagstage Core uses one version for the whole repository (Changesets fixed group). Images are not published by the build in this tree. Push to a registry is a manual step until CI is approved for it.
 
+The unwired automation is [docs/ci/release.md](docs/ci/release.md): a Changesets version pull request, then a `linux/amd64` and `linux/arm64` image on GHCR. `@changesets/cli` is not installed yet. Add it before step 2 below.
+
 ## Cut a release
 
 1. Land changesets on `main`.

@@ -14,17 +14,42 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 ## Smaller, still real
 
-3. **Strings live in one JSON file.** `t()` reads `packages/ui/src/messages/en.json`. next-intl is not wired, so there is no locale switch and no extraction pipeline.
+3. **Strings live in one JSON file.** `t()` reads `packages/ui/src/messages/en.json`. next-intl is not wired, so there is no locale switch and no extraction pipeline. Version times are ISO strings, not `Intl` formatters.
 
 4. **CI workflows sit in `docs/ci/workflows/`.** They are not under `.github/workflows/` because this branch lives in a private repository where those files would run. Move them when the public repository exists. The OpenTofu examples point at `github.com/rera/flagstage` `core/main` for the same reason. Point them at `github.com/rera/flagstage-core` and a release tag when that repository exists.
 
-5. **The release recipe is written and not wired.** [docs/ci/release.md](ci/release.md) uses Changesets for the version pull request and a multi-arch GHCR image on a `v*` tag. Those workflows sit in `docs/ci/workflows/` and do not run. There is no tag, no GitHub release, and no published image. `@changesets/cli` is not installed yet.
+5. **The release recipe is written and not wired.** [docs/ci/release.md](ci/release.md) uses Changesets for the version pull request and a multi-arch GHCR image on a `v*` tag. Those workflows sit in `docs/ci/workflows/` and do not run. There is no tag, no GitHub release, and no published image. `@changesets/cli` is not installed yet, so `pnpm exec changeset version` in [RELEASING.md](../RELEASING.md) does not run until that package is added. The image has not been built for `linux/arm64`.
 
-6. **No manual screen-reader pass.** Playwright runs axe on the signed-in flow, and the empty pages name one next action. Nobody has walked the app with a screen reader.
+6. **No manual screen-reader pass.** Playwright runs axe on the signed-in flow, and the empty pages name one next action. Form fields are labelled, focus is visible, and `eslint-plugin-jsx-a11y` is on. The components are our own, not Radix. Nobody has walked the app with a screen reader.
+
+7. **HTTP logs have no request id.** pino writes JSON and `LOG_LEVEL` selects the level. A request is not stamped onto those lines.
+
+8. **Metrics are totals, not queue health.** `/api/metrics` is Prometheus text behind `METRICS_TOKEN`, and 404 when the token is unset. It counts import runs, publish events, and change requests. It does not report jobs queued or jobs failed.
+
+9. **The README has a still, not a GIF.** `docs/assets/screenshot-app.png` is the seeded example site. There is no recording of import, chat, and publish. There is no latest-release badge because nothing is tagged. A build badge waits until the workflows actually run.
+
+Section 12 of the spec still asks for a live import progress view (pages found, assets, warnings). The site page shows importing, failed, or live. The CLI verbs are `admin add`, `account create`, `member add`, and `site export`, not `create-admin` or `export-site`.
+
+## Spec §13, what is in place
+
+Checked against the mature-OSS checklist. Items above are the ones that are still open. The rest of that checklist is in the tree:
+
+- `docker compose up`, `SEED_DEMO=1`, `.env.example`, and `docs/configuration.md` generated from the env schema.
+- Setup wizard, including a logo and a model-key check, and `flagstage doctor`.
+- `docs/index.md` links getting started, the OpenTofu deploy, configuration, generic OIDC and SAML, the example-values table, roles, the DNS checklist, importing, upgrading, backup, architecture, troubleshooting, and the FAQ. A docs site is explicitly later.
+- README: screenshot, license and Discussions badges, features, quickstart, comparison, roadmap, community, contributing, security, license, trademarks, and the hosted option. `ROADMAP.md` points at Discussions.
+- `/api/health` and `/api/ready` (database, storage, and that the `pgboss` schema exists).
+- RDS backups of 7 days, S3 versioning, `docs/backup-restore.md`, and `flagstage site export`.
+- Migrations at boot behind an advisory lock. `docs/upgrading.md`. Changelog section for 0.1.0, unreleased, with no breaking changes yet.
+- Optional SMTP, console when it is unset.
+- Image: multi-stage, uid 10001, healthcheck, OCI source and license labels.
+- OpenTofu `examples/minimal`, `examples/existing-vpc`, and the cost table. Helm is later.
+- `docs/roles.md` matches the `can()` roles. `LICENSE`, `NOTICE`, `TRADEMARKS.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CONTRIBUTING.md`, issue forms, discussion forms, the pull request template, and `docs/contributing/starter-issues.md`.
+- "Powered by Flagstage" is in the app footer. Published HTML is the snapshot, not that layout. README and the docs index carry `copy-review: required before announce`.
 
 ## Intentionally out
 
-No phone-home and no update check. No billing. No inbound email, SMS, or Slack. No registrar API. No second compute platform for the agent. Those are decisions, not unfinished work.
+No phone-home and no update check. No billing. No inbound email, SMS, or Slack. No registrar API. No second compute platform for the agent. No docs site and no Helm chart in v1. No community channel besides GitHub Discussions. Those are decisions, not unfinished work.
 
 ## Closed
 
