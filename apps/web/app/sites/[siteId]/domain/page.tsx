@@ -20,7 +20,17 @@ export default async function DomainPage({ params }: { params: Promise<{ siteId:
   const canManage = can(principal, "domain.manage", { accountId: found.accountId });
   return (
     <>
-      <PageHeader title={t("domains.title")} description={found.name} />
+      <PageHeader
+        title={t("domains.title")}
+        description={found.name}
+        actions={
+          <>
+            <a href={`/sites/${found.id}`}>{found.name}</a>
+            <a href={`/sites/${found.id}/forms`}>{t("forms.title")}</a>
+            <a href={`/sites/${found.id}/analytics`}>{t("analytics.title")}</a>
+          </>
+        }
+      />
       <p>{t("domains.lead")}</p>
       {canManage ? (
         <form action={addDomainAction}>

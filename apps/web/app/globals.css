@@ -32,9 +32,26 @@ a {
 }
 a:focus-visible,
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.skip:focus {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+.skip {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 2;
+  transform: translateY(-150%);
+  background: var(--bg);
+  color: var(--ink);
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.skip:focus {
+  transform: none;
 }
 
 .shell {
@@ -174,6 +191,11 @@ input:focus-visible {
   border: 1px dashed var(--line);
   border-radius: var(--radius);
   padding: 28px;
+}
+.empty a {
+  display: inline-block;
+  margin-top: 8px;
+  font-weight: 500;
 }
 .badge {
   display: inline-flex;

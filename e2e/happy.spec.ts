@@ -1,6 +1,15 @@
-import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
 
 const fixture = `http://127.0.0.1:${process.env.E2E_FIXTURE_PORT ?? "3999"}/`;
+
+async function expectAccessible(page: Page) {
+  const results = await new AxeBuilder({ page }).analyze();
+  const serious = results.violations.filter(
+    (item) => item.impact === "serious" || item.impact === "critical"
+  );
+  expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
+}
 
 test("sign in, import, edit, preview, publish, and read the DNS checklist", async ({ page }) => {
   const stamp = Date.now().toString(36);
@@ -9,6 +18,9 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   const request = "Add a sentence that the park is open today.";
 
   await page.goto("/sign-in");
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await page.locator("body").press("Tab");
+  expect(await page.evaluate(() => document.activeElement?.classList.contains("skip"))).toBe(true);
   const signIn = page
     .locator("form")
     .filter({ has: page.getByRole("button", { name: "Sign in" }) });
@@ -16,6 +28,7 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await signIn.getByLabel("Password").fill("demo-demo-demo");
   await signIn.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/accounts/);
+  await expectAccessible(page);
 
   await page.goto("/sites");
   await page.getByLabel("Site name").fill(siteName);
@@ -28,7 +41,7 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
     await expect(page.getByRole("button", { name: "Go live" })).toBeVisible();
   }).toPass({ timeout: 60_000 });
   await page.getByRole("button", { name: "Go live" }).click();
-  await expect(page.getByText("This snapshot is live.")).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText("This snapshot is live.");
 
   await page.getByLabel("Describe the change").fill(request);
   await page.getByRole("button", { name: "Send" }).click();
@@ -50,7 +63,7 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
 
   await page.getByRole("button", { name: "Approve and publish" }).click();
   await expect(page.getByRole("button", { name: "Approve and publish" })).toHaveCount(0);
-  await expect(page.getByText("This snapshot is live.")).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText("This snapshot is live.");
 
   await page.getByRole("link", { name: "Domain" }).click();
   await expect(page.getByRole("heading", { name: "Domain" })).toBeVisible();
@@ -61,4 +74,9 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await expect(page.getByText("Not found yet")).toBeVisible();
   await page.getByRole("button", { name: "Check again" }).click();
   await expect(page.getByText("Not found yet")).toBeVisible();
+
+  await page.getByRole("link", { name: "Forms" }).click();
+  await expect(page.getByRole("heading", { name: "No form submissions" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open the site" })).toBeVisible();
+  await expectAccessible(page);
 });

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Button, PageHeader, TextField, t } from "@flagstage/ui";
+import { Button, EmptyState, PageHeader, TextField, t } from "@flagstage/ui";
 import { can } from "@flagstage/core";
 import { account } from "@flagstage/db";
 import { inArray } from "drizzle-orm";
@@ -24,22 +24,36 @@ export default async function AccountsPage() {
         );
   return (
     <>
-      <PageHeader title={t("accounts.title")} description={t("accounts.empty")} />
-      {rows.length === 0 ? <p>{t("accounts.none")}</p> : null}
-      <table className="data">
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td>
-                <Link href={`/accounts/${row.id}`}>{row.name}</Link>
-              </td>
-              <td className="mono">{row.slug}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <PageHeader
+        title={t("accounts.title")}
+        description={rows.length === 0 ? undefined : t("accounts.empty")}
+      />
+      {rows.length === 0 ? (
+        <EmptyState
+          title={t("accounts.none")}
+          description={t("accounts.empty")}
+          action={
+            can(principal, "org.manage") ? (
+              <a href="#create-account">{t("accounts.create")}</a>
+            ) : undefined
+          }
+        />
+      ) : (
+        <table className="data">
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  <Link href={`/accounts/${row.id}`}>{row.name}</Link>
+                </td>
+                <td className="mono">{row.slug}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {can(principal, "org.manage") ? (
-        <form action={createAccountAction} className="narrow">
+        <form id="create-account" action={createAccountAction} className="narrow">
           <h2>{t("accounts.create")}</h2>
           <TextField label={t("accounts.name")} name="name" required />
           <Button type="submit">{t("accounts.create")}</Button>

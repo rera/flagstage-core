@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { topPages, visitsInRange } from "@flagstage/analytics";
 import { can } from "@flagstage/core";
 import { analyticsDaily, analyticsEvent, site } from "@flagstage/db";
-import { PageHeader, t, type MessageKey } from "@flagstage/ui";
+import { EmptyState, PageHeader, t, type MessageKey } from "@flagstage/ui";
 
 import { database, requirePrincipal } from "../../../../src/guard";
 
@@ -74,7 +74,11 @@ export default async function AnalyticsPage({
       </p>
       <h2>{t("analytics.topPages")}</h2>
       {pages.length === 0 ? (
-        <p>{t("analytics.empty")}</p>
+        <EmptyState
+          title={t("analytics.empty")}
+          description={t("analytics.emptyBody")}
+          action={<a href={`/sites/${siteId}`}>{t("analytics.openSite")}</a>}
+        />
       ) : (
         <table className="data">
           <tbody>

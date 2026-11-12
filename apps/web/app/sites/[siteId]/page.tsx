@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
-import { Alert, Button, PageHeader, t } from "@flagstage/ui";
+import { Alert, Button, EmptyState, PageHeader, t } from "@flagstage/ui";
 import { can } from "@flagstage/core";
 import { changeRequest, importRun, message, site, snapshot, thread } from "@flagstage/db";
 
@@ -62,6 +62,7 @@ export default async function SitePage({
         actions={
           <>
             <a href={`/sites/${found.id}/domain`}>{t("domains.title")}</a>
+            <a href={`/sites/${found.id}/forms`}>{t("forms.title")}</a>
             <a href={`/sites/${found.id}/analytics`}>{t("analytics.title")}</a>
           </>
         }
@@ -113,7 +114,7 @@ export default async function SitePage({
         ))}
       </ul>
       {can(principal, "site.comment", { accountId: found.accountId }) ? (
-        <form action={sendMessageAction}>
+        <form id="composer" action={sendMessageAction}>
           <input type="hidden" name="siteId" value={found.id} />
           <input type="hidden" name="accountId" value={found.accountId} />
           <label className="field" htmlFor="body">
@@ -147,6 +148,26 @@ export default async function SitePage({
             </form>
           ))
         : null}
+      <h2>{t("versions.title")}</h2>
+      {snaps.length === 0 ? (
+        <EmptyState
+          title={t("versions.emptyTitle")}
+          description={t("versions.emptyBody")}
+          action={<a href="#composer">{t("versions.emptyAction")}</a>}
+        />
+      ) : (
+        <table className="data">
+          <tbody>
+            {snaps.map((item) => (
+              <tr key={item.id}>
+                <td>{item.kind}</td>
+                <td className="mono">{item.createdAt.toISOString()}</td>
+                <td>{item.id === found.currentSnapshotId ? t("versions.current") : ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {canPublish && snaps.length > 1 ? (
         <form action={rollbackAction}>
           <input type="hidden" name="siteId" value={found.id} />

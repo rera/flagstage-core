@@ -20,7 +20,7 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 5. **No release automation beyond changesets.** There is a changelog stub and changeset files. There is no tag, no GitHub release, no image publish. The image workflow is written to build and not push.
 
-6. **Accessibility and empty states are thin.** Buttons and fields use the shared components. There is no keyboard pass, no screen-reader pass, and several pages are unstyled tables. Cal.com and Documenso treat this as part of the product, not a follow-up.
+6. **No manual screen-reader pass.** Playwright runs axe on the signed-in flow, and the empty pages name one next action. Nobody has walked the app with a screen reader.
 
 ## Intentionally out
 
@@ -37,4 +37,5 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - Analytics shows 7, 30, and 90 day totals and the top pages. It does not chart. Form submissions keep the signed webhook and, when `SMTP_URL` is set, mail `FORM_NOTIFY_EMAIL` plus the form's own list.
 - The README leads with a screenshot of the seeded example site. README and announcement copy still carry `copy-review: required before announce`.
 - Setup accepts a logo, and Settings can test the model key. OIDC and SAML providers are saved through Better Auth's register and update endpoints.
+- Accounts, sites, versions, form submissions, and analytics each show an empty state with one next action. Focus is visible on links, buttons, and fields, and the first Tab stop is "Skip to content". `pnpm e2e` runs axe.
 - `flagstage member add` grants an account role. `flagstage user reset-password` works in local development, and in production only with `FLAGSTAGE_BREAK_GLASS=1`. `flagstage site export <site> --out file.tgz` packs the published snapshot and `content.json`. `flagstage backup` prints the `pg_dump` and storage commands and does not call AWS.

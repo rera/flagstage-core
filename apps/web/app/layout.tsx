@@ -29,6 +29,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body className={`${sans.variable} ${mono.variable} ${sans.className}`}>
         <div className="shell">
+          <a className="skip" href="#content">
+            {t("nav.skip")}
+          </a>
           <header className="topbar">
             <a className="brand" href="/">
               <BrandMark />
@@ -41,7 +44,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <a href="/sign-in">{t("nav.signIn")}</a>
             </nav>
           </header>
-          <main className="main">{children}</main>
+          <main id="content" className="main">
+            {children}
+          </main>
           <PoweredBy />
         </div>
       </body>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Alert, Button, PageHeader, TextField, t } from "@flagstage/ui";
+import { Alert, Button, EmptyState, PageHeader, TextField, t } from "@flagstage/ui";
 import { can } from "@flagstage/core";
 import { account, site } from "@flagstage/db";
 import { inArray } from "drizzle-orm";
@@ -35,23 +35,40 @@ export default async function SitesPage({
   const manageable = accounts.filter((row) => can(principal, "site.manage", { accountId: row.id }));
   return (
     <>
-      <PageHeader title={t("sites.title")} description={t("sites.lead")} />
+      <PageHeader
+        title={t("sites.title")}
+        description={sites.length === 0 ? undefined : t("sites.lead")}
+      />
       {params.error ? <Alert tone="bad">{t("sites.failed")}</Alert> : null}
-      <table className="data">
-        <tbody>
-          {sites.map((row) => (
-            <tr key={row.id}>
-              <td>
-                <Link href={`/sites/${row.id}`}>{row.name}</Link>
-              </td>
-              <td>{row.status}</td>
-              <td className="mono">{row.slug}.localhost</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {sites.length === 0 ? (
+        <EmptyState
+          title={t("sites.none")}
+          description={t("sites.lead")}
+          action={
+            manageable.length > 0 ? (
+              <a href="#import-site">{t("sites.import")}</a>
+            ) : (
+              <a href="/accounts">{t("accounts.create")}</a>
+            )
+          }
+        />
+      ) : (
+        <table className="data">
+          <tbody>
+            {sites.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  <Link href={`/sites/${row.id}`}>{row.name}</Link>
+                </td>
+                <td>{row.status}</td>
+                <td className="mono">{row.slug}.localhost</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {manageable.length > 0 ? (
-        <form action={importSiteAction} className="narrow">
+        <form id="import-site" action={importSiteAction} className="narrow">
           <h2>{t("sites.import")}</h2>
           <TextField label={t("sites.name")} name="name" required />
           <TextField label={t("sites.url")} name="sourceUrl" type="url" required />
