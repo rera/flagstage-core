@@ -19,3 +19,4 @@ infra/opentofu/**/.terraform.lock.hcl
 .vercel
 playwright-report/
 test-results/
+apps/web/AGENTS.md
