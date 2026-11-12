@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     "@flagstage/config",
     "@flagstage/core",
     "@flagstage/db",
+    "@flagstage/importer",
     "@flagstage/storage",
     "@flagstage/ui"
   ],

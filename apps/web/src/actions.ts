@@ -11,9 +11,12 @@ import {
   can,
   createAccount,
   createInvitation,
+  slugify,
   type MembershipRole
 } from "@flagstage/core";
-import { idpGroupMapping, orgSettings, ssoProvider } from "@flagstage/db";
+import { idpGroupMapping, importRun, orgSettings, site, ssoProvider } from "@flagstage/db";
+import { approveImport, crawlSite, storeCrawl } from "@flagstage/importer";
+import { createBlobStore, snapshotPrefix } from "@flagstage/storage";
 import { samlProviderConfig } from "@flagstage/auth";
 
 import { getAuth } from "./auth";
@@ -246,4 +249,91 @@ export async function issueScimToken(_previous: { secret?: string; error?: strin
     }
   });
   return { secret: created.token };
+}
+
+async function fetchPage(url: string) {
+  const response = await fetch(url, { redirect: "follow" });
+  return {
+    status: response.status,
+    body: new Uint8Array(await response.arrayBuffer()),
+    contentType: response.headers.get("content-type") ?? ""
+  };
+}
+
+export async function importSiteAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "site.manage", { accountId })) redirect("/no-access");
+  const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!sourceUrl || !name) redirect("/sites?error=1");
+  const config = loadConfig();
+  const db = database();
+  const siteId = randomUUID();
+  const runId = randomUUID();
+  await db.insert(site).values({
+    id: siteId,
+    accountId,
+    name,
+    slug: slugify(name),
+    sourceUrl,
+    status: "importing"
+  });
+  await db.insert(importRun).values({ id: runId, siteId, sourceUrl, status: "running" });
+  let snapshotId = "";
+  try {
+    const crawl = await crawlSite({
+      fetchPage,
+      sourceUrl,
+      appOrigin: config.APP_URL,
+      siteId,
+      caps: {
+        maxPages: config.IMPORT_MAX_PAGES,
+        maxDepth: config.IMPORT_MAX_DEPTH,
+        maxAssets: config.IMPORT_MAX_ASSETS
+      }
+    });
+    const stored = await storeCrawl({
+      db,
+      store: createBlobStore(config),
+      siteId,
+      importRunId: runId,
+      crawl
+    });
+    snapshotId = stored.snapshotId;
+  } catch (error) {
+    await db
+      .update(importRun)
+      .set({
+        status: "failed",
+        error: error instanceof Error ? error.message : "Import failed",
+        updatedAt: new Date()
+      })
+      .where(eq(importRun.id, runId));
+    await db.update(site).set({ status: "failed" }).where(eq(site.id, siteId));
+    redirect("/sites?error=1");
+  }
+  redirect(`/sites/${siteId}?snapshot=${snapshotId}`);
+}
+
+export async function approveSiteAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const snapshotId = String(formData.get("snapshotId") ?? "");
+  if (!can(principal, "site.publish", { accountId: String(formData.get("accountId") ?? "") })) {
+    redirect("/no-access");
+  }
+  const config = loadConfig();
+  const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
+  const found = rows[0];
+  if (!found) redirect("/sites");
+  await approveImport({
+    db: database(),
+    siteId,
+    snapshotId,
+    host: `${found.slug}.localhost`,
+    prefix: snapshotPrefix(siteId, snapshotId),
+    hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`
+  });
+  redirect(`/sites/${siteId}`);
 }
