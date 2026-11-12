@@ -16,21 +16,19 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 ## Smaller, still real
 
-4. **Strings live in one JSON file.** `t()` reads `packages/ui/src/messages/en.json`. next-intl is not wired, so there is no locale switch and no extraction pipeline. Version times are ISO strings, not `Intl` formatters.
+4. **Import progress is a status, not a live count.** The site page shows importing, failed, or live. It does not yet show pages found, pages done, and pages skipped with a reason.
 
-5. **CI workflows sit in `docs/ci/workflows/`.** They are not under `.github/workflows/` because this branch lives in a private repository where those files would run. Move them when the public repository exists.
+The CLI verbs are `admin add`, `account create`, `member add`, and `site export`.
 
-6. **The release recipe is written and not wired.** [docs/ci/release.md](ci/release.md) uses Changesets for the version pull request and a multi-arch GHCR image on a `v*` tag. Those workflows sit in `docs/ci/workflows/` and do not run. There is no tag, no GitHub release, and no published image. `@changesets/cli` is not installed yet, so `pnpm exec changeset version` in [RELEASING.md](../RELEASING.md) does not run until that package is added. The image has not been built for `linux/arm64`.
+These are tracked on [rera/flagstage-core](https://github.com/rera/flagstage-core/issues), not repeated here:
 
-7. **No manual screen-reader pass.** Playwright runs axe on the signed-in flow, and the empty pages name one next action. Form fields are labelled, focus is visible, and `eslint-plugin-jsx-a11y` is on. The components are our own, not Radix. Nobody has walked the app with a screen reader.
-
-8. **HTTP logs have no request id.** pino writes JSON and `LOG_LEVEL` selects the level. A request is not stamped onto those lines.
-
-9. **Metrics are totals, not queue health.** `/api/metrics` is Prometheus text behind `METRICS_TOKEN`, and 404 when the token is unset. It counts import runs, publish events, and change requests. It does not report jobs queued or jobs failed.
-
-10. **The README has a still, not a GIF.** `docs/assets/screenshot-app.png` is a still of the app. There is no recording of import, chat, and publish. There is no latest-release badge because nothing is tagged. A build badge waits until the workflows actually run.
-
-Section 12 of the spec still asks for a live import progress view (pages found, assets, warnings). The site page shows importing, failed, or live. The CLI verbs are `admin add`, `account create`, `member add`, and `site export`, not `create-admin` or `export-site`.
+- [Tracing](https://github.com/rera/flagstage-core/issues/1)
+- [Health alarms](https://github.com/rera/flagstage-core/issues/2)
+- [Screen-reader pass](https://github.com/rera/flagstage-core/issues/3)
+- [CI](https://github.com/rera/flagstage-core/issues/4)
+- [SSO, SAML, and SCIM](https://github.com/rera/flagstage-core/issues/5)
+- [Internationalization](https://github.com/rera/flagstage-core/issues/6)
+- [README demo GIF](https://github.com/rera/flagstage-core/issues/7)
 
 ## Spec §13, what is in place
 
@@ -39,7 +37,7 @@ Checked against the mature-OSS checklist. Items above are the ones that are stil
 - `docker compose up`, `.env.example`, and `docs/configuration.md` generated from the env schema. A first run has no sites until someone imports one.
 - `flagstage.config.json` holds the domain, organization name, first admin email, Bedrock model, region, SES from-address, and brand. `flagstage doctor` checks Bedrock with the caller credentials. There is no setup wizard and no model-key form.
 - `docs/index.md` links getting started, the CloudFormation deploy, configuration, roles, the DNS checklist, importing, upgrading, backup, architecture, troubleshooting, and the FAQ. A docs site is explicitly later.
-- README: screenshot, license and Discussions badges, features, quickstart, comparison, roadmap, community, contributing, security, license, trademarks, and the hosted option. `ROADMAP.md` points at Discussions.
+- README: pitch, screenshot, quickstart, architecture, docs links, and contributing. `ROADMAP.md` points at Discussions.
 - `/api/health` and `/api/ready` (database, storage, and that the `pgboss` schema exists).
 - RDS backups of 7 days, S3 versioning, `docs/backup-restore.md`, and `flagstage site export`.
 - Migrations at boot behind an advisory lock. `docs/upgrading.md`. Changelog section for 0.1.0, unreleased, with no breaking changes yet.
