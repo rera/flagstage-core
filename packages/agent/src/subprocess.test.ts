@@ -9,7 +9,7 @@ describe("subprocess editor", () => {
       PATH: process.env.PATH,
       DATABASE_URL: "postgres://secret",
       AWS_SECRET_ACCESS_KEY: "secret",
-      AI_MOCK: "1"
+      AI_API_KEY: "model-key"
     });
     const result = await runSubprocessEdit({
       bin: process.execPath,

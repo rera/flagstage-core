@@ -1,5 +1,4 @@
-export type ProbeCode =
-  "mock" | "no-key" | "bedrock" | "needs-base-url" | "ok" | "rejected" | "unreachable";
+export type ProbeCode = "no-key" | "bedrock" | "needs-base-url" | "ok" | "rejected" | "unreachable";
 
 export type ProbeResult = { ok: boolean; code: ProbeCode; status?: number };
 
@@ -8,7 +7,6 @@ export type ProbeInput = {
   apiKey?: string;
   baseUrl?: string;
   model: string;
-  mock: boolean;
   fetchImpl?: typeof fetch;
 };
 
@@ -84,7 +82,6 @@ function requestFor(input: ProbeInput): Call | ProbeResult {
 
 /** One-token call used by Settings to confirm a model key. The key is not returned. */
 export async function probeModel(input: ProbeInput): Promise<ProbeResult> {
-  if (input.mock) return { ok: false, code: "mock" };
   const planned = requestFor(input);
   if ("code" in planned) return planned;
   try {

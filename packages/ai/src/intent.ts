@@ -60,7 +60,7 @@ export async function completeText(input: {
   return body.choices?.[0]?.message?.content ?? "";
 }
 
-/** Mock mode uses the deterministic rules. A model is asked only when one is configured. */
+/** The deterministic rules decide when no model client is configured. */
 export async function classifyIntent(body: string, model?: ModelClient): Promise<Intent> {
   if (!model) return decideIntent(body);
   const answer = (

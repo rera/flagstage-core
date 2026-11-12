@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), ".."));
@@ -15,7 +15,7 @@ const storageDir = process.env.FS_STORAGE_DIR ?? "/tmp/flagstage-e2e-storage";
 
 const html = `<!doctype html><html><head><title>Parks</title></head><body>
 <h1>Parks</h1>
-<p>Welcome to the parks department.</p>
+<p>Welcome to the parks.</p>
 </body></html>`;
 
 function sleep(ms) {
@@ -137,6 +137,7 @@ await new Promise((resolve) => fixture.listen(Number(fixturePort), "127.0.0.1", 
 
 const env = {
   ...process.env,
+  PATH: `${join(process.cwd(), "e2e/bin")}${delimiter}${process.env.PATH ?? ""}`,
   DATABASE_URL: databaseUrl,
   BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? "local-dev-secret-that-is-long-enough",
   APP_URL: `http://127.0.0.1:${port}`,
@@ -145,9 +146,9 @@ const env = {
   FS_STORAGE_DIR: storageDir,
   HOSTMAP_DRIVER: "fs",
   DOMAINS_DRIVER: "none",
-  AI_MOCK: "1",
-  SEED_DEMO: "1",
   EMAIL_PASSWORD_ENABLED: "1",
+  E2E_EMAIL: "e2e@example.com",
+  E2E_PASSWORD: "e2e-password-e2e-password",
   NODE_ENV: "development",
   LOG_LEVEL: "info",
   NEXT_TELEMETRY_DISABLED: "1"
@@ -175,6 +176,13 @@ function shutdown(code) {
 
 process.on("SIGTERM", () => shutdown(0));
 process.on("SIGINT", () => shutdown(0));
+
+const prepared = spawnSync(
+  "pnpm",
+  ["--filter", "@flagstage/auth", "exec", "tsx", "scripts/e2e-prepare.ts"],
+  { env, stdio: "inherit" }
+);
+if (prepared.status !== 0) process.exit(prepared.status ?? 1);
 
 start("pnpm", ["--filter", "@flagstage/worker", "start"]);
 start("pnpm", [

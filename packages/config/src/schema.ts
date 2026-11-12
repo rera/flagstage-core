@@ -57,7 +57,6 @@ export const envSchema = z
     AI_BASE_URL: optionalString,
     AI_MODEL_SMALL: z.preprocess(blankToUndefined, z.string().min(1).default("claude-haiku-4-5")),
     AGENT_MODEL: z.preprocess(blankToUndefined, z.string().min(1).default("claude-sonnet-4-5")),
-    AI_MOCK: boolish,
     AGENT_TIMEOUT_SEC: intWithDefault(600),
     SMTP_URL: optionalString,
     MAIL_FROM: optionalString,
@@ -81,8 +80,7 @@ export const envSchema = z
     LOG_LEVEL: z
       .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
       .default("info"),
-    METRICS_TOKEN: optionalString,
-    SEED_DEMO: boolish
+    METRICS_TOKEN: optionalString
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV === "production") {
@@ -145,16 +143,11 @@ export const envSchema = z
         });
       }
     }
-    if (
-      !value.AI_MOCK &&
-      value.AI_PROVIDER !== "bedrock" &&
-      !value.AI_API_KEY &&
-      value.NODE_ENV === "production"
-    ) {
+    if (value.AI_PROVIDER !== "bedrock" && !value.AI_API_KEY && value.NODE_ENV === "production") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["AI_API_KEY"],
-        message: "Set AI_API_KEY or AI_MOCK=1. Bedrock may use the task role instead of a key."
+        message: "Set AI_API_KEY. Bedrock may use the task role instead of a key."
       });
     }
     if (value.SMTP_URL && !value.MAIL_FROM) {

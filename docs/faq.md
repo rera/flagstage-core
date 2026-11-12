@@ -16,7 +16,7 @@ Yes, if it speaks OIDC or SAML 2.0. SCIM 2.0 provisions users and groups. Map a 
 
 ## Do we have to bring a model key?
 
-For real edits, yes. `AI_MOCK=1` runs the local demo without one.
+For real edits, install OpenCode and set a model. There is no mock editor.
 
 ## What is the difference between hosted Flagstage and this repository?
 

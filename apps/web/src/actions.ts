@@ -45,7 +45,6 @@ const LOGO_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 const MODEL_DETAIL: Record<
   ProbeCode,
-  | "model.mock"
   | "model.noKey"
   | "model.bedrock"
   | "model.baseUrl"
@@ -53,7 +52,6 @@ const MODEL_DETAIL: Record<
   | "model.rejected"
   | "model.unreachable"
 > = {
-  mock: "model.mock",
   "no-key": "model.noKey",
   bedrock: "model.bedrock",
   "needs-base-url": "model.baseUrl",
@@ -266,8 +264,7 @@ export async function testModelKeyAction(
     provider: config.AI_PROVIDER,
     apiKey: config.AI_API_KEY,
     baseUrl: config.AI_BASE_URL,
-    model: config.AI_MODEL_SMALL,
-    mock: config.AI_MOCK
+    model: config.AI_MODEL_SMALL
   });
   const detail = t(MODEL_DETAIL[result.code]);
   return {
@@ -400,7 +397,6 @@ export async function approveSiteAction(formData: FormData) {
 
 function editor() {
   const config = loadConfig();
-  if (config.AI_MOCK) return undefined;
   return subprocessRunner({
     env: buildAgentEnv(process.env),
     timeoutMs: config.AGENT_TIMEOUT_SEC * 1000,

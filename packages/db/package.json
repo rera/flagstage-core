@@ -6,14 +6,12 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
-    "./migrate": "./src/migrate.ts",
-    "./seed": "./src/seed.ts"
+    "./migrate": "./src/migrate.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "migrate": "tsx src/cli.ts migrate",
-    "seed": "tsx src/cli.ts seed"
+    "migrate": "tsx src/cli.ts migrate"
   },
   "dependencies": {
     "@flagstage/config": "workspace:*",

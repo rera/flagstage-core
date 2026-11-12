@@ -29,11 +29,10 @@ rejected when `NODE_ENV=production`.
 | `CLOUDFRONT_CONNECTION_GROUP_ID` | no | `` | Connection group id for new distribution tenants. Required when DOMAINS_DRIVER=cloudfront-tenants. |
 | `DOMAINS_DRIVER` | no | `none` | none records DNS targets only. cloudfront-tenants also creates a distribution tenant per site. |
 | `AI_PROVIDER` | no | `anthropic` | Provider for the small intent, judge, and reply models, and the default agent provider. One of anthropic, openai, bedrock, openrouter, openai-compatible, google, azure. |
-| `AI_API_KEY` | no | `` | Bring-your-own model API key. Ignored when AI_MOCK=1. Bedrock may use the task role instead of a key. |
+| `AI_API_KEY` | no | `` | Bring-your-own model API key. Bedrock may use the task role instead of a key. |
 | `AI_BASE_URL` | no | `` | Base URL for openai-compatible, openrouter, or a custom gateway. |
 | `AI_MODEL_SMALL` | no | `claude-haiku-4-5` | Model id for intent, trust judge, and short replies. |
 | `AGENT_MODEL` | no | `claude-sonnet-4-5` | Model id passed to OpenCode for site edits. |
-| `AI_MOCK` | no | `0` | Set to 1 to skip model calls. Local compose and tests use mock mode. |
 | `AGENT_TIMEOUT_SEC` | no | `600` | Hard timeout for one agent turn, in seconds. |
 | `SMTP_URL` | no | `` | Optional SMTP URL for invites and notices. When unset, mail is printed to the log. |
 | `MAIL_FROM` | no | `` | From address used when SMTP_URL is set. |
@@ -46,7 +45,6 @@ rejected when `NODE_ENV=production`.
 | `ANALYTICS_ENABLED` | no | `1` | Default for new sites. A site can turn analytics off. When off, the beacon is not injected. |
 | `LOG_LEVEL` | no | `info` | pino level: fatal, error, warn, info, debug, trace, or silent. |
 | `METRICS_TOKEN` | no | `` | Bearer token required by /api/metrics. When unset, the endpoint responds 404. |
-| `SEED_DEMO` | no | `0` | Set to 1 to load the demo organization, accounts, and site. For local compose only. |
 | `NODE_ENV` | no | `development` | development, test, or production. Production refuses placeholder secrets. |
 
 ## Drivers
@@ -55,7 +53,7 @@ rejected when `NODE_ENV=production`.
 - `STORAGE_DRIVER=s3` talks to AWS or any S3-compatible endpoint (`S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`).
 - `HOSTMAP_DRIVER=fs` writes the live hostname map next to the files. `cloudfront-kvs` updates a CloudFront KeyValueStore.
 - `DOMAINS_DRIVER=none` still builds the DNS checklist. `cloudfront-tenants` creates or updates a distribution tenant and its managed certificate, then reads that status into the checklist.
-- `AI_MOCK=1` skips provider calls. The worker applies a deterministic edit so chat, preview, and publish can be tried with no key.
+- The worker runs OpenCode for site edits. Set `AI_API_KEY` unless `AI_PROVIDER` is `bedrock`.
 
 ## Telemetry
 

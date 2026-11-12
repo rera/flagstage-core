@@ -15,15 +15,15 @@ cp .env.example .env
 docker compose up
 ```
 
-Compose starts Postgres, the web app, and the worker. `AI_MOCK=1` edits a page without a model key. `SEED_DEMO=1` signs you in as `demo@example.com` / `demo-demo-demo` and publishes an example site on the Digital account.
+Compose starts Postgres, the web app, and the worker. A first run is empty. `BOOTSTRAP_ADMIN_EMAIL` creates the first admin, and the web log prints a one-time sign-in link. There is no demo site and no demo password.
 
-Open http://localhost:3000 and sign in. The example site is already live, so chat, preview, and publish work before you import anything.
+Open http://localhost:3000 and sign in with the one-time link from the web log. Import a site before chat, preview, and publish have anything to work on.
 
 `docker compose` is for evaluation. It has no failover, and it serves the live site from the app process. Use the OpenTofu module for a real deployment.
 
 ## Import a site from the shell
 
-The same demo database accepts the CLI. In another terminal, with `DATABASE_URL` pointing at the compose database:
+The same database accepts the CLI. In another terminal, with `DATABASE_URL` pointing at the compose database:
 
 ```bash
 pnpm flagstage account create "Parks"

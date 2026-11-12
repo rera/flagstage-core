@@ -1,0 +1,16 @@
+#!/usr/bin/env node
+// Test double for the e2e harness. The product invokes `opencode` and this
+// script is placed on PATH only by e2e/start.mjs.
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+
+const request = existsSync(".flagstage/request.md")
+  ? readFileSync(".flagstage/request.md", "utf8")
+  : "";
+const match = request.match(/<untrusted>\n([\s\S]*?)\n<\/untrusted>/);
+const text = (match?.[1] ?? "edited").trim();
+const file = "index.html";
+const html = existsSync(file) ? readFileSync(file, "utf8") : "<html><body></body></html>";
+const next = html.includes("</body>")
+  ? html.replace("</body>", `<p>${text}</p></body>`)
+  : `${html}\n<p>${text}</p>`;
+writeFileSync(file, next);

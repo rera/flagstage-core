@@ -21,7 +21,7 @@ Flagstage Core is a self-hosted app for an organization that runs many accounts 
 - OIDC, SAML 2.0, and SCIM 2.0. Group ids map to roles. No vendor-specific identity code.
 - Custom domains as a copyable DNS checklist with live checks against public resolvers.
 - Lead forms, with a signed webhook and optional SMTP mail, and cookie-free site analytics.
-- Bring your own model API key, or run the local demo in mock mode with no key.
+- Bring your own model API key. Edits run through OpenCode.
 - A setup wizard, plus `flagstage admin add`, `flagstage account create`, and `flagstage import`.
 - No telemetry and no update check.
 
@@ -31,10 +31,10 @@ About a minute, with Docker.
 
 1. `docker compose up`
 2. Open http://localhost:3000
-3. Sign in as `demo@example.com` with password `demo-demo-demo`
-4. Open Example site, describe a change, and approve the preview when it looks right.
+3. Sign in with the one-time link printed in the web log
+4. Import a site, describe a change, and approve the preview when it looks right.
 
-The seed publishes that example site at `demo.localhost`. Health check: http://localhost:3000/api/health.
+Health check: http://localhost:3000/api/health. A first run has no sites.
 
 To work on the code against the same Postgres:
 

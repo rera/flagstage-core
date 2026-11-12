@@ -93,7 +93,6 @@
   "setup.logoHint": "PNG, JPEG, or WebP. Up to 1 MB. Shown in the header.",
   "setup.save": "Save",
   "model.test": "Test model key",
-  "model.mock": "Mock mode is on, so no model key is used.",
   "model.noKey": "No model key is set.",
   "model.bedrock": "No API key is set. Bedrock uses the AWS task role, and this check does not call AWS.",
   "model.baseUrl": "Set AI_BASE_URL before testing this provider.",

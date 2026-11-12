@@ -104,10 +104,10 @@ describe("flagstage commands", () => {
     const created = await addOrgAdmin(db, {
       email: "Ops@Example.com",
       name: "Ops",
-      password: "demo-demo-demo"
+      password: "local-test-password"
     });
     expect(created.created).toBe(true);
-    if (created.created) expect(created.password).toBe("demo-demo-demo");
+    if (created.created) expect(created.password).toBe("local-test-password");
     const again = await addOrgAdmin(db, { email: "ops@example.com" });
     expect(again.created).toBe(false);
     const people = await db.select().from(user).where(eq(user.email, "ops@example.com"));

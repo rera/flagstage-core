@@ -23,6 +23,7 @@ import * as fullSchema from "@flagstage/db";
 import { snapshotPrefix, type BlobStore, type StoredObject } from "@flagstage/storage";
 
 import { approveChange, buildAgentEnv, postMessage, previewForToken } from "./index";
+import type { AgentRunner } from "./subprocess";
 
 function memoryStore(): BlobStore & { files: Map<string, StoredObject> } {
   const files = new Map<string, StoredObject>();
@@ -45,6 +46,21 @@ function memoryStore(): BlobStore & { files: Map<string, StoredObject> } {
   };
 }
 
+const testEditor: AgentRunner = {
+  name: "subprocess",
+  async edit(files, request) {
+    const key = [...files.keys()].find((name) => name.endsWith("index.html"));
+    if (!key) return { changed: false, files };
+    const html = new TextDecoder().decode(files.get(key));
+    const next = html.includes("</body>")
+      ? html.replace("</body>", `<p>${request}</p></body>`)
+      : `${html}\n<p>${request}</p>`;
+    const copy = new Map(files);
+    copy.set(key, new TextEncoder().encode(next));
+    return { changed: true, files: copy };
+  }
+};
+
 async function applyMigrations(client: PGlite) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle");
   for (const file of ["0000_init.sql", "0001_auth_plugins.sql"]) {
@@ -63,8 +79,7 @@ describe("chat publish", () => {
       DATABASE_URL: "postgres://secret",
       AWS_SECRET_ACCESS_KEY: "secret",
       AWS_ACCESS_KEY_ID: "key",
-      AI_API_KEY: "model-key",
-      AI_MOCK: "1"
+      AI_API_KEY: "model-key"
     });
     expect(env.DATABASE_URL).toBeUndefined();
     expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
@@ -124,7 +139,8 @@ describe("chat publish", () => {
         siteId: "site-1",
         userId: "user-1",
         body: "Can you change the headline?",
-        appOrigin: "http://localhost:3000"
+        appOrigin: "http://localhost:3000",
+        runner: testEditor
       });
       expect(asked.previewUrl).toBeUndefined();
       expect(asked.reply).toContain("Which page");
@@ -135,7 +151,8 @@ describe("chat publish", () => {
         siteId: "site-1",
         userId: "user-1",
         body: "no change needed",
-        appOrigin: "http://localhost:3000"
+        appOrigin: "http://localhost:3000",
+        runner: testEditor
       });
       expect(same.reply).toBe("Nothing needed changing.");
 
@@ -145,7 +162,8 @@ describe("chat publish", () => {
         siteId: "site-1",
         userId: "user-1",
         body: "Make the headline warmer",
-        appOrigin: "http://localhost:3000"
+        appOrigin: "http://localhost:3000",
+        runner: testEditor
       });
       expect(posted.previewUrl).toContain("/preview/");
       const token = posted.previewUrl?.split("/preview/")[1] ?? "";
@@ -170,7 +188,8 @@ describe("chat publish", () => {
         changeRequestId: request?.id ?? "",
         actorUserId: "user-1",
         host: "fixture.localhost",
-        hostMapPath
+        hostMapPath,
+        runner: testEditor
       });
       expect(published.ok).toBe(true);
       const live = await db.select().from(site).where(eq(site.id, "site-1"));
@@ -199,7 +218,8 @@ describe("chat publish", () => {
         siteId: "site-1",
         userId: "user-1",
         body: "Add a footer",
-        appOrigin: "http://localhost:3000"
+        appOrigin: "http://localhost:3000",
+        runner: testEditor
       });
       expect(second.previewUrl).toBeTruthy();
       await db
@@ -212,7 +232,8 @@ describe("chat publish", () => {
         siteId: "site-1",
         userId: "user-1",
         body: "Please delete the entire site",
-        appOrigin: "http://localhost:3000"
+        appOrigin: "http://localhost:3000",
+        runner: testEditor
       });
       expect(held.previewUrl).toBeUndefined();
       expect(held.reply).toContain("account admin");
@@ -226,7 +247,8 @@ describe("chat publish", () => {
         db,
         store,
         changeRequestId: stale?.id ?? "",
-        actorUserId: "user-1"
+        actorUserId: "user-1",
+        runner: testEditor
       });
       expect(rebuilt.ok).toBe(true);
       if (rebuilt.ok) expect(rebuilt.snapshotId).not.toBe(stale?.resultSnapshotId);

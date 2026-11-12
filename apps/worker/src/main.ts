@@ -70,13 +70,11 @@ await boss.work("agent-turn", async (jobs) => {
         commentOnly: data.commentOnly,
         userRecorded: data.userRecorded,
         allowHold: data.allowHold,
-        runner: config.AI_MOCK
-          ? undefined
-          : subprocessRunner({
-              env: buildAgentEnv(process.env),
-              timeoutMs: config.AGENT_TIMEOUT_SEC * 1000,
-              skillsDir: skillsDirectory
-            })
+        runner: subprocessRunner({
+          env: buildAgentEnv(process.env),
+          timeoutMs: config.AGENT_TIMEOUT_SEC * 1000,
+          skillsDir: skillsDirectory
+        })
       });
     } catch (error) {
       log.error({ err: error, siteId: data.siteId }, "agent turn failed");

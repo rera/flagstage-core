@@ -16,7 +16,6 @@ describe("loadConfig", () => {
   it("applies defaults for a local install", () => {
     const config = loadConfig(valid);
     expect(config.STORAGE_DRIVER).toBe("fs");
-    expect(config.AI_MOCK).toBe(false);
     expect(config.IMPORT_MAX_PAGES).toBe(500);
     expect(config.EMAIL_PASSWORD_ENABLED).toBe(true);
     expect(config.ANALYTICS_ENABLED).toBe(true);
@@ -51,9 +50,9 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...valid, STORAGE_DRIVER: "s3" })).toThrow(/S3_BUCKET/);
   });
 
-  it("accepts mock mode without an API key", () => {
-    const config = loadConfig({ ...valid, AI_MOCK: "1", NODE_ENV: "production" });
-    expect(config.AI_MOCK).toBe(true);
+  it("does not require an API key for bedrock", () => {
+    const config = loadConfig({ ...valid, AI_PROVIDER: "bedrock", NODE_ENV: "production" });
+    expect(config.AI_PROVIDER).toBe("bedrock");
     expect(config.AI_API_KEY).toBeUndefined();
   });
 

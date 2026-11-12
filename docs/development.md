@@ -4,14 +4,14 @@
 
 Node.js 22, pnpm 10, Docker.
 
-## Demo
+## Local
 
 ```bash
 cp .env.example .env
 docker compose up
 ```
 
-`AI_MOCK=1` and `SEED_DEMO=1` are set in `docker/compose.yml`.
+The web log prints a one-time sign-in link for `BOOTSTRAP_ADMIN_EMAIL`. Nothing is seeded.
 
 ## App against compose Postgres
 
@@ -19,7 +19,6 @@ docker compose up
 docker compose up -d postgres
 pnpm install
 pnpm db:migrate
-pnpm db:seed
 pnpm dev
 ```
 

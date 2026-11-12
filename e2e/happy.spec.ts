@@ -24,8 +24,8 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   const signIn = page
     .locator("form")
     .filter({ has: page.getByRole("button", { name: "Sign in" }) });
-  await signIn.getByLabel("Email").fill("demo@example.com");
-  await signIn.getByLabel("Password").fill("demo-demo-demo");
+  await signIn.getByLabel("Email").fill("e2e@example.com");
+  await signIn.getByLabel("Password").fill("e2e-password-e2e-password");
   await signIn.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/accounts/);
   await expectAccessible(page);

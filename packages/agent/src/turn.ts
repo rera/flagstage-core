@@ -9,7 +9,7 @@ import { snapshotPrefix, type BlobStore } from "@flagstage/storage";
 
 import { injectAnalytics } from "@flagstage/analytics";
 
-import { checkTrust, decideIntent, mockEdit } from "./runner";
+import { checkTrust, decideIntent } from "./runner";
 import type { AgentRunner } from "./subprocess";
 
 const text = new TextDecoder();
@@ -153,10 +153,8 @@ export async function postMessage(input: {
     await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
     return finish("open", reply);
   }
-  const edited = await (input.runner ?? { name: "mock", edit: mockEdit }).edit(
-    await readSnapshot(input.store, prefix),
-    input.body
-  );
+  if (!input.runner) throw new Error("No editor is configured.");
+  const edited = await input.runner.edit(await readSnapshot(input.store, prefix), input.body);
   if (!edited.changed) {
     const reply = "Nothing needed changing.";
     await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
@@ -239,7 +237,8 @@ export async function approveChange(input: {
     const snaps = await input.db.select().from(snapshot).where(eq(snapshot.id, live)).limit(1);
     const prefix = snaps[0]?.storagePrefix;
     if (!prefix) return { ok: false, reason: "Live snapshot is missing." };
-    const edited = await (input.runner ?? { name: "mock", edit: mockEdit }).edit(
+    if (!input.runner) return { ok: false, reason: "No editor is configured." };
+    const edited = await input.runner.edit(
       await readSnapshot(input.store, prefix),
       request.summary
     );

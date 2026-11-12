@@ -14,9 +14,9 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Open http://localhost:3000. With `SEED_DEMO=1`, the demo sign-in is `demo@example.com` / `demo-demo-demo`.
+Open http://localhost:3000. The first admin comes from `BOOTSTRAP_ADMIN_EMAIL`. The web log prints a one-time sign-in link. A first run has no accounts and no sites.
 
-`docker compose up` from a clean checkout starts Postgres, the web app, and the worker with mock AI and demo data. You do not need a model API key.
+`docker compose up` from a clean checkout starts Postgres, the web app, and the worker. Edits need OpenCode on the worker `PATH` and a model.
 
 ## Repo tour
 
@@ -26,7 +26,7 @@ Open http://localhost:3000. With `SEED_DEMO=1`, the demo sign-in is `demo@exampl
 | `apps/worker`        | pg-boss consumers                                       |
 | `apps/cli`           | `flagstage` admin CLI                                   |
 | `packages/config`    | Environment schema. Docs are generated from it.         |
-| `packages/db`        | Drizzle schema, migrations, seed                        |
+| `packages/db`        | Drizzle schema and migrations                       |
 | `packages/auth`      | Better Auth, SSO, SCIM, group mapping                   |
 | `packages/core`      | Accounts, memberships, `can()`                          |
 | `packages/storage`   | `BlobStore` (`fs` and `s3`)                             |

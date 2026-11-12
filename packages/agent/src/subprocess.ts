@@ -17,7 +17,7 @@ import { frameUntrusted } from "@flagstage/ai";
 import { buildPrompt } from "./prompt";
 
 export interface AgentRunner {
-  readonly name: "mock" | "subprocess";
+  readonly name: "subprocess";
   edit(
     files: Map<string, Uint8Array>,
     request: string

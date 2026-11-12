@@ -150,7 +150,7 @@ export const ENV_FIELDS = [
   {
     name: "AI_API_KEY",
     description:
-      "Bring-your-own model API key. Ignored when AI_MOCK=1. Bedrock may use the task role instead of a key.",
+      "Bring-your-own model API key. Bedrock may use the task role instead of a key.",
     requirement: "optional",
     secret: true,
     example: ""
@@ -177,14 +177,6 @@ export const ENV_FIELDS = [
     secret: false,
     example: "claude-sonnet-4-5",
     defaultValue: "claude-sonnet-4-5"
-  },
-  {
-    name: "AI_MOCK",
-    description: "Set to 1 to skip model calls. Local compose and tests use mock mode.",
-    requirement: "optional",
-    secret: false,
-    example: "1",
-    defaultValue: "0"
   },
   {
     name: "AGENT_TIMEOUT_SEC",
@@ -280,15 +272,6 @@ export const ENV_FIELDS = [
     requirement: "optional",
     secret: true,
     example: ""
-  },
-  {
-    name: "SEED_DEMO",
-    description:
-      "Set to 1 to load the demo organization, accounts, and site. For local compose only.",
-    requirement: "optional",
-    secret: false,
-    example: "0",
-    defaultValue: "0"
   },
   {
     name: "NODE_ENV",

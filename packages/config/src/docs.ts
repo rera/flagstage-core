@@ -29,7 +29,7 @@ ${rows}
 - \`STORAGE_DRIVER=s3\` talks to AWS or any S3-compatible endpoint (\`S3_ENDPOINT\`, \`S3_FORCE_PATH_STYLE\`).
 - \`HOSTMAP_DRIVER=fs\` writes the live hostname map next to the files. \`cloudfront-kvs\` updates a CloudFront KeyValueStore.
 - \`DOMAINS_DRIVER=none\` still builds the DNS checklist. \`cloudfront-tenants\` creates or updates a distribution tenant and its managed certificate, then reads that status into the checklist.
-- \`AI_MOCK=1\` skips provider calls. The worker applies a deterministic edit so chat, preview, and publish can be tried with no key.
+- The worker runs OpenCode for site edits. Set \`AI_API_KEY\` unless \`AI_PROVIDER\` is \`bedrock\`.
 
 ## Telemetry
 

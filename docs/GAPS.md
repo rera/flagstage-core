@@ -10,7 +10,7 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 ## What mature projects have that this repo does not
 
-2. **The editor is a mock unless you bring a binary.** `AI_MOCK=1` appends the request to `index.html`. With the mock off, the subprocess runner executes `opencode` with a scrubbed prompt and a short skill set (clarify, forms, images, contrast). The Vercel AI SDK is not a dependency. Intent uses a deterministic rule, or one OpenAI-compatible chat call when a model is configured. The commercial skill shelf was rewritten down, not copied. Nobody has run this against a real key in CI.
+2. **Edits run through OpenCode.** The worker downloads the snapshot, runs `opencode`, and uploads the diff. Intent uses a deterministic rule unless a model client is configured. CI does not call a model. The end-to-end test puts a local `opencode` double on `PATH`; that script is not in the product.
 
 ## Smaller, still real
 
@@ -26,7 +26,7 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 8. **Metrics are totals, not queue health.** `/api/metrics` is Prometheus text behind `METRICS_TOKEN`, and 404 when the token is unset. It counts import runs, publish events, and change requests. It does not report jobs queued or jobs failed.
 
-9. **The README has a still, not a GIF.** `docs/assets/screenshot-app.png` is the seeded example site. There is no recording of import, chat, and publish. There is no latest-release badge because nothing is tagged. A build badge waits until the workflows actually run.
+9. **The README has a still, not a GIF.** `docs/assets/screenshot-app.png` is a still of the app. There is no recording of import, chat, and publish. There is no latest-release badge because nothing is tagged. A build badge waits until the workflows actually run.
 
 Section 12 of the spec still asks for a live import progress view (pages found, assets, warnings). The site page shows importing, failed, or live. The CLI verbs are `admin add`, `account create`, `member add`, and `site export`, not `create-admin` or `export-site`.
 
@@ -34,7 +34,7 @@ Section 12 of the spec still asks for a live import progress view (pages found, 
 
 Checked against the mature-OSS checklist. Items above are the ones that are still open. The rest of that checklist is in the tree:
 
-- `docker compose up`, `SEED_DEMO=1`, `.env.example`, and `docs/configuration.md` generated from the env schema.
+- `docker compose up`, `.env.example`, and `docs/configuration.md` generated from the env schema. A first run has no sites until someone imports one.
 - Setup wizard, including a logo and a model-key check, and `flagstage doctor`.
 - `docs/index.md` links getting started, the OpenTofu deploy, configuration, generic OIDC and SAML, the example-values table, roles, the DNS checklist, importing, upgrading, backup, architecture, troubleshooting, and the FAQ. A docs site is explicitly later.
 - README: screenshot, license and Discussions badges, features, quickstart, comparison, roadmap, community, contributing, security, license, trademarks, and the hosted option. `ROADMAP.md` points at Discussions.
@@ -55,12 +55,12 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 
 - Import and chat turns are queued on pg-boss. The web process writes the row and returns. The worker crawls and runs the editor. The site page follows import status, thread status, and new messages.
 - `DOMAINS_DRIVER=cloudfront-tenants` creates and updates a distribution tenant and its managed certificate, then reads the certificate status into the DNS checklist. `none` stays the local default.
-- `SEED_DEMO=1` publishes an example site on the Digital account. Chat, preview, and publish work in mock mode without an import. A later publish is left in place.
+- A first run is empty. `BOOTSTRAP_ADMIN_EMAIL` creates the first admin and prints a one-time sign-in link. There is no demo organization, demo site, or demo password.
 - Setup is a four-step wizard: organization, identity provider, first account, then a group-to-role mapping. `flagstage admin add`, `flagstage account create`, and `flagstage import` do the same work from a shell. See [Assign department admins](department-admins.md).
 - `pnpm e2e` signs in, imports a local fixture, sends a chat edit, opens the preview, publishes, and reads the DNS checklist. The workflow file is `docs/ci/workflows/e2e.yml`.
 - The runtime image no longer copies the workspace or runs TypeScript through `tsx`. Displayed size went from 2.8GB to 428MB.
 - Analytics shows 7, 30, and 90 day totals, a bar for each day, and the top pages. Form submissions keep the signed webhook and, when `SMTP_URL` is set, mail `FORM_NOTIFY_EMAIL` plus the form's own list.
-- The README leads with a screenshot of the seeded example site. README and announcement copy still carry `copy-review: required before announce`.
+- The README leads with a screenshot of the app. README and announcement copy still carry `copy-review: required before announce`.
 - Setup accepts a logo, and Settings can test the model key. OIDC and SAML providers are saved through Better Auth's register and update endpoints.
 - Accounts, sites, versions, form submissions, and analytics each show an empty state with one next action. Focus is visible on links, buttons, and fields, and the first Tab stop is "Skip to content". `pnpm e2e` runs axe.
 - `flagstage member add` grants an account role. `flagstage user reset-password` works in local development, and in production only with `FLAGSTAGE_BREAK_GLASS=1`. `flagstage site export <site> --out file.tgz` packs the published snapshot and `content.json`. `flagstage backup` prints the `pg_dump` and storage commands and does not call AWS.

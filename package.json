@@ -25,7 +25,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "pnpm --filter @flagstage/db migrate",
-    "db:seed": "pnpm --filter @flagstage/db seed",
     "docs:config": "tsx packages/config/scripts/generate-docs.ts",
     "flagstage": "tsx apps/cli/src/main.ts",
     "e2e": "playwright test --config e2e/playwright.config.ts"

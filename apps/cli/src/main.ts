@@ -58,7 +58,7 @@ if (parsed.kind === "doctor") {
   const lines = [
     `env: ok (${config.NODE_ENV})`,
     `storage: ${config.STORAGE_DRIVER}`,
-    `ai: ${config.AI_MOCK ? "mock" : config.AI_PROVIDER}`,
+    `ai: ${config.AI_PROVIDER}`,
     `smtp: ${config.SMTP_URL ? "configured" : "console"}`
   ];
   try {
@@ -76,7 +76,7 @@ if (parsed.kind === "doctor") {
   } catch (error) {
     lines.push(`storage write: fail (${error instanceof Error ? error.message : "unknown"})`);
   }
-  if (!config.AI_MOCK && !config.AI_API_KEY && config.AI_PROVIDER !== "bedrock") {
+  if (!config.AI_API_KEY && config.AI_PROVIDER !== "bedrock") {
     lines.push("ai key: missing");
   } else {
     lines.push("ai key: ok");
