@@ -1,0 +1,11 @@
+Flagstage Core
+Copyright 2026 Rera
+
+This product includes software developed at Rera (https://flagstage.com).
+
+Portions of the importer, snapshot layout, preview sessions, DNS checklist,
+and site-editing guidance were originally developed for Flagstage and are
+included here under the Apache License, Version 2.0.
+
+Third-party packages are used under their own licenses. See the lockfile
+and each package's license file.

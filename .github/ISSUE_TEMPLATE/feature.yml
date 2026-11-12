@@ -1,0 +1,22 @@
+name: Feature
+description: A change you want built. Please start in Discussions if you are still exploring the idea.
+title: ""
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If this is still an idea, open a Discussion first. Issues are for work that has a shape.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Who is stuck, and what they are trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+    validations:
+      required: true

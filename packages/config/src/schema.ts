@@ -1,0 +1,186 @@
+import { z } from "zod";
+
+import { ENV_FIELDS, PLACEHOLDER_SECRETS } from "./fields";
+
+const providers = [
+  "anthropic",
+  "openai",
+  "bedrock",
+  "openrouter",
+  "openai-compatible",
+  "google",
+  "azure"
+] as const;
+
+function blankToUndefined(value: unknown): unknown {
+  if (typeof value === "string" && value.trim() === "") return undefined;
+  return value;
+}
+
+const boolish = z.preprocess(
+  blankToUndefined,
+  z
+    .enum(["0", "1", "true", "false", "yes", "no"])
+    .default("0")
+    .transform((value) => value === "1" || value === "true" || value === "yes")
+);
+
+const optionalString = z.preprocess(blankToUndefined, z.string().min(1).optional());
+
+const intWithDefault = (fallback: number) =>
+  z.preprocess(
+    (value) => (value === undefined || value === "" ? String(fallback) : value),
+    z.coerce.number().int().positive()
+  );
+
+export const envSchema = z
+  .object({
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    DATABASE_URL: z.string().min(1),
+    BETTER_AUTH_SECRET: z.string().min(32),
+    APP_URL: z.string().url(),
+    PREVIEW_DOMAIN: z.string().min(1),
+    STORAGE_DRIVER: z.enum(["fs", "s3"]).default("fs"),
+    S3_BUCKET: optionalString,
+    S3_REGION: optionalString,
+    S3_ENDPOINT: optionalString,
+    S3_FORCE_PATH_STYLE: boolish,
+    FS_STORAGE_DIR: z.preprocess(blankToUndefined, z.string().min(1).default(".data/storage")),
+    HOSTMAP_DRIVER: z.enum(["fs", "cloudfront-kvs"]).default("fs"),
+    CLOUDFRONT_KVS_ARN: optionalString,
+    CLOUDFRONT_DISTRIBUTION_ID: optionalString,
+    CLOUDFRONT_CONNECTION_GROUP_ENDPOINT: optionalString,
+    DOMAINS_DRIVER: z.enum(["none", "cloudfront-tenants"]).default("none"),
+    AI_PROVIDER: z.enum(providers).default("anthropic"),
+    AI_API_KEY: optionalString,
+    AI_BASE_URL: optionalString,
+    AI_MODEL_SMALL: z.preprocess(blankToUndefined, z.string().min(1).default("claude-haiku-4-5")),
+    AGENT_MODEL: z.preprocess(blankToUndefined, z.string().min(1).default("claude-sonnet-4-5")),
+    AI_MOCK: boolish,
+    AGENT_TIMEOUT_SEC: intWithDefault(600),
+    SMTP_URL: optionalString,
+    MAIL_FROM: optionalString,
+    BOOTSTRAP_ADMIN_EMAIL: z.preprocess(blankToUndefined, z.string().email().optional()),
+    EMAIL_PASSWORD_ENABLED: z.preprocess(
+      (value) => (value === undefined || value === "" ? "1" : value),
+      z
+        .enum(["0", "1", "true", "false", "yes", "no"])
+        .transform((value) => value === "1" || value === "true" || value === "yes")
+    ),
+    IMPORT_MAX_PAGES: intWithDefault(500),
+    IMPORT_MAX_DEPTH: intWithDefault(6),
+    IMPORT_MAX_ASSETS: intWithDefault(10_000),
+    ANALYTICS_ENABLED: z.preprocess(
+      (value) => (value === undefined || value === "" ? "1" : value),
+      z
+        .enum(["0", "1", "true", "false", "yes", "no"])
+        .transform((value) => value === "1" || value === "true" || value === "yes")
+    ),
+    LOG_LEVEL: z
+      .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
+      .default("info"),
+    METRICS_TOKEN: optionalString,
+    SEED_DEMO: boolish
+  })
+  .superRefine((value, ctx) => {
+    if (value.NODE_ENV === "production") {
+      if (
+        PLACEHOLDER_SECRETS.has(value.BETTER_AUTH_SECRET) ||
+        value.BETTER_AUTH_SECRET.length < 32
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["BETTER_AUTH_SECRET"],
+          message: "Production requires a unique secret of at least 32 characters."
+        });
+      }
+    }
+    if (value.STORAGE_DRIVER === "s3") {
+      if (!value.S3_BUCKET) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["S3_BUCKET"],
+          message: "S3_BUCKET is required when STORAGE_DRIVER=s3."
+        });
+      }
+      if (!value.S3_REGION) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["S3_REGION"],
+          message: "S3_REGION is required when STORAGE_DRIVER=s3."
+        });
+      }
+    }
+    if (value.HOSTMAP_DRIVER === "cloudfront-kvs" && !value.CLOUDFRONT_KVS_ARN) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["CLOUDFRONT_KVS_ARN"],
+        message: "CLOUDFRONT_KVS_ARN is required when HOSTMAP_DRIVER=cloudfront-kvs."
+      });
+    }
+    if (value.DOMAINS_DRIVER === "cloudfront-tenants") {
+      if (!value.CLOUDFRONT_DISTRIBUTION_ID) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["CLOUDFRONT_DISTRIBUTION_ID"],
+          message: "CLOUDFRONT_DISTRIBUTION_ID is required when DOMAINS_DRIVER=cloudfront-tenants."
+        });
+      }
+      if (!value.CLOUDFRONT_CONNECTION_GROUP_ENDPOINT) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["CLOUDFRONT_CONNECTION_GROUP_ENDPOINT"],
+          message:
+            "CLOUDFRONT_CONNECTION_GROUP_ENDPOINT is required when DOMAINS_DRIVER=cloudfront-tenants."
+        });
+      }
+    }
+    if (
+      !value.AI_MOCK &&
+      value.AI_PROVIDER !== "bedrock" &&
+      !value.AI_API_KEY &&
+      value.NODE_ENV === "production"
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["AI_API_KEY"],
+        message: "Set AI_API_KEY or AI_MOCK=1. Bedrock may use the task role instead of a key."
+      });
+    }
+    if (value.SMTP_URL && !value.MAIL_FROM) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["MAIL_FROM"],
+        message: "MAIL_FROM is required when SMTP_URL is set."
+      });
+    }
+  });
+
+export type Config = z.infer<typeof envSchema>;
+
+export class ConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConfigError";
+  }
+}
+
+export function loadConfig(source: Record<string, string | undefined> = process.env): Config {
+  const picked: Record<string, string | undefined> = {};
+  for (const field of ENV_FIELDS) {
+    picked[field.name] = source[field.name];
+  }
+  const parsed = envSchema.safeParse(picked);
+  if (!parsed.success) {
+    const lines = parsed.error.issues.map((issue) => {
+      const path = issue.path.length > 0 ? issue.path.join(".") : "config";
+      return `- ${path}: ${issue.message}`;
+    });
+    throw new ConfigError(`Invalid configuration:\n${lines.join("\n")}`);
+  }
+  return parsed.data;
+}
+
+export function appOrigin(config: Config): URL {
+  return new URL(config.APP_URL);
+}

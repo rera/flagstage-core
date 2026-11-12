@@ -1,0 +1,8 @@
+node_modules
+.next
+dist
+coverage
+pnpm-lock.yaml
+infra/opentofu/**/.terraform
+docs/assets/*.svg
+docs/configuration.md

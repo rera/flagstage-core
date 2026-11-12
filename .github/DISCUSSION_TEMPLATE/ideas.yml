@@ -1,0 +1,10 @@
+title: ""
+labels: ["idea"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: The problem, who it helps, and what a small version would look like.
+    validations:
+      required: true

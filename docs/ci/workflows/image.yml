@@ -1,0 +1,12 @@
+name: image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image and do not push it
+        run: docker build -f docker/Dockerfile -t flagstage-core:local .

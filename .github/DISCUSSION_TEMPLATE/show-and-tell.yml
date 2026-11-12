@@ -1,0 +1,10 @@
+title: ""
+labels: ["show-and-tell"]
+body:
+  - type: textarea
+    id: show
+    attributes:
+      label: What did you run?
+      description: Version, how you deployed it, and what you imported.
+    validations:
+      required: true

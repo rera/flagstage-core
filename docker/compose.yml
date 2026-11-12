@@ -1,0 +1,88 @@
+# Local demo. Postgres, the web app, and the worker share one filesystem volume.
+# AI_MOCK=1 and SEED_DEMO=1, so no model key is required.
+# Single-VM production use of this file is evaluation only. See docs/self-hosting/single-vm.md.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: flagstage
+      POSTGRES_PASSWORD: flagstage
+      POSTGRES_DB: flagstage
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flagstage -d flagstage"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: ["web"]
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://flagstage:flagstage@postgres:5432/flagstage
+      BETTER_AUTH_SECRET: local-dev-secret-that-is-long-enough
+      APP_URL: http://localhost:3000
+      PREVIEW_DOMAIN: localhost
+      STORAGE_DRIVER: fs
+      FS_STORAGE_DIR: /data
+      HOSTMAP_DRIVER: fs
+      DOMAINS_DRIVER: none
+      AI_MOCK: "1"
+      SEED_DEMO: "1"
+      EMAIL_PASSWORD_ENABLED: "1"
+      BOOTSTRAP_ADMIN_EMAIL: admin@example.com
+      LOG_LEVEL: info
+      NODE_ENV: production
+    volumes:
+      - storage:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 40s
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: ["worker"]
+    environment:
+      DATABASE_URL: postgres://flagstage:flagstage@postgres:5432/flagstage
+      BETTER_AUTH_SECRET: local-dev-secret-that-is-long-enough
+      APP_URL: http://localhost:3000
+      PREVIEW_DOMAIN: localhost
+      STORAGE_DRIVER: fs
+      FS_STORAGE_DIR: /data
+      HOSTMAP_DRIVER: fs
+      DOMAINS_DRIVER: none
+      AI_MOCK: "1"
+      SEED_DEMO: "0"
+      LOG_LEVEL: info
+      NODE_ENV: production
+    volumes:
+      - storage:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  pgdata:
+  storage:

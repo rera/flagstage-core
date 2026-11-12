@@ -1,0 +1,31 @@
+{
+  "name": "@flagstage/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@flagstage/config": "workspace:*",
+    "@flagstage/db": "workspace:*",
+    "@flagstage/storage": "workspace:*",
+    "@flagstage/ui": "workspace:*",
+    "drizzle-orm": "^0.45.1",
+    "next": "^16.0.0",
+    "pg": "^8.16.3",
+    "pg-boss": "^12.8.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.1",
+    "@types/pg": "^8.15.6",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "typescript": "^5.9.3"
+  }
+}

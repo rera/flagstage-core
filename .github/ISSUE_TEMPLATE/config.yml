@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question or share an idea
+    url: https://github.com/rera/flagstage-core/discussions
+    about: Discussions are the right place for questions and proposals. Issues are for bugs and agreed work.

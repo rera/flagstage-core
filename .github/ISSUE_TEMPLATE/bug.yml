@@ -1,0 +1,36 @@
+name: Bug
+description: Something in Flagstage Core is broken.
+title: ""
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Git tag, image tag, or commit. `flagstage doctor` prints the environment.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: Deployment
+      options:
+        - Docker Compose (local or evaluation)
+        - OpenTofu on AWS
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Redact secrets. Include the request id if the log line has one.
+      render: shell
