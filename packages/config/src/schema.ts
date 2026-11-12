@@ -50,6 +50,7 @@ export const envSchema = z
     CLOUDFRONT_KVS_ARN: optionalString,
     CLOUDFRONT_DISTRIBUTION_ID: optionalString,
     CLOUDFRONT_CONNECTION_GROUP_ENDPOINT: optionalString,
+    CLOUDFRONT_CONNECTION_GROUP_ID: optionalString,
     DOMAINS_DRIVER: z.enum(["none", "cloudfront-tenants"]).default("none"),
     AI_PROVIDER: z.enum(providers).default("anthropic"),
     AI_API_KEY: optionalString,
@@ -132,6 +133,14 @@ export const envSchema = z
           path: ["CLOUDFRONT_CONNECTION_GROUP_ENDPOINT"],
           message:
             "CLOUDFRONT_CONNECTION_GROUP_ENDPOINT is required when DOMAINS_DRIVER=cloudfront-tenants."
+        });
+      }
+      if (!value.CLOUDFRONT_CONNECTION_GROUP_ID) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["CLOUDFRONT_CONNECTION_GROUP_ID"],
+          message:
+            "CLOUDFRONT_CONNECTION_GROUP_ID is required when DOMAINS_DRIVER=cloudfront-tenants."
         });
       }
     }

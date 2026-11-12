@@ -122,6 +122,14 @@ export const ENV_FIELDS = [
     example: ""
   },
   {
+    name: "CLOUDFRONT_CONNECTION_GROUP_ID",
+    description:
+      "Connection group id for new distribution tenants. Required when DOMAINS_DRIVER=cloudfront-tenants.",
+    requirement: "optional",
+    secret: false,
+    example: ""
+  },
+  {
     name: "DOMAINS_DRIVER",
     description:
       "none records DNS targets only. cloudfront-tenants also creates a distribution tenant per site.",

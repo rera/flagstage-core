@@ -86,6 +86,8 @@ describe("dns records", () => {
           calls.push(input.hostname);
           return {
             tenantId: "tenant-1",
+            distributionStatus: "InProgress",
+            certificateStatus: "pending-validation",
             validationRecords: [
               {
                 type: "CNAME",
@@ -95,6 +97,12 @@ describe("dns records", () => {
               }
             ]
           };
+        },
+        async updateTenant() {
+          throw new Error("unused");
+        },
+        async readTenant() {
+          throw new Error("unused");
         }
       }
     });

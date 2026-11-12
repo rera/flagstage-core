@@ -83,6 +83,11 @@ variable "connection_group_endpoint" {
   description = "Connection group DNS name."
 }
 
+variable "connection_group_id" {
+  type        = string
+  description = "Connection group id for distribution tenants."
+}
+
 variable "ai_mock" {
   type        = string
   description = "1 or 0."
@@ -170,6 +175,7 @@ locals {
     { name = "HOSTMAP_DRIVER", value = "cloudfront-kvs" },
     { name = "CLOUDFRONT_KVS_ARN", value = var.key_value_store_arn },
     { name = "CLOUDFRONT_DISTRIBUTION_ID", value = var.distribution_id },
+    { name = "CLOUDFRONT_CONNECTION_GROUP_ID", value = var.connection_group_id },
     { name = "CLOUDFRONT_CONNECTION_GROUP_ENDPOINT", value = var.connection_group_endpoint },
     { name = "DOMAINS_DRIVER", value = "cloudfront-tenants" },
     { name = "AI_MOCK", value = var.ai_mock },

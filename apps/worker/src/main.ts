@@ -15,7 +15,7 @@ import {
   thread,
   type QueueName
 } from "@flagstage/db";
-import { publicDnsLookup, recheckDueDomains } from "@flagstage/domains";
+import { publicDnsLookup, recheckDueDomains, selectDomainsDriver } from "@flagstage/domains";
 import { runImport } from "@flagstage/importer";
 import type { AgentTurnJob, ImportJob } from "@flagstage/jobs";
 import { createBlobStore } from "@flagstage/storage";
@@ -108,7 +108,16 @@ await boss.work("analytics-rollup", async () => {
 });
 await boss.schedule("analytics-rollup", "15 * * * *", {});
 await boss.work("domain-recheck", async () => {
-  await recheckDueDomains(getDb(config.DATABASE_URL), publicDnsLookup());
+  const driver = await selectDomainsDriver(config);
+  await recheckDueDomains(
+    getDb(config.DATABASE_URL),
+    publicDnsLookup(),
+    new Date(),
+    async (row) => {
+      if (!row.cloudfrontTenantId || config.DOMAINS_DRIVER !== "cloudfront-tenants") return null;
+      return driver.read(row.cloudfrontTenantId, row.hostname);
+    }
+  );
 });
 await boss.schedule("domain-recheck", "*/10 * * * *", {});
 

@@ -26,6 +26,7 @@ rejected when `NODE_ENV=production`.
 | `CLOUDFRONT_KVS_ARN` | no | `` | KeyValueStore ARN. Required when HOSTMAP_DRIVER=cloudfront-kvs. |
 | `CLOUDFRONT_DISTRIBUTION_ID` | no | `` | Multi-tenant distribution id. Required when DOMAINS_DRIVER=cloudfront-tenants. |
 | `CLOUDFRONT_CONNECTION_GROUP_ENDPOINT` | no | `` | Connection group endpoint operators CNAME to. Shown on the DNS checklist. Required when domains use CloudFront. |
+| `CLOUDFRONT_CONNECTION_GROUP_ID` | no | `` | Connection group id for new distribution tenants. Required when DOMAINS_DRIVER=cloudfront-tenants. |
 | `DOMAINS_DRIVER` | no | `none` | none records DNS targets only. cloudfront-tenants also creates a distribution tenant per site. |
 | `AI_PROVIDER` | no | `anthropic` | Provider for the small intent, judge, and reply models, and the default agent provider. One of anthropic, openai, bedrock, openrouter, openai-compatible, google, azure. |
 | `AI_API_KEY` | no | `` | Bring-your-own model API key. Ignored when AI_MOCK=1. Bedrock may use the task role instead of a key. |
@@ -52,7 +53,7 @@ rejected when `NODE_ENV=production`.
 - `STORAGE_DRIVER=fs` stores bytes on disk. Compose uses this so a local demo needs no object store.
 - `STORAGE_DRIVER=s3` talks to AWS or any S3-compatible endpoint (`S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`).
 - `HOSTMAP_DRIVER=fs` writes the live hostname map next to the files. `cloudfront-kvs` updates a CloudFront KeyValueStore.
-- `DOMAINS_DRIVER=none` still builds the DNS checklist. `cloudfront-tenants` also creates a distribution tenant.
+- `DOMAINS_DRIVER=none` still builds the DNS checklist. `cloudfront-tenants` creates or updates a distribution tenant and its managed certificate, then reads that status into the checklist.
 - `AI_MOCK=1` skips provider calls. The worker applies a deterministic edit so chat, preview, and publish can be tried with no key.
 
 ## Telemetry

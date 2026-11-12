@@ -117,6 +117,7 @@ module "service" {
   bucket_name               = module.storage.bucket_id
   key_value_store_arn       = module.edge.key_value_store_arn
   distribution_id           = module.edge.distribution_id
+  connection_group_id       = module.edge.connection_group_id
   connection_group_endpoint = module.edge.connection_group_endpoint
   ai_mock                   = var.ai_mock
   bootstrap_admin_email     = var.bootstrap_admin_email

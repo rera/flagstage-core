@@ -32,10 +32,11 @@ import { rollbackTo } from "@flagstage/publish";
 import { changeRequest, siteDomain, snapshot } from "@flagstage/db";
 import {
   checkDnsRecords,
+  domainStatus,
   isValidHostname,
-  noneDriver,
   normalizeHostname,
   publicDnsLookup,
+  selectDomainsDriver,
   type DnsRecord
 } from "@flagstage/domains";
 
@@ -484,17 +485,37 @@ export async function addDomainAction(formData: FormData) {
   const config = loadConfig();
   const hostname = normalizeHostname(String(formData.get("hostname") ?? ""));
   if (!isValidHostname(hostname)) redirect(`/sites/${siteId}/domain`);
-  const endpoint = config.CLOUDFRONT_CONNECTION_GROUP_ENDPOINT || "d111111abcdef8.cloudfront.net";
-  const provisioned = await noneDriver(endpoint).provision(hostname);
-  const id = randomUUID();
-  await database().insert(siteDomain).values({
-    id,
-    siteId,
-    hostname,
-    records: provisioned.records,
-    cloudfrontTenantId: provisioned.tenantId,
-    status: "pending"
-  });
+  const driver = await selectDomainsDriver(config);
+  const existing = await database()
+    .select()
+    .from(siteDomain)
+    .where(eq(siteDomain.hostname, hostname))
+    .limit(1);
+  const current = existing[0];
+  if (current && current.siteId !== siteId) redirect(`/sites/${siteId}/domain`);
+  const provisioned = current?.cloudfrontTenantId
+    ? await driver.update(current.cloudfrontTenantId, hostname)
+    : await driver.provision(hostname);
+  if (current) {
+    await database()
+      .update(siteDomain)
+      .set({
+        records: provisioned.records,
+        cloudfrontTenantId: provisioned.tenantId,
+        status: "pending",
+        lastCheckedAt: null
+      })
+      .where(eq(siteDomain.id, current.id));
+  } else {
+    await database().insert(siteDomain).values({
+      id: randomUUID(),
+      siteId,
+      hostname,
+      records: provisioned.records,
+      cloudfrontTenantId: provisioned.tenantId,
+      status: "pending"
+    });
+  }
   redirect(`/sites/${siteId}/domain`);
 }
 
@@ -511,11 +532,24 @@ export async function recheckDomainAction(formData: FormData) {
     .limit(1);
   const found = rows[0];
   if (!found) redirect(`/sites/${siteId}/domain`);
-  const records = await checkDnsRecords(found.records as DnsRecord[], publicDnsLookup());
-  const ready = records.length > 0 && records.every((record) => record.found);
+  const config = loadConfig();
+  const driver = await selectDomainsDriver(config);
+  const refreshed =
+    found.cloudfrontTenantId && config.DOMAINS_DRIVER === "cloudfront-tenants"
+      ? await driver.read(found.cloudfrontTenantId, found.hostname)
+      : null;
+  const records = await checkDnsRecords(
+    (refreshed?.records ?? found.records) as DnsRecord[],
+    publicDnsLookup()
+  );
+  const status = domainStatus(
+    records,
+    refreshed?.certificateStatus ?? null,
+    refreshed?.distributionStatus ?? null
+  );
   await database()
     .update(siteDomain)
-    .set({ records, status: ready ? "active" : "verifying", lastCheckedAt: new Date() })
+    .set({ records, status, lastCheckedAt: new Date() })
     .where(eq(siteDomain.id, domainId));
   redirect(`/sites/${siteId}/domain`);
 }
