@@ -20,7 +20,14 @@ import {
   subprocessRunner,
   undoEdit
 } from "@flagstage/agent";
-import { disarmSchedule, insertSchedule, localInputToUtc, rollbackTo } from "@flagstage/publish";
+import {
+  disarmSchedule,
+  insertSchedule,
+  localInputToUtc,
+  recordPublish,
+  rollbackTo,
+  swapLive
+} from "@flagstage/publish";
 import { siteSchedule } from "@flagstage/db";
 import { account, siteDomain, snapshot } from "@flagstage/db";
 import {
@@ -330,6 +337,33 @@ export async function approveChangeAction(formData: FormData) {
   if (published.ok && found) {
     await publishHostMap(liveHost(found.slug), snapshotPrefix(siteId, published.snapshotId));
   }
+  redirect(`/sites/${siteId}`);
+}
+
+export async function publishDraftAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
+  const snapshotId = String(formData.get("snapshotId") ?? "");
+  const db = database();
+  const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
+  const found = rows[0];
+  const snaps = await db.select().from(snapshot).where(eq(snapshot.id, snapshotId)).limit(1);
+  if (!found?.currentSnapshotId || !snaps[0] || found.draftSnapshotId !== snapshotId) {
+    redirect(`/sites/${siteId}?error=1`);
+  }
+  const swapped = await swapLive(db, siteId, found.currentSnapshotId, snapshotId);
+  if (!swapped) redirect(`/sites/${siteId}?error=1`);
+  await recordPublish({
+    db,
+    siteId,
+    fromSnapshotId: found.currentSnapshotId,
+    toSnapshotId: snapshotId,
+    actorUserId: principal.id,
+    kind: "publish"
+  });
+  await publishHostMap(liveHost(found.slug), snaps[0].storagePrefix);
   redirect(`/sites/${siteId}`);
 }
 

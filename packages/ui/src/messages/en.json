@@ -96,7 +96,7 @@
   "chat.placeholder": "Describe the change",
   "chat.send": "Send",
   "chat.working": "Working on that change.",
-  "chat.approve": "Publish",
+  "chat.approve": "Publish now",
   "chat.requestChanges": "Request changes",
   "chat.rollback": "Undo a publish",
   "chat.undo": "Undo this edit",

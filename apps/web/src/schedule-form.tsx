@@ -29,13 +29,15 @@ export function SchedulePanel({
   accountId,
   snapshotId,
   timeZone,
-  scheduleId
+  scheduleId,
+  joined = false
 }: {
   siteId: string;
   accountId: string;
   snapshotId?: string;
   timeZone: string;
   scheduleId?: string;
+  joined?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date());
@@ -57,11 +59,21 @@ export function SchedulePanel({
   const revertPreview = revertAt ? localInputToUtc(revertAt, timeZone) : null;
 
   return (
-    <div className="relative">
+    <div className={joined ? "relative inline-flex" : "relative"}>
       <Button
         type="button"
-        variant="outline"
+        variant={joined ? "default" : "outline"}
         size={scheduleId ? "sm" : "default"}
+        className={joined ? "px-3" : undefined}
+        style={
+          joined
+            ? {
+                borderTopLeftRadius: 0,
+                borderBottomLeftRadius: 0,
+                borderLeft: "1px solid rgb(255 255 255 / 0.35)"
+              }
+            : undefined
+        }
         onClick={() => setOpen((value) => !value)}
       >
         {scheduleId ? "Reschedule" : "Schedule"}

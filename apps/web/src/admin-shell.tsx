@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
-import { cn } from "@flagstage/ui";
+import { cn, FlagstageMark } from "@flagstage/ui";
 
 const LINKS = [
   { href: "/admin", label: "People", exact: true },
@@ -38,12 +38,15 @@ export function AdminShell({ children, footer }: { children: ReactNode; footer?:
     <div className="flex min-h-dvh bg-background">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-[var(--wash)]">
         <div className="flex h-14 items-center gap-2 border-b border-border px-4">
-          <a href="/admin" className="inline-flex items-center gap-2 font-semibold tracking-tight">
-            <span className="grid size-8 place-items-center rounded-lg bg-[#111620] text-xs text-white">
-              F
+          <a
+            href="/admin"
+            className="inline-flex items-center gap-2.5 font-semibold tracking-tight"
+          >
+            <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-[9px] bg-[#111620]">
+              <FlagstageMark className="size-9" />
             </span>
             <span className="flex flex-col leading-none">
-              <span>Flagstage</span>
+              <span className="text-[15px] tracking-tight">Flagstage</span>
               <span className="mt-1 text-[10px] font-medium tracking-[0.08em] text-muted-foreground">
                 ADMIN
               </span>
@@ -60,7 +63,7 @@ export function AdminShell({ children, footer }: { children: ReactNode; footer?:
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-background hover:text-foreground",
+                  "rounded-[10px] px-3 py-2 text-[14.5px] font-medium text-muted-foreground hover:bg-background hover:text-foreground",
                   active && "bg-background text-foreground shadow-sm"
                 )}
               >

@@ -53,7 +53,7 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await page.getByRole("button", { name: "Send" }).click();
   await expect(async () => {
     await page.reload();
-    await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Publish now", exact: true })).toBeVisible();
   }).toPass({ timeout: 60_000 });
 
   await expect(page.getByText("Preview updated")).toBeVisible();
@@ -63,8 +63,8 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   expect(preview.ok()).toBe(true);
   expect(await preview.text()).toContain("the park is open today");
 
-  await page.getByRole("button", { name: "Publish", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Publish now", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Publish now", exact: true })).toHaveCount(0);
   await expect(page.getByRole("status")).toHaveText("This snapshot is live.");
 
   await page.getByRole("link", { name: "Domain" }).click();

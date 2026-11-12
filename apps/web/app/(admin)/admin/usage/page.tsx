@@ -16,6 +16,7 @@ import { account, changeRequest, site } from "@flagstage/db";
 import { setBudgetAction } from "../../../../src/actions";
 import { AdminPage } from "../../../../src/admin-page";
 import { database } from "../../../../src/guard";
+import { formatUsd } from "../../../../src/money";
 import { friendlyWhen } from "../../../../src/time";
 
 export default async function UsagePage() {
@@ -25,17 +26,19 @@ export default async function UsagePage() {
   const edits = await db.select().from(changeRequest);
   const month = new Date().toISOString().slice(0, 7);
   const monthEdits = edits.filter((entry) => entry.createdAt.toISOString().slice(0, 7) === month);
-  const spent = monthEdits.reduce((sum, entry) => {
-    const usage = entry.usage as { estimatedUsd?: number } | null;
-    return sum + (usage?.estimatedUsd ?? 0);
-  }, 0);
+  const spent = formatUsd(
+    monthEdits.reduce((sum, entry) => {
+      const usage = entry.usage as { estimatedUsd?: number } | null;
+      return sum + (usage?.estimatedUsd ?? 0);
+    }, 0)
+  );
   return (
     <AdminPage
       title="Usage"
       description="Token counts and estimated Bedrock cost for each edit, plus the monthly budget."
       stats={[
         { label: "Edits this month", value: String(monthEdits.length) },
-        { label: "Estimated USD", value: spent.toFixed(4) }
+        { label: "Estimated cost", value: spent.text, title: spent.title }
       ]}
     >
       {accounts.length === 0 ? (
@@ -87,7 +90,7 @@ export default async function UsagePage() {
                       <TableHead>Site</TableHead>
                       <TableHead>In</TableHead>
                       <TableHead>Out</TableHead>
-                      <TableHead>USD</TableHead>
+                      <TableHead>Cost</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -98,6 +101,7 @@ export default async function UsagePage() {
                         estimatedUsd?: number;
                       } | null;
                       const owner = owned.find((ownedSite) => ownedSite.id === entry.siteId);
+                      const cost = formatUsd(usage?.estimatedUsd ?? 0);
                       return (
                         <TableRow key={entry.id}>
                           <TableCell className="text-muted-foreground">
@@ -110,8 +114,8 @@ export default async function UsagePage() {
                           <TableCell className="font-mono text-xs">
                             {usage?.outputTokens ?? 0}
                           </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {(usage?.estimatedUsd ?? 0).toFixed(6)}
+                          <TableCell className="text-xs tabular-nums" title={cost.title}>
+                            {cost.text}
                           </TableCell>
                         </TableRow>
                       );

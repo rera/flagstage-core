@@ -8,6 +8,7 @@ import { changeRequest, importRun, message, site, snapshot, thread } from "@flag
 import {
   approveChangeAction,
   approveSiteAction,
+  publishDraftAction,
   rollbackAction,
   sendMessageAction,
   undoEditAction
@@ -83,6 +84,11 @@ export default async function SitePage({
   const runs = await db.select().from(importRun).where(eq(importRun.siteId, siteId));
   const latest = runs[runs.length - 1];
   const report = (latest?.fidelityReport ?? null) as Report | null;
+  const notes = [
+    ...(report?.forms ?? []).map((item) => `${item.page}: ${item.detail}`),
+    ...(report?.plugins ?? []).map((item) => `${item.page}: ${item.detail}`),
+    ...(report?.missingAssets ?? []).map((asset) => `${t("sites.missing")} ${asset}`)
+  ];
   const threads = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
   const threadId = threads[0]?.id;
   const messages = threadId
@@ -90,6 +96,7 @@ export default async function SitePage({
     : [];
   const requests = await db.select().from(changeRequest).where(eq(changeRequest.siteId, siteId));
   const ready = requests.filter((item) => item.status === "preview_ready");
+  const readyChange = ready.find((item) => item.resultSnapshotId === found.draftSnapshotId);
   const progress = (latest?.stats ?? {}) as {
     pagesFound?: number;
     pagesDone?: number;
@@ -184,25 +191,34 @@ export default async function SitePage({
               </Button>
             </form>
           ) : null}
-          {canPublish
-            ? ready.slice(-1).map((item) => (
-                <form key={item.id} action={approveChangeAction}>
-                  <input type="hidden" name="siteId" value={found.id} />
-                  <input type="hidden" name="accountId" value={found.accountId} />
-                  <input type="hidden" name="changeRequestId" value={item.id} />
-                  <Button type="submit">{t("chat.approve")}</Button>
-                </form>
-              ))
-            : null}
           {canPublish &&
+          found.currentSnapshotId &&
           found.draftSnapshotId &&
           found.draftSnapshotId !== found.currentSnapshotId ? (
-            <SchedulePanel
-              siteId={found.id}
-              accountId={found.accountId}
-              snapshotId={found.draftSnapshotId}
-              timeZone={found.timeZone || "UTC"}
-            />
+            <div className="inline-flex items-stretch">
+              <form action={readyChange ? approveChangeAction : publishDraftAction}>
+                <input type="hidden" name="siteId" value={found.id} />
+                <input type="hidden" name="accountId" value={found.accountId} />
+                {readyChange ? (
+                  <input type="hidden" name="changeRequestId" value={readyChange.id} />
+                ) : (
+                  <input type="hidden" name="snapshotId" value={found.draftSnapshotId} />
+                )}
+                <Button
+                  type="submit"
+                  style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                >
+                  {t("chat.approve")}
+                </Button>
+              </form>
+              <SchedulePanel
+                joined
+                siteId={found.id}
+                accountId={found.accountId}
+                snapshotId={found.draftSnapshotId}
+                timeZone={found.timeZone || "UTC"}
+              />
+            </div>
           ) : null}
         </div>
       </div>
@@ -237,7 +253,8 @@ export default async function SitePage({
             {found.status === "failed" ? (
               <Alert variant="destructive">{latest?.error ?? t("sites.failed")}</Alert>
             ) : null}
-            {found.status === "live" ? (
+            {found.status === "live" &&
+            (!found.draftSnapshotId || found.draftSnapshotId === found.currentSnapshotId) ? (
               <p
                 role="status"
                 className="rounded-md border border-[var(--brand-signal)]/30 bg-[var(--done-wash)] px-4 py-3 text-sm"
@@ -277,24 +294,12 @@ export default async function SitePage({
                 );
               })}
             </div>
-            {report ? (
+            {notes.length > 0 ? (
               <section>
                 <h2 className="mb-2 text-sm font-semibold">{t("sites.fidelity")}</h2>
                 <ul className="space-y-1 text-sm text-muted-foreground">
-                  {(report.forms ?? []).map((item) => (
-                    <li key={`${item.kind}${item.page}`}>
-                      {item.page}: {item.detail}
-                    </li>
-                  ))}
-                  {(report.plugins ?? []).map((item) => (
-                    <li key={`${item.kind}${item.page}`}>
-                      {item.page}: {item.detail}
-                    </li>
-                  ))}
-                  {(report.missingAssets ?? []).map((asset) => (
-                    <li key={asset}>
-                      {t("sites.missing")} {asset}
-                    </li>
+                  {notes.map((item) => (
+                    <li key={item}>{item}</li>
                   ))}
                 </ul>
               </section>

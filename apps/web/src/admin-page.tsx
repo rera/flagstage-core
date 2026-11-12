@@ -8,7 +8,7 @@ export function AdminPage({
 }: {
   title: string;
   description: string;
-  stats?: Array<{ label: string; value: string }>;
+  stats?: Array<{ label: string; value: string; title?: string }>;
   children: ReactNode;
 }) {
   return (
@@ -25,6 +25,7 @@ export function AdminPage({
             <div key={stat.label} className="rounded-xl border border-border bg-card px-4 py-3">
               <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
               <p
+                title={stat.title}
                 className={
                   stat.value.length > 18
                     ? "mt-1 text-sm font-semibold tracking-tight break-all"
