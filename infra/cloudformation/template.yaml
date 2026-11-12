@@ -18,9 +18,10 @@ Parameters:
   SesFrom:
     Type: String
     Description: From address for invite, password reset, and form mail.
-  Image:
+  ImageUri:
     Type: String
-    Description: ECR image URI for the web and worker containers.
+    Default: public.ecr.aws/flagstage/flagstage-core:0.1.0
+    Description: Web container image. A release pins this to the public image for that version.
   Name:
     Type: String
     Default: flagstage
@@ -596,7 +597,7 @@ Resources:
       TaskRoleArn: !GetAtt TaskRole.Arn
       ContainerDefinitions:
         - Name: web
-          Image: !Ref Image
+          Image: !Ref ImageUri
           Essential: true
           Command:
             - web
@@ -642,7 +643,7 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: web
         - Name: worker
-          Image: !Ref Image
+          Image: !Ref ImageUri
           Essential: true
           Command:
             - worker

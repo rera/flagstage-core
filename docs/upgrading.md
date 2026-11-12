@@ -7,8 +7,8 @@ Read `CHANGELOG.md` before you roll forward. [0.1.0](../CHANGELOG.md) is unrelea
 ## Application
 
 1. Pin an image tag or a git revision. Do not deploy `latest` and then expect to know what you are running.
-2. Pull that image, or check out that revision.
-3. Restart the web process and the worker. Both apply migrations at startup, behind one Postgres advisory lock, so either process can start first.
+2. Run `./deploy.sh` again. It deploys the public image pinned in that version's template. A fork that built its own image runs `./deploy.sh --build`.
+3. The new container applies migrations at startup, behind one Postgres advisory lock, before it serves traffic.
 4. Wait until `GET /api/ready` returns 200. `/api/health` only means the process is up. `/api/ready` means it can reach the database.
 
 On the evaluation compose file:
@@ -18,7 +18,7 @@ docker compose pull
 docker compose up -d
 ```
 
-That file is not the production layout. On AWS, run `./deploy.sh` again with the new image, or roll the ECS service to it. This repository does not deploy from CI.
+That file is not the production layout. On AWS, upgrading is running `./deploy.sh` for the new version. This repository does not deploy from CI.
 
 ## Rolling back
 

@@ -11,7 +11,7 @@ Flagstage Core is a self-hosted app for an organization that runs many accounts 
 ## Quickstart
 
 1. Edit `flagstage.config.json`. Set the domain, the organization name, the first admin email, the Bedrock model id, the region, and the SES from-address. Logo and brand live in that file too.
-2. Run `./deploy.sh`. It builds the image, pushes it to ECR, and deploys the CloudFormation stack. Deploy in us-east-1 so CloudFront can use the certificate.
+2. Use a release, or fork and customize. A release's notes include a Launch stack link for the CloudFormation template, with the public image pinned as `ImageUri`. From a checkout, `./deploy.sh` deploys that same public image (`public.ecr.aws/flagstage/flagstage-core:0.1.0`). `./deploy.sh --build` builds the image and pushes it to your own ECR. Deploy in us-east-1 so CloudFront can use the certificate.
 3. Delegate the domain to the name servers the script prints.
 
 The app is `https://{domain}`. A published site is `https://{slug}.{domain}`, served from S3 through CloudFront. The web log prints a one-time sign-in link for `adminEmail`. A first run has no accounts and no sites.

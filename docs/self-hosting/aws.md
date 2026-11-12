@@ -2,7 +2,7 @@
 
 # Deploy on AWS
 
-Edit `flagstage.config.json`, then run `./deploy.sh`. The script builds the image, pushes it to ECR in your account, and runs `aws cloudformation deploy`. Delegate the domain to the name servers the stack prints. Nothing in this repository runs that script.
+Edit `flagstage.config.json`, then run `./deploy.sh`. The script deploys the CloudFormation template. `ImageUri` defaults to the public image for this version, `public.ecr.aws/flagstage/flagstage-core:0.1.0`. `./deploy.sh --build` builds the image and pushes it to ECR in your account instead. Delegate the domain to the name servers the stack prints. Nothing in this repository runs that script. A GitHub release attaches the same template and puts a Launch stack link in the notes.
 
 Deploy the stack in us-east-1. CloudFront can only use a certificate from that region. The example config uses us-east-1.
 
