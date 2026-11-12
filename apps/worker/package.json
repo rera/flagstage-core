@@ -9,8 +9,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@flagstage/agent": "workspace:*",
     "@flagstage/config": "workspace:*",
     "@flagstage/db": "workspace:*",
+    "@flagstage/storage": "workspace:*",
     "pg-boss": "^12.8.0"
   },
   "devDependencies": {

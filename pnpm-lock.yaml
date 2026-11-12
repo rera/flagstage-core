@@ -69,6 +69,9 @@ importers:
       '@better-auth/sso':
         specifier: 1.7.21
         version: 1.7.21(@better-auth/core@1.7.21(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.5(zod@4.6.7))(jose@6.2.17)(kysely@0.29.8)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-auth@1.7.21(@opentelemetry/api@1.10.0)(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1))(next@16.4.6(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@3.2.7(@types/node@22.20.5)(tsx@4.23.15)))(better-call@1.4.5(zod@4.6.7))
+      '@flagstage/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
       '@flagstage/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -84,6 +87,9 @@ importers:
       '@flagstage/importer':
         specifier: workspace:*
         version: link:../../packages/importer
+      '@flagstage/publish':
+        specifier: workspace:*
+        version: link:../../packages/publish
       '@flagstage/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -130,12 +136,18 @@ importers:
 
   apps/worker:
     dependencies:
+      '@flagstage/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
       '@flagstage/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@flagstage/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@flagstage/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       pg-boss:
         specifier: ^12.8.0
         version: 12.38.2(@opentelemetry/api@1.10.0)
@@ -143,6 +155,40 @@ importers:
       tsx:
         specifier: ^4.20.6
         version: 4.23.15
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/agent:
+    dependencies:
+      '@flagstage/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@flagstage/core':
+        specifier: workspace:*
+        version: link:../core
+      '@flagstage/db':
+        specifier: workspace:*
+        version: link:../db
+      '@flagstage/publish':
+        specifier: workspace:*
+        version: link:../publish
+      '@flagstage/storage':
+        specifier: workspace:*
+        version: link:../storage
+      drizzle-orm:
+        specifier: ^0.45.1
+        version: 0.45.4(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1)
+    devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.3.14
+        version: 0.3.16
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/ai:
+    devDependencies:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -244,6 +290,22 @@ importers:
       '@electric-sql/pglite':
         specifier: ^0.3.14
         version: 0.3.16
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/publish:
+    dependencies:
+      '@flagstage/db':
+        specifier: workspace:*
+        version: link:../db
+      '@flagstage/storage':
+        specifier: workspace:*
+        version: link:../storage
+      drizzle-orm:
+        specifier: ^0.45.1
+        version: 0.45.4(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1)
+    devDependencies:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

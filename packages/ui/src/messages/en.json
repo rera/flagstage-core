@@ -89,6 +89,8 @@
   "chat.send": "Send",
   "chat.approve": "Approve and publish",
   "chat.requestChanges": "Request changes",
+  "chat.rollback": "Roll back",
+  "chat.held": "Waiting for an account admin.",
   "domains.title": "Domain",
   "domains.check": "Check again",
   "forms.title": "Forms",

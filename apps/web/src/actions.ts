@@ -18,6 +18,15 @@ import { idpGroupMapping, importRun, orgSettings, site, ssoProvider } from "@fla
 import { approveImport, crawlSite, storeCrawl } from "@flagstage/importer";
 import { createBlobStore, snapshotPrefix } from "@flagstage/storage";
 import { samlProviderConfig } from "@flagstage/auth";
+import {
+  approveChange,
+  buildAgentEnv,
+  postMessage,
+  skillsDirectory,
+  subprocessRunner
+} from "@flagstage/agent";
+import { rollbackTo } from "@flagstage/publish";
+import { changeRequest, snapshot } from "@flagstage/db";
 
 import { getAuth } from "./auth";
 import { applyAuthResponse } from "./cookies";
@@ -336,4 +345,116 @@ export async function approveSiteAction(formData: FormData) {
     hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`
   });
   redirect(`/sites/${siteId}`);
+}
+
+function editor() {
+  const config = loadConfig();
+  if (config.AI_MOCK) return undefined;
+  return subprocessRunner({
+    env: buildAgentEnv(process.env),
+    timeoutMs: config.AGENT_TIMEOUT_SEC * 1000,
+    skillsDir: skillsDirectory
+  });
+}
+
+export async function sendMessageAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  if (
+    !can(principal, "site.comment", { accountId }) &&
+    !can(principal, "site.edit", { accountId })
+  ) {
+    redirect("/no-access");
+  }
+  const config = loadConfig();
+  await postMessage({
+    db: database(),
+    store: createBlobStore(config),
+    siteId,
+    userId: principal.id,
+    body: String(formData.get("body") ?? ""),
+    appOrigin: config.APP_URL,
+    runner: editor(),
+    commentOnly: !can(principal, "site.edit", { accountId })
+  });
+  redirect(`/sites/${siteId}`);
+}
+
+export async function approveChangeAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
+  const config = loadConfig();
+  const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
+  const found = rows[0];
+  await approveChange({
+    db: database(),
+    store: createBlobStore(config),
+    changeRequestId: String(formData.get("changeRequestId") ?? ""),
+    actorUserId: principal.id,
+    host: found ? `${found.slug}.localhost` : undefined,
+    hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`,
+    runner: editor()
+  });
+  redirect(`/sites/${siteId}`);
+}
+
+export async function rollbackAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
+  const snapshotId = String(formData.get("snapshotId") ?? "");
+  const config = loadConfig();
+  const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
+  const found = rows[0];
+  const snaps = await database()
+    .select()
+    .from(snapshot)
+    .where(eq(snapshot.id, snapshotId))
+    .limit(1);
+  await rollbackTo({
+    db: database(),
+    siteId,
+    toSnapshotId: snapshotId,
+    actorUserId: principal.id,
+    host: found ? `${found.slug}.localhost` : undefined,
+    hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`,
+    prefix: snaps[0]?.storagePrefix
+  });
+  redirect(`/sites/${siteId}`);
+}
+
+export async function releaseHoldAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "member.manage", { accountId }) && !can(principal, "org.manage")) {
+    redirect("/no-access");
+  }
+  const requestId = String(formData.get("changeRequestId") ?? "");
+  const rows = await database()
+    .select()
+    .from(changeRequest)
+    .where(eq(changeRequest.id, requestId))
+    .limit(1);
+  const request = rows[0];
+  if (!request?.summary) redirect("/sites");
+  await database()
+    .update(changeRequest)
+    .set({ status: "rejected" })
+    .where(eq(changeRequest.id, requestId));
+  const config = loadConfig();
+  await postMessage({
+    db: database(),
+    store: createBlobStore(config),
+    siteId: request.siteId,
+    userId: principal.id,
+    body: request.summary,
+    appOrigin: config.APP_URL,
+    runner: editor(),
+    allowHold: false
+  });
+  redirect(`/sites/${request.siteId}`);
 }

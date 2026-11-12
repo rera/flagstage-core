@@ -12,11 +12,13 @@
   "dependencies": {
     "@better-auth/scim": "1.7.21",
     "@better-auth/sso": "1.7.21",
+    "@flagstage/agent": "workspace:*",
     "@flagstage/auth": "workspace:*",
     "@flagstage/config": "workspace:*",
     "@flagstage/core": "workspace:*",
     "@flagstage/db": "workspace:*",
     "@flagstage/importer": "workspace:*",
+    "@flagstage/publish": "workspace:*",
     "@flagstage/storage": "workspace:*",
     "@flagstage/ui": "workspace:*",
     "better-auth": "1.7.21",

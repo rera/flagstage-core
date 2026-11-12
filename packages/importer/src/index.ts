@@ -1,5 +1,5 @@
 export { crawlSite } from "./crawl";
-export { slugFromHost } from "./host";
+export { previewFromHost, slugFromHost } from "./host";
 export { approveImport, storeCrawl } from "./persist";
 export type {
   CrawlResult,

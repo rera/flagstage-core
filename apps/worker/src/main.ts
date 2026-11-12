@@ -1,7 +1,9 @@
 import { createServer } from "node:http";
 
+import { postMessage, buildAgentEnv, skillsDirectory, subprocessRunner } from "@flagstage/agent";
 import { createLogger, loadConfig } from "@flagstage/config";
-import { migrateWithLock, QUEUE_NAMES, type QueueName } from "@flagstage/db";
+import { getDb, migrateWithLock, QUEUE_NAMES, type QueueName } from "@flagstage/db";
+import { createBlobStore } from "@flagstage/storage";
 import { PgBoss, type Job } from "pg-boss";
 
 const config = loadConfig();
@@ -19,7 +21,27 @@ async function note(name: QueueName, jobs: Job<unknown>[]): Promise<void> {
 }
 
 await boss.work("import", async (jobs) => note("import", jobs));
-await boss.work("agent-turn", async (jobs) => note("agent-turn", jobs));
+await boss.work("agent-turn", async (jobs) => {
+  for (const job of jobs) {
+    const data = job.data as { siteId?: string; userId?: string; body?: string };
+    if (!data.siteId || !data.userId || !data.body) continue;
+    await postMessage({
+      db: getDb(config.DATABASE_URL),
+      store: createBlobStore(config),
+      siteId: data.siteId,
+      userId: data.userId,
+      body: data.body,
+      appOrigin: config.APP_URL,
+      runner: config.AI_MOCK
+        ? undefined
+        : subprocessRunner({
+            env: buildAgentEnv(process.env),
+            timeoutMs: config.AGENT_TIMEOUT_SEC * 1000,
+            skillsDir: skillsDirectory
+          })
+    });
+  }
+});
 await boss.work("publish", async (jobs) => note("publish", jobs));
 await boss.work("dns-check", async (jobs) => note("dns-check", jobs));
 await boss.work("analytics-rollup", async (jobs) => note("analytics-rollup", jobs));
