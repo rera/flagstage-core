@@ -1,13 +1,23 @@
-import { loadConfig } from "@flagstage/config";
-import { createBlobStore } from "@flagstage/storage";
+import { readFileSync } from "node:fs";
+import { extname } from "node:path";
+
+import { loadConfig, resolveBrandLogo } from "@flagstage/config";
+
+const types: Record<string, string> = {
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp"
+};
 
 export async function GET() {
-  const object = await createBlobStore(loadConfig()).get("brand/logo");
-  if (!object) return new Response("Not found", { status: 404 });
-  return new Response(Buffer.from(object.body), {
-    headers: {
-      "content-type": object.contentType,
-      "cache-control": "private, max-age=60"
-    }
+  const config = loadConfig();
+  const logo = config.product?.brand.logo;
+  const path = config.productPath && logo ? resolveBrandLogo(config.productPath, logo) : undefined;
+  if (!path) return new Response("Not found", { status: 404 });
+  const type = types[extname(path).toLowerCase()] ?? "application/octet-stream";
+  return new Response(readFileSync(path), {
+    headers: { "content-type": type, "cache-control": "private, max-age=60" }
   });
 }

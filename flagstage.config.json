@@ -1,0 +1,14 @@
+{
+  "$schema": "./flagstage.config.schema.json",
+  "domain": "sites.example.com",
+  "orgName": "Example Organization",
+  "adminEmail": "admin@example.com",
+  "bedrockModelId": "amazon.nova-micro-v1:0",
+  "region": "us-east-1",
+  "sesFrom": "Flagstage <noreply@sites.example.com>",
+  "brand": {
+    "name": "Flagstage",
+    "logo": "brand/logo.svg",
+    "color": "#1f4d3a"
+  }
+}

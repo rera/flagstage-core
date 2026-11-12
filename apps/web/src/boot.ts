@@ -1,6 +1,7 @@
 import { loadConfig, createLogger } from "@flagstage/config";
 import { migrateWithLock, createDb, QUEUE_NAMES } from "@flagstage/db";
 import { bootstrapAdmin } from "@flagstage/auth";
+import { syncOrganization } from "@flagstage/core";
 import { PgBoss } from "pg-boss";
 
 let started = false;
@@ -13,7 +14,10 @@ export async function boot(): Promise<void> {
   await migrateWithLock(config.DATABASE_URL);
   {
     const { db, pool } = createDb(config.DATABASE_URL);
-    await bootstrapAdmin(db, { email: config.BOOTSTRAP_ADMIN_EMAIL, appUrl: config.APP_URL }, log);
+    if (config.product) {
+      await syncOrganization(db, { name: config.product.orgName, domain: config.product.domain });
+    }
+    await bootstrapAdmin(db, { email: config.product?.adminEmail, appUrl: config.APP_URL }, log);
     await pool.end();
   }
   const boss = new PgBoss(config.DATABASE_URL);

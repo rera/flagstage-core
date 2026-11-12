@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 
 import { loadConfig } from "@flagstage/config";
 import { acceptInvitation, can, createAccount, createInvitation, slugify } from "@flagstage/core";
-import { importRun, message, orgSettings, site, thread, user } from "@flagstage/db";
+import { importRun, message, site, thread, user } from "@flagstage/db";
 import { approveImport } from "@flagstage/importer";
 import { enqueue } from "@flagstage/jobs";
 import { createBlobStore, snapshotPrefix } from "@flagstage/storage";
@@ -29,10 +29,6 @@ import {
 import { getAuth } from "./auth";
 import { applyAuthResponse } from "./cookies";
 import { database, requirePrincipal } from "./guard";
-
-const LOGO_KEY = "brand/logo";
-const LOGO_LIMIT = 1_000_000;
-const LOGO_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 const MODEL_DETAIL: Record<
   ProbeCode,
@@ -93,37 +89,6 @@ export async function signOut() {
   );
   await applyAuthResponse(response);
   redirect("/sign-in");
-}
-
-export async function saveOrganization(formData: FormData) {
-  const principal = await requirePrincipal();
-  if (!can(principal, "org.manage")) redirect("/no-access");
-  const name = String(formData.get("name") ?? "").trim();
-  const baseDomain = String(formData.get("baseDomain") ?? "").trim();
-  if (!name || !baseDomain) failTo(formData, "/setup?step=org");
-  const logo = formData.get("logo");
-  let logoUrl: string | undefined;
-  if (logo instanceof File && logo.size > 0) {
-    if (!LOGO_TYPES.has(logo.type) || logo.size > LOGO_LIMIT) failTo(formData, "/setup?step=org");
-    await createBlobStore(loadConfig()).put(
-      LOGO_KEY,
-      new Uint8Array(await logo.arrayBuffer()),
-      logo.type
-    );
-    logoUrl = "/brand/logo";
-  }
-  await database()
-    .update(orgSettings)
-    .set({
-      name,
-      baseDomain,
-      previewDomain: "",
-      configuredAt: new Date(),
-      updatedAt: new Date(),
-      ...(logoUrl ? { logoUrl } : {})
-    })
-    .where(eq(orgSettings.id, "org"));
-  redirect(nextPath(formData, "/accounts"));
 }
 
 export async function createAccountAction(formData: FormData) {

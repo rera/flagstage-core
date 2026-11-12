@@ -10,6 +10,11 @@ Regenerate it with `pnpm docs:config`.
 Secrets have no production default. A placeholder `BETTER_AUTH_SECRET` is
 rejected when `NODE_ENV=production`.
 
+Organization name, domain, the first admin, the Bedrock model, the region,
+the SES from-address, and the brand live in `flagstage.config.json` at the
+repository root. `flagstage.config.schema.json` is the schema. The auth
+secret is not in that file. The stack creates it in Secrets Manager.
+
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | yes | `` | Postgres connection string. Required at boot. |
@@ -36,8 +41,7 @@ rejected when `NODE_ENV=production`.
 | `SMTP_URL` | no | `` | Optional SMTP URL for invites and notices. When unset, mail is printed to the log. |
 | `MAIL_FROM` | no | `` | From address used when SMTP_URL is set. |
 | `FORM_NOTIFY_EMAIL` | no | `` | Optional addresses that receive a form submission when SMTP_URL is set. Separate several with commas. A form's own notify list is included too. |
-| `BOOTSTRAP_ADMIN_EMAIL` | no | `` | When the database has no users, a one-time sign-in link for this address is printed to the logs (and sent if SMTP is set). |
-| `EMAIL_PASSWORD_ENABLED` | no | `1` | Set to 0 to turn off email and password sign-in. SSO remains available. |
+| `EMAIL_PASSWORD_ENABLED` | no | `1` | Set to 0 to turn off email and password sign-in. |
 | `IMPORT_MAX_PAGES` | no | `500` | Default page cap for an import. |
 | `IMPORT_MAX_DEPTH` | no | `6` | Default link depth for an import. |
 | `IMPORT_MAX_ASSETS` | no | `10000` | Default asset cap for an import. |

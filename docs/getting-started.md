@@ -15,7 +15,7 @@ cp .env.example .env
 docker compose up
 ```
 
-Compose starts Postgres, the web app, and the worker. A first run is empty. `BOOTSTRAP_ADMIN_EMAIL` creates the first admin, and the web log prints a one-time sign-in link. There is no demo site and no demo password.
+Compose starts Postgres, the web app, and the worker. A first run is empty. `adminEmail` in `flagstage.config.json` creates the first admin, and the web log prints a one-time sign-in link. There is no demo site and no demo password.
 
 Open http://localhost:3000 and sign in with the one-time link from the web log. Import a site before chat, preview, and publish have anything to work on.
 
@@ -39,6 +39,6 @@ Then open the site in the app, choose Go live, and ask for a change in chat. App
 | You want to…               | Read                                                                                     |
 | -------------------------- | ---------------------------------------------------------------------------------------- |
 | Put it on AWS              | [Deploy on AWS](self-hosting/aws-opentofu.md)                                            |
-| Sign people in             | Email and password. The first admin is `BOOTSTRAP_ADMIN_EMAIL` or `flagstage admin add`. |
+| Sign people in             | Email and password. The first admin is `adminEmail` in `flagstage.config.json`, or `flagstage admin add`. |
 | Point a hostname at a site | [DNS checklist](domains.md)                                                              |
 | Upgrade later              | [Upgrading](upgrading.md)                                                                |

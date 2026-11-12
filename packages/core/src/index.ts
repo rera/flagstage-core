@@ -5,7 +5,8 @@ export {
   hashToken,
   listAccounts,
   loadGrants,
-  slugify
+  slugify,
+  syncOrganization
 } from "./accounts";
 export { ACTIONS, can, hasAnyAccess, MEMBERSHIP_ROLES, ORG_ROLES } from "./policy";
 export type {

@@ -1,5 +1,5 @@
 # Local demo. Postgres, the web app, and the worker share one filesystem volume.
-# The first admin is created from BOOTSTRAP_ADMIN_EMAIL. The one-time sign-in
+# The first admin comes from flagstage.config.json. The one-time sign-in
 # link is printed in the web log. Single-VM production use of this file is
 # evaluation only. See docs/self-hosting/single-vm.md.
 
@@ -37,11 +37,12 @@ services:
       DOMAINS_DRIVER: none
       AI_PROVIDER: bedrock
       EMAIL_PASSWORD_ENABLED: "1"
-      BOOTSTRAP_ADMIN_EMAIL: admin@example.com
       LOG_LEVEL: info
       NODE_ENV: production
     volumes:
       - storage:/data
+      - ../flagstage.config.json:/srv/flagstage.config.json:ro
+      - ../brand:/srv/brand:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,6 +71,8 @@ services:
       NODE_ENV: production
     volumes:
       - storage:/data
+      - ../flagstage.config.json:/app/flagstage.config.json:ro
+      - ../brand:/app/brand:ro
     depends_on:
       postgres:
         condition: service_healthy

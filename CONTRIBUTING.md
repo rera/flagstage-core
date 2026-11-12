@@ -14,7 +14,7 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Open http://localhost:3000. The first admin comes from `BOOTSTRAP_ADMIN_EMAIL`. The web log prints a one-time sign-in link. A first run has no accounts and no sites.
+Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstage.config.json`. The web log prints a one-time sign-in link. A first run has no accounts and no sites.
 
 `docker compose up` from a clean checkout starts Postgres, the web app, and the worker. Edits need OpenCode on the worker `PATH` and a model.
 

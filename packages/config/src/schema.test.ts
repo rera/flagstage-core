@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { renderConfigurationMarkdown } from "./docs";
 import { ConfigError, loadConfig } from "./schema";
+import { loadFileConfig } from "./file";
 
 const valid = {
   DATABASE_URL: "postgres://flagstage:flagstage@localhost:5432/flagstage",
@@ -60,5 +61,12 @@ describe("loadConfig", () => {
       "utf8"
     );
     expect(file).toBe(renderConfigurationMarkdown());
+  });
+
+  it("accepts the repository config file", () => {
+    const file = loadFileConfig(resolve(import.meta.dirname, "../../../flagstage.config.json"));
+    expect(file.domain).toBe("sites.example.com");
+    expect(file.adminEmail).toContain("@");
+    expect(file.brand.color).toMatch(/^#[0-9a-fA-F]{6}$/);
   });
 });

@@ -31,6 +31,10 @@ COPY --from=build --chown=flagstage:flagstage /app/apps/web/.next/static /srv/ap
 COPY --from=build --chown=flagstage:flagstage /app/apps/web/public /srv/apps/web/public
 COPY --from=build --chown=flagstage:flagstage /app/packages/db/drizzle /srv/packages/db/drizzle
 COPY docker/entrypoint.sh /entrypoint.sh
+COPY flagstage.config.json /app/flagstage.config.json
+COPY flagstage.config.json /srv/flagstage.config.json
+COPY brand /app/brand
+COPY brand /srv/brand
 RUN chmod +x /entrypoint.sh
 WORKDIR /app
 USER flagstage

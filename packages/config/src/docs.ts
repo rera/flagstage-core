@@ -19,6 +19,11 @@ Regenerate it with \`pnpm docs:config\`.
 Secrets have no production default. A placeholder \`BETTER_AUTH_SECRET\` is
 rejected when \`NODE_ENV=production\`.
 
+Organization name, domain, the first admin, the Bedrock model, the region,
+the SES from-address, and the brand live in \`flagstage.config.json\` at the
+repository root. \`flagstage.config.schema.json\` is the schema. The auth
+secret is not in that file. The stack creates it in Secrets Manager.
+
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
 ${rows}

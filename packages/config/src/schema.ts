@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { ENV_FIELDS, PLACEHOLDER_SECRETS } from "./fields";
+import { findConfigFile, loadFileConfig, type FileConfig } from "./file";
+import { ConfigError } from "./errors";
 
 const providers = [
   "anthropic",
@@ -60,7 +62,6 @@ export const envSchema = z
     SMTP_URL: optionalString,
     MAIL_FROM: optionalString,
     FORM_NOTIFY_EMAIL: optionalString,
-    BOOTSTRAP_ADMIN_EMAIL: z.preprocess(blankToUndefined, z.string().email().optional()),
     EMAIL_PASSWORD_ENABLED: z.preprocess(
       (value) => (value === undefined || value === "" ? "1" : value),
       z
@@ -158,19 +159,33 @@ export const envSchema = z
     }
   });
 
-export type Config = z.infer<typeof envSchema>;
+export type Config = z.infer<typeof envSchema> & {
+  product?: FileConfig;
+  productPath?: string;
+};
 
-export class ConfigError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ConfigError";
-  }
-}
+export { ConfigError } from "./errors";
 
 export function loadConfig(source: Record<string, string | undefined> = process.env): Config {
   const picked: Record<string, string | undefined> = {};
   for (const field of ENV_FIELDS) {
     picked[field.name] = source[field.name];
+  }
+  let product: FileConfig | undefined;
+  let productPath: string | undefined;
+  if (source === process.env && process.env.NEXT_PHASE !== "phase-production-build") {
+    productPath = findConfigFile();
+    if (productPath) {
+      product = loadFileConfig(productPath);
+      picked.MAIL_FROM ??= product.sesFrom;
+      picked.S3_REGION ??= product.region;
+      picked.AI_MODEL_SMALL ??= product.bedrockModelId;
+      picked.AGENT_MODEL ??= product.bedrockModelId;
+    } else if ((picked.NODE_ENV ?? process.env.NODE_ENV) === "production") {
+      throw new ConfigError(
+        "Missing flagstage.config.json. Add it in the working directory or set FLAGSTAGE_CONFIG."
+      );
+    }
   }
   const parsed = envSchema.safeParse(picked);
   if (!parsed.success) {
@@ -180,7 +195,7 @@ export function loadConfig(source: Record<string, string | undefined> = process.
     });
     throw new ConfigError(`Invalid configuration:\n${lines.join("\n")}`);
   }
-  return parsed.data;
+  return { ...parsed.data, product, productPath };
 }
 
 export function appOrigin(config: Config): URL {

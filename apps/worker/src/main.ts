@@ -11,6 +11,7 @@ import {
   getDb,
   message,
   migrateWithLock,
+  orgSettings,
   QUEUE_NAMES,
   thread,
   type QueueName
@@ -24,6 +25,18 @@ const config = loadConfig();
 const log = createLogger(config, "worker");
 
 await migrateWithLock(config.DATABASE_URL);
+if (config.product) {
+  const db = getDb(config.DATABASE_URL);
+  await db
+    .update(orgSettings)
+    .set({
+      name: config.product.orgName,
+      baseDomain: config.product.domain,
+      previewDomain: "",
+      updatedAt: new Date()
+    })
+    .where(eq(orgSettings.id, "org"));
+}
 const boss = new PgBoss(config.DATABASE_URL);
 await boss.start();
 for (const name of QUEUE_NAMES) {

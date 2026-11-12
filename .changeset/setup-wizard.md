@@ -3,4 +3,4 @@
 "@flagstage/cli": minor
 ---
 
-Add a setup wizard and the admin, account, and import commands.
+The first admin, the organization name, the domain, and the brand live in `flagstage.config.json`.

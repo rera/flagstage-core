@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { and, eq } from "drizzle-orm";
-import { account, invitation, membership, user, type Database } from "@flagstage/db";
+import { account, invitation, membership, orgSettings, user, type Database } from "@flagstage/db";
 
 import type { MembershipRole, OrgRole } from "./policy";
 
@@ -106,4 +106,19 @@ export async function loadGrants(
         source: grant.source
       }))
   };
+}
+
+export async function syncOrganization(
+  db: Database,
+  input: { name: string; domain: string }
+): Promise<void> {
+  await db
+    .update(orgSettings)
+    .set({
+      name: input.name,
+      baseDomain: input.domain,
+      previewDomain: "",
+      updatedAt: new Date()
+    })
+    .where(eq(orgSettings.id, "org"));
 }

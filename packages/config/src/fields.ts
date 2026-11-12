@@ -201,16 +201,8 @@ export const ENV_FIELDS = [
     example: "leads@example.com"
   },
   {
-    name: "BOOTSTRAP_ADMIN_EMAIL",
-    description:
-      "When the database has no users, a one-time sign-in link for this address is printed to the logs (and sent if SMTP is set).",
-    requirement: "optional",
-    secret: false,
-    example: "admin@example.com"
-  },
-  {
     name: "EMAIL_PASSWORD_ENABLED",
-    description: "Set to 0 to turn off email and password sign-in. SSO remains available.",
+    description: "Set to 0 to turn off email and password sign-in.",
     requirement: "optional",
     secret: false,
     example: "1",

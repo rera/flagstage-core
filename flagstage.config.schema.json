@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flagstage.dev/flagstage.config.schema.json",
+  "title": "Flagstage Core configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["domain", "orgName", "adminEmail", "bedrockModelId", "region", "sesFrom", "brand"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "domain": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Public domain for this install, such as sites.example.com. The stack creates a hosted zone for it.",
+      "examples": ["sites.example.com"]
+    },
+    "orgName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Organization name shown in the app."
+    },
+    "adminEmail": {
+      "type": "string",
+      "format": "email",
+      "description": "First admin. Used once, when the database has no users. Later admins are added in the app or with flagstage admin add."
+    },
+    "bedrockModelId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Amazon Bedrock model id the editor calls."
+    },
+    "region": {
+      "type": "string",
+      "minLength": 1,
+      "description": "AWS region for the stack, Bedrock, and SES."
+    },
+    "sesFrom": {
+      "type": "string",
+      "minLength": 1,
+      "description": "From address for invite, password reset, and form mail."
+    },
+    "brand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "color"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "logo": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to a logo file, relative to this config file."
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        }
+      }
+    }
+  }
+}

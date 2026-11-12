@@ -12,7 +12,7 @@ To CloudFront, then to the current snapshot in object storage. The app serves pr
 
 ## How do people sign in?
 
-With an email and a password. An admin invites someone to an account, or `flagstage admin add` creates another admin. The first admin comes from `BOOTSTRAP_ADMIN_EMAIL` or the CLI.
+With an email and a password. An admin invites someone to an account, or `flagstage admin add` creates another admin. The first admin comes from `flagstage.config.json` or the CLI.
 
 ## Do we have to bring a model key?
 

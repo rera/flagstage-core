@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
 import { PoweredBy, t } from "@flagstage/ui";
+import { loadConfig } from "@flagstage/config";
 
 import { BrandMark } from "../src/brand";
 import { viewerIsAdmin } from "../src/guard";
@@ -27,9 +28,23 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const admin = await viewerIsAdmin();
+  let brand = "Flagstage";
+  let color = "#1f4d3a";
+  try {
+    const product = loadConfig().product;
+    if (product) {
+      brand = product.brand.name;
+      color = product.brand.color;
+    }
+  } catch {
+    // Keep the default mark when configuration is incomplete.
+  }
   return (
     <html lang="en">
-      <body className={`${sans.variable} ${mono.variable} ${sans.className}`}>
+      <body
+        className={`${sans.variable} ${mono.variable} ${sans.className}`}
+        style={{ ["--brand" as string]: color }}
+      >
         <div className="shell">
           <a className="skip" href="#content">
             {t("nav.skip")}
@@ -37,7 +52,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <header className="topbar">
             <a className="brand" href="/">
               <BrandMark />
-              <span>{t("app.name")}</span>
+              <span>{brand}</span>
             </a>
             <nav className="nav" aria-label="Primary">
               <a href="/accounts">{t("nav.accounts")}</a>
