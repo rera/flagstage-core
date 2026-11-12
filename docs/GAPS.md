@@ -6,7 +6,7 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 ## Fix before calling the demo done
 
-1. **The container image has not been run.** This environment has no Docker daemon, so `docker compose up` was not executed. The Dockerfile is multi-stage, runs as a non-root user, and has a health check, but the worker command is `node --import tsx` against TypeScript source. That depends on `tsx` surviving the runtime image. The web command expects the Next.js standalone server at `apps/web/server.js`. Until someone boots the compose file and signs in as `demo@example.com` / `demo-demo-demo`, treat the image as unverified. The single-VM compose file is for evaluation only.
+1. **The image runs, and it is not small.** `docker compose up` starts Postgres, the web app, and the worker. The demo signs in as `demo@example.com` / `demo-demo-demo` and shows the two seeded accounts. The web process is the Next.js standalone server, bound to `0.0.0.0` so the image health check can reach it. The worker still runs `node --import tsx` against TypeScript, and the image copies the whole workspace install so those links resolve. A production image would compile the worker and leave the workspace out. The single-VM compose file is for evaluation only. The image is not published.
 
 2. **Adding a hostname does not call CloudFront.** The tenant adapter and its tests take a fake client. The domain page always uses the `none` driver, which writes the checklist and skips AWS. A deployment with `DOMAINS_DRIVER=cloudfront-tenants` still will not create a tenant. The OpenTofu module creates the distribution, the KeyValueStore, and the two functions. The app does not yet speak to them.
 
