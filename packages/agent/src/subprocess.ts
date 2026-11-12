@@ -94,7 +94,13 @@ export async function runSubprocessEdit(input: {
         if (stderr.length < 4000) stderr += chunk.toString("utf8");
       });
       child.on("error", reject);
-      child.on("close", (status) => resolve(status ?? 1));
+      child.on("close", (status) => {
+        if (status === null) {
+          reject(new Error("editor timed out"));
+          return;
+        }
+        resolve(status);
+      });
     });
     if (code !== 0) {
       const detail = stderr.trim();

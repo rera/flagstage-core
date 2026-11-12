@@ -40,6 +40,12 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
     await page.reload();
     await expect(page.getByRole("button", { name: "Go live" })).toBeVisible();
   }).toPass({ timeout: 60_000 });
+  if (test.info().project.name === "mobile") {
+    await expect(page.getByRole("link", { name: "Open preview" })).toBeVisible();
+    await expect(page.locator(".builder-preview")).toBeHidden();
+  } else {
+    await expect(page.locator("iframe")).toBeVisible();
+  }
   await page.getByRole("button", { name: "Go live" }).click();
   await expect(page.getByRole("status")).toHaveText("This snapshot is live.");
 
@@ -47,22 +53,18 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await page.getByRole("button", { name: "Send" }).click();
   await expect(async () => {
     await page.reload();
-    await expect(page.getByRole("button", { name: "Approve and publish" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeVisible();
   }).toPass({ timeout: 60_000 });
 
-  const previewText = await page
-    .locator("form")
-    .filter({ has: page.getByRole("button", { name: "Approve and publish" }) })
-    .locator("p")
-    .textContent();
+  const previewText = await page.getByText(/Preview ready:/).textContent();
   const previewUrl = previewText?.match(/https?:\/\/\S+/)?.[0];
   expect(previewUrl).toBeTruthy();
   const preview = await page.request.get(previewUrl ?? "");
   expect(preview.ok()).toBe(true);
   expect(await preview.text()).toContain("the park is open today");
 
-  await page.getByRole("button", { name: "Approve and publish" }).click();
-  await expect(page.getByRole("button", { name: "Approve and publish" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
   await expect(page.getByRole("status")).toHaveText("This snapshot is live.");
 
   await page.getByRole("link", { name: "Domain" }).click();

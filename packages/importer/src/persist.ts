@@ -69,7 +69,10 @@ export async function storeCrawl(input: {
       updatedAt: now
     })
     .where(eq(importRun.id, input.importRunId));
-  await input.db.update(site).set({ status: "preview" }).where(eq(site.id, input.siteId));
+  await input.db
+    .update(site)
+    .set({ status: "preview", draftSnapshotId: snapshotId })
+    .where(eq(site.id, input.siteId));
   return { snapshotId };
 }
 

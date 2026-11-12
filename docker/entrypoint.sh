@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-if [ "${1:-web}" = "worker" ]; then
+if [ "${1:-web}" = "import" ]; then
   cd /app
-  exec node dist/worker.mjs
+  exec node dist/import.mjs
 fi
 
 if [ "${1:-web}" = "flagstage" ]; then

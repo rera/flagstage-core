@@ -7,7 +7,6 @@ import { loadConfig } from "@flagstage/config";
 import { user, verification } from "@flagstage/db";
 
 import { getAuth } from "../../src/auth";
-import { applyAuthResponse } from "../../src/cookies";
 import { database } from "../../src/guard";
 
 export async function GET(request: Request) {
@@ -34,8 +33,11 @@ export async function GET(request: Request) {
     })
   );
   if (!response.ok) return fail();
-  await applyAuthResponse(response);
   await db.delete(verification).where(eq(verification.id, row.id));
   await db.update(user).set({ emailVerified: true }).where(eq(user.email, email));
-  return NextResponse.redirect(new URL("/accounts", appUrl));
+  const redirect = NextResponse.redirect(new URL("/accounts", appUrl));
+  for (const cookie of response.headers.getSetCookie()) {
+    redirect.headers.append("set-cookie", cookie);
+  }
+  return redirect;
 }

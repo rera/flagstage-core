@@ -1,4 +1,5 @@
-# Flagstage Core image. One image runs the web process or the worker.
+# Flagstage Core image. The default target is the web container.
+# docker build --target lambda builds the chat Lambda image.
 # Build: docker build -f docker/Dockerfile -t flagstage-core .
 # Nothing in this file pushes the image.
 
@@ -31,7 +32,8 @@ RUN apt-get update \
   && rm /tmp/opencode.tar.gz
 # The worker and CLI are bundled JavaScript. Next standalone keeps its own
 # traced dependencies under /srv. Migrations and agent skills stay as files.
-COPY --from=build --chown=flagstage:flagstage /app/dist/worker.mjs /app/dist/worker.mjs
+COPY --from=build --chown=flagstage:flagstage /app/dist/import.mjs /app/dist/import.mjs
+COPY --from=build --chown=flagstage:flagstage /app/dist/lambda.js /app/lambda.js
 COPY --from=build --chown=flagstage:flagstage /app/dist/cli.mjs /app/dist/cli.mjs
 COPY --from=build --chown=flagstage:flagstage /app/packages/db/drizzle /app/drizzle
 COPY --from=build --chown=flagstage:flagstage /app/packages/agent/skills /app/skills
@@ -63,3 +65,13 @@ LABEL org.opencontainers.image.source="https://github.com/rera/flagstage-core" \
       org.opencontainers.image.title="flagstage-core"
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 CMD ["web"]
+
+FROM runtime AS lambda
+USER root
+RUN npm install -g aws-lambda-ric
+USER flagstage
+WORKDIR /app
+ENTRYPOINT ["/usr/local/bin/aws-lambda-ric"]
+CMD ["lambda.handler"]
+
+FROM runtime

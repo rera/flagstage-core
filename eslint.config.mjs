@@ -12,6 +12,7 @@ export default tseslint.config(
       "infra/**",
       "docs/ci/**",
       "**/*.js",
+      "**/*.mjs",
       "!eslint.config.mjs"
     ]
   },

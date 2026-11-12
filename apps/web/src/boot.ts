@@ -1,8 +1,9 @@
 import { loadConfig, createLogger } from "@flagstage/config";
-import { migrateWithLock, createDb, QUEUE_NAMES } from "@flagstage/db";
+import { migrateWithLock, createDb, getDb } from "@flagstage/db";
 import { bootstrapAdmin } from "@flagstage/auth";
 import { syncOrganization } from "@flagstage/core";
-import { PgBoss } from "pg-boss";
+import { rollupStored } from "@flagstage/analytics";
+import { publicDnsLookup, recheckDueDomains, selectDomainsDriver } from "@flagstage/domains";
 
 let started = false;
 
@@ -20,12 +21,17 @@ export async function boot(): Promise<void> {
     await bootstrapAdmin(db, { email: config.product?.adminEmail, appUrl: config.APP_URL }, log);
     await pool.end();
   }
-  const boss = new PgBoss(config.DATABASE_URL);
-  await boss.start();
-  for (const name of QUEUE_NAMES) {
-    await boss.createQueue(name);
-  }
-  await boss.stop({ graceful: false, timeout: 5_000 });
+  const maintenance = async () => {
+    const current = loadConfig();
+    const db = getDb(current.DATABASE_URL);
+    await rollupStored(db).catch(() => undefined);
+    const driver = await selectDomainsDriver(current);
+    await recheckDueDomains(db, publicDnsLookup(), new Date(), async (row) => {
+      if (!row.cloudfrontTenantId || current.DOMAINS_DRIVER !== "cloudfront-tenants") return null;
+      return driver.read(row.cloudfrontTenantId, row.hostname);
+    }).catch(() => undefined);
+  };
+  setInterval(() => void maintenance(), 10 * 60 * 1000);
   started = true;
   log.info("web boot complete");
 }

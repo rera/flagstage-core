@@ -8,9 +8,9 @@ import { changeRequest, importRun, message, site, snapshot, thread } from "@flag
 import {
   approveChangeAction,
   approveSiteAction,
-  releaseHoldAction,
   rollbackAction,
-  sendMessageAction
+  sendMessageAction,
+  undoEditAction
 } from "../../../src/actions";
 import { database, requirePrincipal } from "../../../src/guard";
 import { ChatStream } from "./chat-stream";
@@ -46,14 +46,19 @@ export default async function SitePage({
     : [];
   const requests = await db.select().from(changeRequest).where(eq(changeRequest.siteId, siteId));
   const ready = requests.filter((item) => item.status === "preview_ready");
-  const held = requests.filter((item) => item.status === "needs_human");
+  const progress = (latest?.stats ?? {}) as {
+    pagesFound?: number;
+    pagesDone?: number;
+    skipped?: Array<{ path: string; reason: string }>;
+  };
+  const draftId = found.draftSnapshotId ?? found.currentSnapshotId;
   const snaps = await db.select().from(snapshot).where(eq(snapshot.siteId, siteId));
   const pendingSnapshot = snaps
     .filter((item) => item.kind === "import")
     .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())
     .at(-1);
   const canPublish = can(principal, "site.publish", { accountId: found.accountId });
-  const canRelease = can(principal, "member.manage", { accountId: found.accountId });
+  const canEdit = can(principal, "site.edit", { accountId: found.accountId });
   return (
     <>
       <PageHeader
@@ -69,7 +74,24 @@ export default async function SitePage({
       />
       <ChatStream siteId={found.id} />
       {query.error ? <Alert tone="bad">{t("sites.failed")}</Alert> : null}
-      {found.status === "importing" ? <Alert>{t("sites.importing")}</Alert> : null}
+      {found.status === "importing" ? (
+        <Alert>
+          <p>{t("sites.importing")}</p>
+          <p>
+            {t("sites.pagesFound")} {progress.pagesFound ?? 0}. {t("sites.pagesDone")}{" "}
+            {progress.pagesDone ?? 0}.
+          </p>
+          {(progress.skipped ?? []).length > 0 ? (
+            <ul>
+              {(progress.skipped ?? []).map((item) => (
+                <li key={item.path}>
+                  {t("sites.skipped")} {item.path}: {item.reason}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Alert>
+      ) : null}
       {found.status === "failed" ? (
         <Alert tone="bad">{latest?.error ?? t("sites.failed")}</Alert>
       ) : null}
@@ -104,50 +126,64 @@ export default async function SitePage({
           <Button type="submit">{t("sites.goLive")}</Button>
         </form>
       ) : null}
-      <h2>{t("chat.title")}</h2>
-      {threads[0]?.status === "queued" ? <p>{t("chat.working")}</p> : null}
-      <ul>
-        {messages.map((item) => (
-          <li key={item.id}>
-            <strong>{item.author}</strong> {item.body}
-          </li>
-        ))}
-      </ul>
-      {can(principal, "site.comment", { accountId: found.accountId }) ? (
-        <form id="composer" action={sendMessageAction}>
-          <input type="hidden" name="siteId" value={found.id} />
-          <input type="hidden" name="accountId" value={found.accountId} />
-          <label className="field" htmlFor="body">
-            <span>{t("chat.placeholder")}</span>
-            <textarea id="body" name="body" rows={4} required />
-          </label>
-          <Button type="submit">{t("chat.send")}</Button>
-        </form>
-      ) : null}
-      {canPublish
-        ? ready.map((item) => {
-            const link = messages.find((entry) => entry.body.includes("/preview/"))?.body ?? "";
-            return (
-              <form key={item.id} action={approveChangeAction}>
-                <p>{link}</p>
-                <input type="hidden" name="siteId" value={found.id} />
-                <input type="hidden" name="accountId" value={found.accountId} />
-                <input type="hidden" name="changeRequestId" value={item.id} />
-                <Button type="submit">{t("chat.approve")}</Button>
-              </form>
-            );
-          })
-        : null}
-      {canRelease
-        ? held.map((item) => (
-            <form key={item.id} action={releaseHoldAction}>
-              <p>{t("chat.held")}</p>
+      <div className="builder">
+        <section className="builder-chat">
+          <h2>{t("chat.title")}</h2>
+          {threads[0]?.status === "queued" ? <p>{t("chat.working")}</p> : null}
+          {messages.some((item) => item.body === "Someone else is editing this site.") ? (
+            <Alert>{t("chat.locked")}</Alert>
+          ) : null}
+          <ul>
+            {messages.map((item) => (
+              <li key={item.id}>
+                <strong>{item.author}</strong> {item.body}
+              </li>
+            ))}
+          </ul>
+          {draftId ? (
+            <a className="preview-link" href={`/sites/${found.id}/live`}>
+              {t("chat.preview")}
+            </a>
+          ) : null}
+          {can(principal, "site.comment", { accountId: found.accountId }) ? (
+            <form id="composer" action={sendMessageAction}>
+              <input type="hidden" name="siteId" value={found.id} />
               <input type="hidden" name="accountId" value={found.accountId} />
-              <input type="hidden" name="changeRequestId" value={item.id} />
-              <Button type="submit">{t("chat.approve")}</Button>
+              <label className="field" htmlFor="body">
+                <span>{t("chat.placeholder")}</span>
+                <textarea id="body" name="body" rows={4} required />
+              </label>
+              <Button type="submit">{t("chat.send")}</Button>
             </form>
-          ))
-        : null}
+          ) : null}
+          {canEdit && found.draftSnapshotId ? (
+            <form action={undoEditAction}>
+              <input type="hidden" name="siteId" value={found.id} />
+              <input type="hidden" name="accountId" value={found.accountId} />
+              <Button type="submit" variant="quiet">
+                {t("chat.undo")}
+              </Button>
+            </form>
+          ) : null}
+          {canPublish
+            ? ready.slice(-1).map((item) => (
+                <form key={item.id} action={approveChangeAction}>
+                  <input type="hidden" name="siteId" value={found.id} />
+                  <input type="hidden" name="accountId" value={found.accountId} />
+                  <input type="hidden" name="changeRequestId" value={item.id} />
+                  <Button type="submit">{t("chat.approve")}</Button>
+                </form>
+              ))
+            : null}
+        </section>
+        <aside className="builder-preview">
+          {draftId ? (
+            <iframe title={t("chat.preview")} src={`/sites/${found.id}/live?v=${draftId}`} />
+          ) : (
+            <p>{t("sites.importing")}</p>
+          )}
+        </aside>
+      </div>
       <h2>{t("versions.title")}</h2>
       {snaps.length === 0 ? (
         <EmptyState

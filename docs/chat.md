@@ -1,17 +1,15 @@
 # Chat, preview, and publish
 
-A message on a live site is checked, then either answered, held, or turned into a preview.
+Every chat starts on a site. The web app stores the message and starts the chat Lambda. Locally, with no function name set, the same turn function runs in the web process.
 
-- A question mark asks a clarifying question and does not edit the site.
-- `no change`, `leave it`, and an edit that does not touch a file are reported as already satisfied.
-- A request to delete the site, take it down, or involve a lawyer is held until an account admin releases it.
-- Anything else is queued for OpenCode, which edits the snapshot and posts a preview link.
-- Approve publishes with a compare-and-swap on the live snapshot. If the live snapshot moved, the change is rebuilt from the current files and the stale preview is not published.
-- Roll back from the site page to an earlier snapshot.
-- Preview links expire. A preview is `{APP_URL}/preview/{token}` and only opens for someone who can see that site.
+- OpenCode edits the draft. The preview on the right reloads when the draft snapshot changes.
+- An edit that does not touch a file is reported as already satisfied.
+- Publish moves the live snapshot to the draft. Undo this edit moves only the draft. Undo a publish moves the live snapshot.
+- One person holds the draft lock. A second person is told someone else is editing.
+- Preview links expire. A preview is `{APP_URL}/preview/{token}` and the live draft is `{APP_URL}/sites/{id}/live`. Both open only for someone who can see that site.
 - The site page listens on Postgres `flagstage_chat` and also polls every 2 seconds.
 
-Sending a message stores it and queues an `agent-turn` job. The worker runs OpenCode. Approve and roll back stay on the request because they only swap the live snapshot.
+See [what happens when](design/what-happens-when.md).
 
 To edit a site:
 
@@ -19,8 +17,8 @@ To edit a site:
 2. The image installs OpenCode 2.2.7 for the `flagstage` user and runs `opencode run --standalone`. That is headless. It does not open a terminal, and it does not update itself.
 3. Send a message. OpenCode uses the amazon-bedrock provider and the task role. The subprocess does not receive `DATABASE_URL` or static access keys.
 
-A checkout that is not running the image needs the same `opencode` binary on the worker `PATH`. `packages/agent/src/bedrock-edit.integration.test.ts` edits a one-page site with that binary and is skipped unless AWS credentials are already in the environment.
+A checkout that is not running the image needs the same `opencode` binary on `PATH`. `packages/agent/src/bedrock-edit.integration.test.ts` edits a one-page site with that binary and is skipped unless AWS credentials are already in the environment.
 
-The subprocess is the only `AgentRunner`. It is less isolated than a separate function per turn: it shares the worker's machine and is limited by the process environment and a temp directory. A separate task runner is out of scope.
+The subprocess is the only `AgentRunner`. In production it runs inside the chat Lambda. Locally it runs in the web process.
 
 <!-- copy-review: required before announce -->

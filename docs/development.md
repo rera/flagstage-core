@@ -24,9 +24,7 @@ pnpm dev
 
 In another terminal:
 
-```bash
-pnpm --filter @flagstage/worker start
-```
+Chat and imports run in the web process when `LAMBDA_FUNCTION_NAME` and `ECS_CLUSTER` are unset. Do not start a second process for them.
 
 ## Checks
 
@@ -41,7 +39,7 @@ Unit tests do not call AWS. `packages/agent/src/bedrock-edit.integration.test.ts
 
 ## Migrations
 
-SQL lives in `packages/db/drizzle`. The web and worker processes apply it at start behind a Postgres advisory lock. Migrations are forward-only.
+SQL lives in `packages/db/drizzle`. The web process applies it at start behind a Postgres advisory lock. Chat and import tasks do not migrate. Migrations are forward-only.
 
 ## Admin CLI
 

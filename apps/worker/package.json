@@ -17,8 +17,8 @@
     "@flagstage/importer": "workspace:*",
     "@flagstage/jobs": "workspace:*",
     "@flagstage/storage": "workspace:*",
-    "drizzle-orm": "^0.45.1",
-    "pg-boss": "^12.8.0"
+    "@aws-sdk/client-lambda": "3.940.0",
+    "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
     "tsx": "^4.20.6",

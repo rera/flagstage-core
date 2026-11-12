@@ -6,7 +6,7 @@ The log prints `Invalid configuration` and one line per variable. Compare with `
 
 ## `/api/health` is 200 and `/api/ready` is 503
 
-Read the `checks` object. `db` means Postgres is unreachable. `storage` means the filesystem or bucket rejected a write. `jobs` means the pg-boss schema is missing, which happens before the worker or web boot has started the queue.
+Read the `checks` object. `db` means Postgres is unreachable. `storage` means the filesystem or bucket rejected a write.
 
 ## Mail never arrives
 

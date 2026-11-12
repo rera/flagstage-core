@@ -33,6 +33,14 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: public.ecr.aws/flagstage/flagstage-core:${{ github.ref_name }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: lambda
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: public.ecr.aws/flagstage/flagstage-core:${{ github.ref_name }}-lambda
       - name: Attach the template
         run: |
           version="${GITHUB_REF_NAME#v}"

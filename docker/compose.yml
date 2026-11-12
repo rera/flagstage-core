@@ -1,4 +1,4 @@
-# Local demo. Postgres, the web app, and the worker share one filesystem volume.
+# Local demo. Postgres and the web app share one filesystem volume.
 # The first admin comes from flagstage.config.json. The one-time sign-in
 # link is printed in the web log. Single-VM production use of this file is
 # evaluation only. See docs/self-hosting/single-vm.md.
@@ -51,35 +51,6 @@ services:
       timeout: 3s
       retries: 20
       start_period: 40s
-
-  worker:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    command: ["worker"]
-    environment:
-      DATABASE_URL: postgres://flagstage:flagstage@postgres:5432/flagstage
-      BETTER_AUTH_SECRET: local-dev-secret-that-is-long-enough
-      APP_URL: http://localhost:3000
-      STORAGE_DRIVER: fs
-      FS_STORAGE_DIR: /data
-      HOSTMAP_DRIVER: fs
-      DOMAINS_DRIVER: none
-      LOG_LEVEL: info
-      NODE_ENV: production
-    volumes:
-      - storage:/data
-      - ../flagstage.config.json:/app/flagstage.config.json:ro
-      - ../brand:/app/brand:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 20
-      start_period: 20s
 
 volumes:
   pgdata:

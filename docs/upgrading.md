@@ -8,7 +8,7 @@ Read `CHANGELOG.md` before you roll forward. [0.1.0](../CHANGELOG.md) is unrelea
 
 1. Pin an image tag or a git revision. Do not deploy `latest` and then expect to know what you are running.
 2. Run `./deploy.sh` again. It deploys the public image pinned in that version's template. A fork that built its own image runs `./deploy.sh --build`.
-3. The new container applies migrations at startup, behind one Postgres advisory lock, before it serves traffic.
+3. The new web container applies migrations at startup, behind one Postgres advisory lock, before it serves traffic. Chat and import tasks do not migrate.
 4. Wait until `GET /api/ready` returns 200. `/api/health` only means the process is up. `/api/ready` means it can reach the database.
 
 On the evaluation compose file:

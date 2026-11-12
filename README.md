@@ -35,16 +35,17 @@ flowchart LR
   staff[Staff] --> alb[Load balancer]
   alb --> web[Web]
   web --> pg[(Postgres)]
-  worker[Worker] --> pg
-  worker --> files[Snapshot storage]
-  web --> files
+  web --> chatFn[Chat Lambda]
+  web --> importTask[Import task]
+  chatFn --> files[Snapshot storage]
+  importTask --> files
   visitors[Visitors] --> edge[CloudFront]
   edge --> files
 ```
 
-The web process is Next.js: the UI, auth, previews, forms, and the analytics collect endpoint. The worker is the same image running the import, the editor, DNS checks, and analytics rollups. Postgres holds the data and the job queue. There is no Redis.
+The web process is one always-on Next.js container: the UI, auth, previews, forms, and the analytics collect endpoint. Chat runs OpenCode in one Lambda. Imports run as one-off tasks. Postgres holds the transcript and the draft lock. There is no Redis and no always-on worker.
 
-Agent turns run OpenCode as a subprocess in a temp directory. OpenCode calls Amazon Bedrock with the task role. The subprocess does not receive the database URL or static access keys.
+OpenCode calls Amazon Bedrock with the task role. The subprocess does not receive the database URL or static access keys.
 
 Product settings are `flagstage.config.json`. Secrets stay in the environment locally and in Secrets Manager on AWS.
 

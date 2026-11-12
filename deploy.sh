@@ -52,7 +52,9 @@ if [[ "$build" == "1" ]]; then
     | docker login --username AWS --password-stdin "$registry"
   docker build -f "$root/docker/Dockerfile" -t "$image" "$root"
   docker push "$image"
-  overrides+=("ImageUri=${image}")
+  docker build -f "$root/docker/Dockerfile" --target lambda -t "${image}-lambda" "$root"
+  docker push "${image}-lambda"
+  overrides+=("ImageUri=${image}" "LambdaImageUri=${image}-lambda")
 fi
 
 aws cloudformation deploy \

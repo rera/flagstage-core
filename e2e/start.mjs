@@ -183,7 +183,6 @@ const prepared = spawnSync(
 );
 if (prepared.status !== 0) process.exit(prepared.status ?? 1);
 
-start("pnpm", ["--filter", "@flagstage/worker", "start"]);
 start("pnpm", [
   "--filter",
   "@flagstage/web",

@@ -2,10 +2,11 @@
 
 This is not wired. Do not copy these files into `.github/workflows/`. A workflow there would run. The public repository, `rera/flagstage-core`, is where this recipe belongs.
 
-One version produces two artifacts:
+One version produces three artifacts:
 
-- A multi-arch image on Amazon ECR Public: `public.ecr.aws/flagstage/flagstage-core:<version>`
-- The CloudFormation template for that version, attached to the GitHub release. `ImageUri` in that copy defaults to the image above.
+- A multi-arch web image on Amazon ECR Public: `public.ecr.aws/flagstage/flagstage-core:<version>`
+- A multi-arch chat image, `docker build --target lambda`, tagged `public.ecr.aws/flagstage/flagstage-core:<version>-lambda`
+- The CloudFormation template for that version, attached to the GitHub release. `ImageUri` and `LambdaImageUri` in that copy default to those images.
 
 The release notes include a Launch stack link. CloudFormation accepts an S3 URL:
 
@@ -13,7 +14,7 @@ The release notes include a Launch stack link. CloudFormation accepts an S3 URL:
 https://us-east-1.console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/quickcreate?stackName=flagstage&templateURL=https://s3.amazonaws.com/<bucket>/flagstage-core/<version>/template.yaml
 ```
 
-`./deploy.sh` deploys the template in this repository, which pins the same public image. `./deploy.sh --build` is the fork path: it builds and pushes to the caller's own ECR and passes that URI as `ImageUri`. Migrations run when the container starts, behind a Postgres advisory lock. Upgrading is running `./deploy.sh` again with the new version. See [upgrading](../upgrading.md).
+`./deploy.sh` deploys the template in this repository, which pins the same public images. `./deploy.sh --build` is the fork path: it builds the web image and the Lambda image, pushes both to the caller's own ECR, and passes those URIs as `ImageUri` and `LambdaImageUri`. Migrations run when the web container starts, behind a Postgres advisory lock. Upgrading is running `./deploy.sh` again with the new version. See [upgrading](../upgrading.md).
 
 ## 1. Version pull request
 

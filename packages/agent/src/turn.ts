@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import type { Database } from "@flagstage/db";
 import { changeRequest, message, previewSession, site, snapshot, thread } from "@flagstage/db";
@@ -9,8 +9,57 @@ import { snapshotPrefix, type BlobStore } from "@flagstage/storage";
 
 import { injectAnalytics } from "@flagstage/analytics";
 
-import { checkTrust, decideIntent } from "./runner";
+import { maybeAlertBudget } from "./budget";
+import { checkTrust } from "./runner";
 import type { AgentRunner } from "./subprocess";
+
+const LOCK_MS = 15 * 60 * 1000;
+
+function sessionPrefix(siteId: string): string {
+  return `sites/${siteId}/session/`;
+}
+
+function estimateUsage(request: string, files: Map<string, Uint8Array>) {
+  const inputTokens = Math.max(1, Math.ceil(request.length / 4));
+  let outputBytes = 0;
+  for (const body of files.values()) outputBytes += body.byteLength;
+  const outputTokens = Math.max(1, Math.ceil(outputBytes / 4));
+  const estimatedUsd = (inputTokens / 1000) * 0.000035 + (outputTokens / 1000) * 0.00014;
+  return { inputTokens, outputTokens, estimatedUsd, estimated: true };
+}
+
+async function loadSession(
+  store: BlobStore,
+  siteId: string
+): Promise<Map<string, Uint8Array> | "missing" | "corrupt"> {
+  const prefix = sessionPrefix(siteId);
+  let items: Array<{ key: string }>;
+  try {
+    items = await store.list(prefix);
+  } catch {
+    return "corrupt";
+  }
+  if (items.length === 0) return "missing";
+  const ready = await store.get(`${prefix}_ready`);
+  if (!ready) return "corrupt";
+  if (text.decode(ready.body) !== "ok") return "missing";
+  const files = new Map<string, Uint8Array>();
+  for (const item of items) {
+    if (item.key.endsWith("/_ready")) continue;
+    const object = await store.get(item.key);
+    if (!object) return "corrupt";
+    files.set(item.key.slice(prefix.length), object.body);
+  }
+  return files;
+}
+
+async function saveSession(store: BlobStore, siteId: string, files: Map<string, Uint8Array>) {
+  const prefix = sessionPrefix(siteId);
+  for (const [path, body] of files) {
+    await store.put(`${prefix}${path}`, body, "application/octet-stream");
+  }
+  await store.put(`${prefix}_ready`, encoder.encode("ok"), "text/plain");
+}
 
 const text = new TextDecoder();
 const encoder = new TextEncoder();
@@ -85,7 +134,9 @@ export async function postMessage(input: {
   commentOnly?: boolean;
   allowHold?: boolean;
   userRecorded?: boolean;
-}): Promise<{ threadId: string; reply: string; previewUrl?: string }> {
+  deadlineMs?: number;
+  continuation?: boolean;
+}): Promise<{ threadId: string; reply: string; previewUrl?: string; continue?: boolean }> {
   const trust = checkTrust(input.body);
   const db = input.db;
   const existing = await db.select().from(thread).where(eq(thread.siteId, input.siteId)).limit(1);
@@ -118,83 +169,141 @@ export async function postMessage(input: {
       .values({ id: randomUUID(), threadId, author: "system", body: trust.reason });
     return finish("open", trust.reason);
   }
-  const intent = decideIntent(input.body);
-  if (intent.kind === "ask") {
-    const reply = "Which page should change, and what should it say?";
-    await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
-    return finish("open", reply);
-  }
-  if (intent.kind === "satisfied") {
-    const reply = "Nothing needed changing.";
-    await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
-    return finish("open", reply);
-  }
   const sites = await db.select().from(site).where(eq(site.id, input.siteId)).limit(1);
-  const current = sites[0]?.currentSnapshotId;
-  if (!current) {
-    const reply = "Publish the import before requesting a change.";
+  const currentSite = sites[0];
+  const lockFresh =
+    currentSite?.draftLockedAt != null &&
+    Date.now() - currentSite.draftLockedAt.getTime() < LOCK_MS;
+  if (currentSite?.draftLockedBy && currentSite.draftLockedBy !== input.userId && lockFresh) {
+    const reply = "Someone else is editing this site.";
     await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
     return finish("open", reply);
   }
-  const snaps = await db.select().from(snapshot).where(eq(snapshot.id, current)).limit(1);
+  const listed = await db.select().from(snapshot).where(eq(snapshot.siteId, input.siteId));
+  const baseId =
+    currentSite?.draftSnapshotId ||
+    currentSite?.currentSnapshotId ||
+    listed.sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime()).at(-1)?.id;
+  if (!baseId) {
+    const reply = "Import the site before chatting.";
+    await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
+    return finish("open", reply);
+  }
+  const snaps = await db.select().from(snapshot).where(eq(snapshot.id, baseId)).limit(1);
   const prefix = snaps[0]?.storagePrefix;
-  if (!prefix) throw new Error("Live snapshot is missing.");
-  if (intent.needsHuman && input.allowHold !== false) {
+  if (!prefix) throw new Error("Draft snapshot is missing.");
+  await db
+    .update(site)
+    .set({ draftLockedBy: input.userId, draftLockedAt: new Date() })
+    .where(eq(site.id, input.siteId));
+  try {
+    const session = await loadSession(input.store, input.siteId);
+    const baseFiles = await readSnapshot(input.store, prefix);
+    let files = baseFiles;
+    let request = input.body;
+    if (session === "corrupt") {
+      const recent = await db.select().from(message).where(eq(message.threadId, threadId));
+      const summary = recent
+        .slice(-8)
+        .map((item) => `${item.author}: ${item.body}`)
+        .join("\n");
+      request = `The saved editor session was missing or unreadable. Continue from this transcript.\n${summary}\n\n${input.body}`;
+    } else if (session !== "missing") {
+      files = session;
+    }
+    if (input.deadlineMs && input.deadlineMs - Date.now() < 60_000) {
+      await saveSession(input.store, input.siteId, files);
+      const reply = "Saving this turn and continuing in a new run.";
+      await db
+        .insert(message)
+        .values({ id: randomUUID(), threadId, author: "system", body: reply });
+      return { ...(await finish("queued", reply)), continue: true };
+    }
+    if (!input.runner) throw new Error("No editor is configured.");
+    let edited: { changed: boolean; files: Map<string, Uint8Array> };
+    try {
+      edited = await input.runner.edit(files, request);
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : "";
+      if (input.deadlineMs && /timed out/i.test(messageText)) {
+        await saveSession(input.store, input.siteId, files);
+        const reply = "Saving this turn and continuing in a new run.";
+        await db
+          .insert(message)
+          .values({ id: randomUUID(), threadId, author: "system", body: reply });
+        return { ...(await finish("queued", reply)), continue: true };
+      }
+      throw error;
+    }
+    if (!edited.changed) {
+      const reply = "Nothing needed changing.";
+      await db
+        .insert(message)
+        .values({ id: randomUUID(), threadId, author: "system", body: reply });
+      return finish("open", reply);
+    }
+    const resultId = await writeSnapshot({
+      db,
+      store: input.store,
+      siteId: input.siteId,
+      parentSnapshotId: baseId,
+      files: withAnalytics(
+        edited.files,
+        sites[0]?.analyticsEnabled !== false,
+        input.appOrigin,
+        input.siteId
+      )
+    });
+    await db.update(site).set({ draftSnapshotId: resultId }).where(eq(site.id, input.siteId));
+    await input.store.put(
+      `${sessionPrefix(input.siteId)}_ready`,
+      encoder.encode("done"),
+      "text/plain"
+    );
+    const requestId = randomUUID();
     await db.insert(changeRequest).values({
-      id: randomUUID(),
+      id: requestId,
       threadId,
       siteId: input.siteId,
-      status: "needs_human",
-      sourceSnapshotId: current,
+      status: "preview_ready",
+      sourceSnapshotId: baseId,
+      resultSnapshotId: resultId,
       summary: input.body,
-      holdReason: "An account admin has to let this request run."
+      usage: estimateUsage(input.body, edited.files)
     });
-    const reply = "An account admin has to approve this request before it runs.";
+    const token = randomBytes(18).toString("base64url");
+    await db.insert(previewSession).values({
+      id: randomUUID(),
+      siteId: input.siteId,
+      changeRequestId: requestId,
+      snapshotId: resultId,
+      tokenHash: createHash("sha256").update(token).digest("hex"),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    });
+    const previewUrl = `${input.appOrigin}/preview/${token}`;
+    const reply = `Preview ready: ${previewUrl}`;
     await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
-    return finish("open", reply);
+    if (currentSite?.accountId) {
+      await maybeAlertBudget(db, currentSite.accountId).catch(() => undefined);
+    }
+    return finish("preview_ready", reply, previewUrl);
+  } finally {
+    await db
+      .update(site)
+      .set({ draftLockedBy: null, draftLockedAt: null })
+      .where(and(eq(site.id, input.siteId), eq(site.draftLockedBy, input.userId)));
   }
-  if (!input.runner) throw new Error("No editor is configured.");
-  const edited = await input.runner.edit(await readSnapshot(input.store, prefix), input.body);
-  if (!edited.changed) {
-    const reply = "Nothing needed changing.";
-    await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
-    return finish("open", reply);
-  }
-  const resultId = await writeSnapshot({
-    db,
-    store: input.store,
-    siteId: input.siteId,
-    parentSnapshotId: current,
-    files: withAnalytics(
-      edited.files,
-      sites[0]?.analyticsEnabled !== false,
-      input.appOrigin,
-      input.siteId
-    )
-  });
-  const requestId = randomUUID();
-  await db.insert(changeRequest).values({
-    id: requestId,
-    threadId,
-    siteId: input.siteId,
-    status: "preview_ready",
-    sourceSnapshotId: current,
-    resultSnapshotId: resultId,
-    summary: input.body
-  });
-  const token = randomBytes(18).toString("base64url");
-  await db.insert(previewSession).values({
-    id: randomUUID(),
-    siteId: input.siteId,
-    changeRequestId: requestId,
-    snapshotId: resultId,
-    tokenHash: createHash("sha256").update(token).digest("hex"),
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-  });
-  const previewUrl = `${input.appOrigin}/preview/${token}`;
-  const reply = `Preview ready: ${previewUrl}`;
-  await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
-  return finish("preview_ready", reply, previewUrl);
+}
+
+export async function undoEdit(db: Database, siteId: string): Promise<boolean> {
+  const sites = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
+  const draftId = sites[0]?.draftSnapshotId;
+  if (!draftId) return false;
+  const snaps = await db.select().from(snapshot).where(eq(snapshot.id, draftId)).limit(1);
+  const parent = snaps[0]?.parentSnapshotId;
+  if (!parent || snaps[0]?.kind !== "edit") return false;
+  await db.update(site).set({ draftSnapshotId: parent }).where(eq(site.id, siteId));
+  return true;
 }
 
 export async function previewForToken(db: Database, token: string) {

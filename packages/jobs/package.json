@@ -10,10 +10,7 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@flagstage/db": "workspace:*",
-    "pg-boss": "^12.8.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "typescript": "^5.9.3"
   }

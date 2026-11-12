@@ -18,14 +18,14 @@ pnpm dev
 
 Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstage.config.json`. The web log prints a one-time sign-in link. A first run has no accounts and no sites. `pnpm dev:sites` serves a published site from local files. It is a development script, not an app route.
 
-`docker compose up` from a clean checkout starts Postgres, the web app, and the worker. The image pins OpenCode 2.2.7 and runs it headless as the `flagstage` user. A checkout that is not the image needs that `opencode` binary on the worker `PATH`. The model is Amazon Bedrock, called with the task role.
+`docker compose up` from a clean checkout starts Postgres and the web app. The image pins OpenCode 2.2.7. A checkout that is not the image needs that `opencode` binary on `PATH` for local chat. The model is Amazon Bedrock, called with the task role.
 
 ## Repo tour
 
 | Path                   | What it is                                                                              |
 | ---------------------- | --------------------------------------------------------------------------------------- |
 | `apps/web`             | Next.js UI, API, auth, and auth-gated previews                                          |
-| `apps/worker`          | pg-boss consumers                                                                       |
+| `apps/worker`          | One-off import process and the chat Lambda handler                                      |
 | `apps/cli`             | `flagstage` admin CLI                                                                   |
 | `packages/config`      | `flagstage.config.json` and the environment schema. Docs are generated from the schema. |
 | `packages/db`          | Drizzle schema and migrations                                                           |
@@ -42,7 +42,6 @@ Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstag
 | `packages/ui`          | Shared primitives and the English message catalog                                       |
 | `infra/cloudformation` | CloudFormation stack. `./deploy.sh` is not run from CI.                                 |
 | `docs/`                | Self-hosting and operator docs                                                          |
-| `TODO.md`              | Work deferred past v1                                                                   |
 
 ## Conventions
 

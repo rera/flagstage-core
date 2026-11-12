@@ -87,6 +87,8 @@ export const account = pgTable("account", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  monthlyBudgetUsd: integer("monthly_budget_usd"),
+  budgetAlertMonth: text("budget_alert_month"),
   archivedAt: ts("archived_at"),
   createdAt: ts("created_at").notNull().defaultNow()
 });
@@ -130,6 +132,9 @@ export const site = pgTable("site", {
   slug: text("slug").notNull().unique(),
   sourceUrl: text("source_url"),
   currentSnapshotId: text("current_snapshot_id"),
+  draftSnapshotId: text("draft_snapshot_id"),
+  draftLockedBy: text("draft_locked_by"),
+  draftLockedAt: ts("draft_locked_at"),
   status: text("status").notNull().default("importing"),
   analyticsEnabled: boolean("analytics_enabled").notNull().default(true),
   createdAt: ts("created_at").notNull().defaultNow()

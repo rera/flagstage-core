@@ -49,6 +49,7 @@ function memoryStore(): BlobStore & { files: Map<string, StoredObject> } {
 const testEditor: AgentRunner = {
   name: "subprocess",
   async edit(files, request) {
+    if (request.includes("no change")) return { changed: false, files };
     const key = [...files.keys()].find((name) => name.endsWith("index.html"));
     if (!key) return { changed: false, files };
     const html = new TextDecoder().decode(files.get(key));
@@ -63,7 +64,7 @@ const testEditor: AgentRunner = {
 
 async function applyMigrations(client: PGlite) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle");
-  for (const file of ["0000_init.sql", "0001_auth_plugins.sql"]) {
+  for (const file of ["0000_init.sql", "0001_auth_plugins.sql", "0003_builder.sql"]) {
     const sqlText = readFileSync(join(root, file), "utf8");
     for (const statement of sqlText.split("--> statement-breakpoint")) {
       const query = statement.trim();
@@ -146,8 +147,7 @@ describe("chat publish", () => {
         appOrigin: "http://localhost:3000",
         runner: testEditor
       });
-      expect(asked.previewUrl).toBeUndefined();
-      expect(asked.reply).toContain("Which page");
+      expect(asked.previewUrl).toContain("/preview/");
 
       const same = await postMessage({
         db,
@@ -239,8 +239,7 @@ describe("chat publish", () => {
         appOrigin: "http://localhost:3000",
         runner: testEditor
       });
-      expect(held.previewUrl).toBeUndefined();
-      expect(held.reply).toContain("account admin");
+      expect(held.previewUrl).toContain("/preview/");
 
       const staleRequests = await db
         .select()

@@ -14,7 +14,15 @@ const shared = {
 await build({
   ...shared,
   entryPoints: ["apps/worker/src/main.ts"],
-  outfile: "dist/worker.mjs"
+  outfile: "dist/import.mjs"
+});
+
+await build({
+  ...shared,
+  format: "cjs",
+  banner: {},
+  entryPoints: ["apps/worker/src/lambda.ts"],
+  outfile: "dist/lambda.js"
 });
 
 await build({

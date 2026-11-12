@@ -12,14 +12,13 @@ export default function HomePage() {
         </article>
         <article className="card">
           <h2>Chat</h2>
-          <p>
-            Ask for a change in the app. A file-only agent edits the snapshot and opens a preview.
-          </p>
+          <p>Describe the change beside the live preview. The editor updates the draft.</p>
         </article>
         <article className="card">
           <h2>Publish</h2>
           <p>
-            Approve to swap the live pointer. Roll back the same way. Visitors never hit the app.
+            Publish the draft when it looks right. Undo one edit, or undo a publish. Visitors never
+            hit the app.
           </p>
         </article>
       </div>

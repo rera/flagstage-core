@@ -49,5 +49,11 @@ export type CrawlResult = {
   redirects: RedirectRule[];
   report: FidelityReport;
   forms: MappedForm[];
-  stats: { pages: number; assets: number };
+  stats: {
+    pages: number;
+    assets: number;
+    pagesFound?: number;
+    pagesDone?: number;
+    skipped?: Array<{ path: string; reason: string }>;
+  };
 };

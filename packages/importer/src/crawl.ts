@@ -119,6 +119,11 @@ async function getText(fetchPage: PageFetch, url: string): Promise<string | null
 }
 
 export async function crawlSite(input: {
+  onProgress?: (progress: {
+    pagesFound: number;
+    pagesDone: number;
+    skipped: Array<{ path: string; reason: string }>;
+  }) => Promise<void>;
   fetchPage: PageFetch;
   sourceUrl: string;
   appOrigin: string;
@@ -186,6 +191,7 @@ export async function crawlSite(input: {
   const mapped: MappedForm[] = [];
   const cssBackgrounds: string[] = [];
   const missingAssets: string[] = [];
+  const skipped: Array<{ path: string; reason: string }> = [];
 
   while (queue.length > 0 && seenPages.size < input.caps.maxPages) {
     const current = queue.shift();
@@ -194,6 +200,15 @@ export async function crawlSite(input: {
     const response = await input.fetchPage(new URL(current.path, origin).toString());
     if (!response || response.status >= 400) {
       missingAssets.push(current.path);
+      skipped.push({
+        path: current.path,
+        reason: response ? `HTTP ${response.status}` : "No response"
+      });
+      await input.onProgress?.({
+        pagesFound: seenPages.size + queue.length,
+        pagesDone: seenPages.size,
+        skipped
+      });
       continue;
     }
     const contentType = response.contentType.toLowerCase();
@@ -253,6 +268,11 @@ export async function crawlSite(input: {
         queue.push({ path: pathname, depth: current.depth + 1 });
       }
     }
+    await input.onProgress?.({
+      pagesFound: seenPages.size + queue.length,
+      pagesDone: seenPages.size,
+      skipped
+    });
   }
 
   return {
@@ -261,6 +281,12 @@ export async function crawlSite(input: {
     redirects,
     report: { forms, plugins, missingAssets, cssBackgrounds },
     forms: mapped,
-    stats: { pages: seenPages.size, assets: seenAssets.size }
+    stats: {
+      pages: seenPages.size,
+      assets: seenAssets.size,
+      pagesFound: seenPages.size,
+      pagesDone: seenPages.size,
+      skipped
+    }
   };
 }

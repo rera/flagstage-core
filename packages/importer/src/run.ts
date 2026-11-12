@@ -46,7 +46,14 @@ export async function runImport(input: {
       sourceUrl: input.sourceUrl,
       appOrigin: input.appOrigin,
       siteId: input.siteId,
-      caps: input.caps
+      caps: input.caps,
+      onProgress: async (progress) => {
+        await input.db
+          .update(importRun)
+          .set({ stats: progress, updatedAt: new Date() })
+          .where(eq(importRun.id, input.importRunId));
+        await notify(input.db, input.siteId);
+      }
     });
     const stored = await storeCrawl({
       db: input.db,

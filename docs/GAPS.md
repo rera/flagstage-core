@@ -6,7 +6,7 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 ## Fix before a first release
 
-1. **The image is local only.** `docker image ls` reports 804MB after OpenCode 2.2.7 was added, up from 428MB. `docker image inspect` reports 223,652,790 bytes, up from 101,331,623. The worker and the CLI are bundled JavaScript, the web process is the Next.js standalone server, OpenCode is a binary under the `flagstage` home, and the container user is uid 10001. Nothing publishes the image. The single-VM compose file is for evaluation only.
+1. **The image is local only.** `docker image ls` reports 804MB after OpenCode 2.2.7 was added, up from 428MB. `docker image inspect` reports 223,652,790 bytes, up from 101,331,623. The import process, the chat handler, and the CLI are bundled JavaScript, the web process is the Next.js standalone server, OpenCode is a binary under the `flagstage` home, and the container user is uid 10001. Nothing publishes the image. The single-VM compose file is for evaluation only. The Lambda image (`docker build --target lambda`) has not been built in this checkout.
 
 ## What mature projects have that this repo does not
 
@@ -15,8 +15,6 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 3. **A hostname you add is a checklist, not an alias.** Published sites on the configured domain are `https://{slug}.{domain}`, from S3 through CloudFront, using a key value store. The stack does not add other hostnames as CloudFront aliases. `DOMAINS_DRIVER` stays `none` in that stack. The checklist tells the operator which DNS records to create. Nothing calls a registrar.
 
 ## Smaller, still real
-
-4. **Import progress is a status, not a live count.** The site page shows importing, failed, or live. It does not yet show pages found, pages done, and pages skipped with a reason.
 
 The CLI verbs are `admin add`, `account create`, `member add`, and `site export`.
 
@@ -28,7 +26,7 @@ Checked against the mature-OSS checklist. Items above are the ones that are stil
 - `flagstage.config.json` holds the domain, organization name, first admin email, Bedrock model, region, SES from-address, and brand. `flagstage doctor` checks Bedrock with the caller credentials. There is no setup wizard and no model-key form.
 - `docs/index.md` links getting started, the CloudFormation deploy, configuration, roles, the DNS checklist, importing, upgrading, backup, architecture, troubleshooting, and the FAQ. A docs site is explicitly later.
 - README: pitch, screenshot, quickstart, architecture, docs links, and contributing. `ROADMAP.md` points at Discussions.
-- `/api/health` and `/api/ready` (database, storage, and that the `pgboss` schema exists).
+- `/api/health` and `/api/ready` (database and storage).
 - RDS backups of 7 days, S3 versioning, `docs/backup-restore.md`, and `flagstage site export`.
 - Migrations at boot behind an advisory lock. `docs/upgrading.md`. Changelog section for 0.1.0, unreleased, with no breaking changes yet.
 - SES for invites, password reset, and form mail.
@@ -39,11 +37,11 @@ Checked against the mature-OSS checklist. Items above are the ones that are stil
 
 ## Intentionally out
 
-No phone-home and no update check. No billing. No inbound email, SMS, or Slack. No registrar API. No second compute platform for the agent. No docs site and no Helm chart in v1. No community channel besides GitHub Discussions. Those are decisions, not unfinished work.
+No phone-home and no update check. No billing, plans, or a review queue. No inbound email, SMS, or Slack. No registrar API. No docs site and no Helm chart in v1. No community channel besides GitHub Discussions. Those are decisions, not unfinished work.
 
 ## Closed
 
-- Import and chat turns are queued on pg-boss. The web process writes the row and returns. The worker crawls and runs the editor. The site page follows import status, thread status, and new messages.
+- The web container starts chat in one Lambda and imports as one-off tasks. Locally those functions run in the web process. The site page shows pages found, pages done, and skipped pages, and it follows the draft.
 - Published sites are S3 to CloudFront. The app does not serve them. Previews are auth-gated at `/preview/<token>`. Local viewing is `pnpm dev:sites`. `none` stays the domains driver in the stack.
 - A first run is empty. `adminEmail` in `flagstage.config.json` creates the first admin and prints a one-time sign-in link. There is no demo organization, demo site, or demo password.
 - An admin creates an account from the app or with `flagstage account create`. `flagstage member add` invites an account admin. See [Invite account admins](account-admins.md).

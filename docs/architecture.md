@@ -4,35 +4,35 @@
 
 ```mermaid
 flowchart TB
-  subgraph task [One ECS task, two containers, one image]
-    web[Web: Next.js]
-    worker[Worker: pg-boss]
-  end
   staff[Staff browser] --> alb[Application load balancer]
-  alb --> web
+  alb --> web[Web container]
   web --> pg[(Postgres)]
-  worker --> pg
-  worker --> s3[S3 snapshots, media, imports]
+  web --> chatFn[Chat Lambda]
+  web --> importTask[Import task]
+  chatFn --> pg
+  chatFn --> s3[S3 snapshots and sessions]
+  importTask --> pg
+  importTask --> s3
   web --> s3
-  visitors[Site visitors] --> cf[CloudFront multi-tenant]
+  visitors[Site visitors] --> cf[CloudFront]
   cf --> s3
 ```
 
-Live HTML is read from object storage by CloudFront. A viewer-request function reads the hostname from a KeyValueStore and rewrites the URI onto that site's current snapshot prefix. The app is not in that path. Form posts and the analytics beacon are the requests that reach the app. In local development, `node script/dev-sites.mjs` serves the published files from the host map. It is not an app route.
+One web container stays up. It serves the app, signs people in, and starts work. It does not run the editor.
 
-Previews are `{APP_URL}/preview/{token}`, served by the web process, signed-in, and they expire. There is no preview hostname.
+Chat is one container-image Lambda. Each turn loads the draft and the OpenCode session from S3, runs OpenCode 2.2.7 headless, and writes the draft and the session back. The transcript lives in Postgres. Progress is a `NOTIFY` that the web relays over server-sent events. The page also polls every 2 seconds. Near the 15-minute limit the Lambda checkpoints and starts another invocation.
 
-Jobs live in Postgres via pg-boss. The web process enqueues an import or a chat turn and returns. The worker runs the crawl and the editor. Chat updates use server-sent events fed by `LISTEN/NOTIFY`, and the client falls back to polling every 2 seconds. The event payload includes the import status and the thread status, so the site page reloads when a job finishes.
+Imports are one-off Fargate tasks from the same web image, started with `RunTask` and the command `import`. The task writes pages found, pages done, and skipped pages onto the import row. Locally, with no cluster set, the web process runs that same function in the background.
+
+Published HTML is read from object storage by CloudFront. The app is not on that path. Previews of the current draft are auth-gated at `/sites/<id>/live`.
 
 ## Agent isolation
 
-`AgentRunner` has one implementation, `subprocess`. The worker downloads the snapshot into a temp directory, runs OpenCode 2.2.7 headless (`opencode run --standalone`) with the amazon-bedrock provider, and uploads the diff. The binary is installed in the image for the non-root user. The subprocess receives the task-role credential URI and the region. It does not receive `DATABASE_URL` or static access keys. The default timeout is 10 minutes.
-
-This is a weaker boundary than a separate function with its own role. A future `ecs-task` runner is out of scope. The trade-off is one small service instead of a second compute platform.
+The Lambda role can call Bedrock and the snapshot bucket. The editor subprocess receives the task-role credential URI and the region. It does not receive `DATABASE_URL` or static access keys.
 
 ## What is intentionally absent
 
-- No Redis, no queue service, no inbound email, SMS, or Slack.
-- No billing.
+- No Redis and no always-on worker.
+- No billing, plans, or a review queue.
 - No phone-home telemetry.
 - No registrar automation. Operators create DNS records from a checklist.

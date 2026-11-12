@@ -4,18 +4,13 @@ import { createBlobStore } from "@flagstage/storage";
 import { sql } from "drizzle-orm";
 
 export async function GET() {
-  const checks: Record<string, "ok" | "fail"> = { db: "fail", storage: "fail", jobs: "fail" };
+  const checks: Record<string, "ok" | "fail"> = { db: "fail", storage: "fail" };
   try {
     const config = loadConfig();
     const { db, pool } = createDb(config.DATABASE_URL);
     try {
       await db.execute(sql`select 1`);
       checks.db = "ok";
-      const jobs = await db.execute<{ ready: boolean }>(
-        sql`select to_regnamespace('pgboss') is not null as ready`
-      );
-      const row = jobs.rows[0];
-      if (row?.ready) checks.jobs = "ok";
     } finally {
       await pool.end();
     }

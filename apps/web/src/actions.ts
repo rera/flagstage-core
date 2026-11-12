@@ -11,11 +11,17 @@ import { acceptInvitation, can, createAccount, createInvitation, slugify } from 
 import { importRun, message, site, thread, user } from "@flagstage/db";
 import { sendEmail } from "@flagstage/forms";
 import { approveImport } from "@flagstage/importer";
-import { enqueue } from "@flagstage/jobs";
+import { startImport, startTurn } from "./dispatch";
 import { createBlobStore, snapshotPrefix } from "@flagstage/storage";
-import { approveChange, buildAgentEnv, skillsDirectory, subprocessRunner } from "@flagstage/agent";
+import {
+  approveChange,
+  buildAgentEnv,
+  skillsDirectory,
+  subprocessRunner,
+  undoEdit
+} from "@flagstage/agent";
 import { rollbackTo } from "@flagstage/publish";
-import { changeRequest, siteDomain, snapshot } from "@flagstage/db";
+import { account, siteDomain, snapshot } from "@flagstage/db";
 import {
   checkDnsRecords,
   cloudfrontKeyValueStore,
@@ -179,7 +185,6 @@ export async function importSiteAction(formData: FormData) {
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   if (!sourceUrl || !name) redirect("/sites?error=1");
-  const config = loadConfig();
   const db = database();
   const siteId = randomUUID();
   const runId = randomUUID();
@@ -193,7 +198,7 @@ export async function importSiteAction(formData: FormData) {
   });
   await db.insert(importRun).values({ id: runId, siteId, sourceUrl, status: "queued" });
   try {
-    await enqueue(config.DATABASE_URL, "import", { siteId, runId, sourceUrl });
+    await startImport({ siteId, runId, sourceUrl });
   } catch (error) {
     const messageText = error instanceof Error ? error.message : "Import failed";
     await db
@@ -254,7 +259,6 @@ export async function sendMessageAction(formData: FormData) {
   if (!canComment && !canEdit) redirect("/no-access");
   const body = String(formData.get("body") ?? "").trim();
   if (!body) redirect(`/sites/${siteId}`);
-  const config = loadConfig();
   const db = database();
   const existing = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
   const threadId = existing[0]?.id ?? randomUUID();
@@ -281,12 +285,7 @@ export async function sendMessageAction(formData: FormData) {
   });
   if (canEdit) {
     try {
-      await enqueue(config.DATABASE_URL, "agent-turn", {
-        siteId,
-        userId: principal.id,
-        body,
-        userRecorded: true
-      });
+      await startTurn({ siteId, userId: principal.id, body });
     } catch {
       await db
         .update(thread)
@@ -349,43 +348,26 @@ export async function rollbackAction(formData: FormData) {
   redirect(`/sites/${siteId}`);
 }
 
-export async function releaseHoldAction(formData: FormData) {
+export async function setBudgetAction(formData: FormData) {
   const principal = await requirePrincipal();
+  if (!can(principal, "org.manage")) redirect("/accounts");
   const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "member.manage", { accountId }) && !can(principal, "org.manage")) {
-    redirect("/no-access");
+  const raw = String(formData.get("monthlyBudgetUsd") ?? "").trim();
+  const monthlyBudgetUsd = raw === "" ? null : Number(raw);
+  if (monthlyBudgetUsd != null && (!Number.isFinite(monthlyBudgetUsd) || monthlyBudgetUsd < 0)) {
+    redirect("/admin");
   }
-  const requestId = String(formData.get("changeRequestId") ?? "");
-  const rows = await database()
-    .select()
-    .from(changeRequest)
-    .where(eq(changeRequest.id, requestId))
-    .limit(1);
-  const request = rows[0];
-  if (!request?.summary) redirect("/sites");
-  await database()
-    .update(changeRequest)
-    .set({ status: "rejected" })
-    .where(eq(changeRequest.id, requestId));
-  const config = loadConfig();
-  const existing = await database()
-    .select()
-    .from(thread)
-    .where(eq(thread.siteId, request.siteId))
-    .limit(1);
-  if (existing[0]) {
-    await database()
-      .update(thread)
-      .set({ status: "queued", updatedAt: new Date() })
-      .where(eq(thread.id, existing[0].id));
-  }
-  await enqueue(config.DATABASE_URL, "agent-turn", {
-    siteId: request.siteId,
-    userId: principal.id,
-    body: request.summary,
-    allowHold: false
-  });
-  redirect(`/sites/${request.siteId}`);
+  await database().update(account).set({ monthlyBudgetUsd }).where(eq(account.id, accountId));
+  redirect("/admin");
+}
+
+export async function undoEditAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "site.edit", { accountId })) redirect("/no-access");
+  await undoEdit(database(), siteId);
+  redirect(`/sites/${siteId}`);
 }
 
 export async function addDomainAction(formData: FormData) {
