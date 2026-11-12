@@ -10,5 +10,5 @@ Open these on the public repository after launch. They are not filed from this b
 6. **help wanted** — Helm chart sketch under `infra/helm`, documented as unsupported until someone runs it.
 7. **help wanted** — Import progress: persist per-page timings on `import_run.stats` and chart them.
 8. **good first issue** — CSV download sets a filename that includes the form key and the date.
-9. **help wanted** — `flagstage export-site` includes the redirect list and the fidelity report.
+9. **help wanted** — `flagstage site export` also includes the redirect list and the fidelity report.
 10. **good first issue** — Dark theme that keeps the ink and teal contrast targets.

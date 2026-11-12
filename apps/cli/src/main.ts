@@ -1,16 +1,32 @@
+import { writeFileSync } from "node:fs";
+
 import pg from "pg";
 
 import { ConfigError, loadConfig } from "@flagstage/config";
 import { createDb } from "@flagstage/db";
 import { createBlobStore } from "@flagstage/storage";
 
-import { addOrgAdmin, createNamedAccount, importAccountSite, parseCommand } from "./commands";
+import {
+  addMember,
+  addOrgAdmin,
+  backupPlan,
+  createNamedAccount,
+  exportSiteArchive,
+  importAccountSite,
+  parseCommand,
+  passwordResetAllowed,
+  resetPassword
+} from "./commands";
 
 const usage = `flagstage commands:
   doctor
   admin add --email <email> [--name <name>]
   account create <name>
-  import <url> --account <slug> [--name <name>]`;
+  member add --email <email> --account <slug> --role <role> [--name <name>]
+  user reset-password --email <email>
+  import <url> --account <slug> [--name <name>]
+  site export <site> --out <file.tgz>
+  backup`;
 
 const parsed = (() => {
   try {
@@ -69,6 +85,24 @@ if (parsed.kind === "doctor") {
   process.exit(lines.some((line) => line.includes("fail") || line.includes("missing")) ? 1 : 0);
 }
 
+if (parsed.kind === "backup") {
+  console.log(
+    backupPlan({
+      storage: config.STORAGE_DRIVER,
+      bucket: config.S3_BUCKET,
+      directory: config.FS_STORAGE_DIR
+    })
+  );
+  process.exit(0);
+}
+
+if (parsed.kind === "reset-password" && !passwordResetAllowed(process.env)) {
+  console.error(
+    "Password reset is for local development, or one break-glass command with FLAGSTAGE_BREAK_GLASS=1."
+  );
+  process.exit(1);
+}
+
 const { db, pool } = createDb(config.DATABASE_URL);
 try {
   if (parsed.kind === "admin-add") {
@@ -97,6 +131,26 @@ try {
       }
     });
     console.log(`${imported.slug} ${imported.siteId} ${imported.snapshotId}`);
+  } else if (parsed.kind === "member-add") {
+    const added = await addMember(db, {
+      email: parsed.email,
+      accountSlug: parsed.account,
+      role: parsed.role,
+      name: parsed.name
+    });
+    console.log(`${added.email} ${added.role} ${added.account}`);
+    if (added.password) console.log(`password: ${added.password}`);
+  } else if (parsed.kind === "reset-password") {
+    const reset = await resetPassword(db, { email: parsed.email, password: parsed.password });
+    console.log(`password: ${reset.password}`);
+  } else if (parsed.kind === "site-export") {
+    const exported = await exportSiteArchive({
+      db,
+      store: createBlobStore(config),
+      siteRef: parsed.site
+    });
+    writeFileSync(parsed.out, exported.body);
+    console.log(parsed.out);
   }
 } finally {
   await pool.end();

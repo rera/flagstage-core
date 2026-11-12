@@ -22,4 +22,8 @@ For the filesystem driver, copy `FS_STORAGE_DIR`.
 
 ## One site
 
-`flagstage export-site <slug> <directory>` writes that site's current snapshot. The command lands with the CLI milestone.
+`flagstage site export <slug> --out site.tgz` writes the current published snapshot. The archive holds `content.json` (site, snapshot, and the file list) and `files/` with the static bytes. The site must already be published.
+
+## Operator reminder
+
+`flagstage backup` prints the commands above for the storage driver you configured. It does not dump the database and it does not call AWS.

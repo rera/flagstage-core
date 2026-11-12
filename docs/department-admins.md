@@ -17,7 +17,10 @@ The same steps are on the command line:
 ```bash
 flagstage admin add --email you@example.com --name "You"
 flagstage account create "Parks"
+flagstage member add --email editor@example.com --account parks --role editor
 flagstage import https://example.com --account parks --name "Parks site"
 ```
 
-`admin add` prints a password once when it creates the person. If the email already exists, it grants organization admin and leaves the password alone.
+`admin add` prints a password once when it creates the person. If the email already exists, it grants organization admin and leaves the password alone. `member add` does the same for an account role (`account_admin`, `editor`, or `reviewer`) and keeps the membership when the directory sync runs.
+
+`flagstage user reset-password --email you@example.com` prints a new password. It runs in local development. In production it runs only when `FLAGSTAGE_BREAK_GLASS=1` is set for that one command.

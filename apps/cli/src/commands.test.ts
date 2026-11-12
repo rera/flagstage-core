@@ -1,3 +1,4 @@
+import { gunzipSync } from "node:zlib";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,10 +10,20 @@ import { describe, expect, it } from "vitest";
 
 import type { Database } from "@flagstage/db";
 import * as fullSchema from "@flagstage/db";
-import { account, user } from "@flagstage/db";
+import { account, membership, site, snapshot, user } from "@flagstage/db";
 import type { BlobStore, StoredObject } from "@flagstage/storage";
 
-import { addOrgAdmin, createNamedAccount, importAccountSite, parseCommand } from "./commands";
+import {
+  addMember,
+  addOrgAdmin,
+  backupPlan,
+  createNamedAccount,
+  exportSiteArchive,
+  importAccountSite,
+  parseCommand,
+  passwordResetAllowed,
+  resetPassword
+} from "./commands";
 
 async function applyMigrations(client: PGlite) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "../../../packages/db/drizzle");
@@ -64,6 +75,26 @@ describe("flagstage commands", () => {
       account: "parks",
       name: "Parks site"
     });
+    expect(
+      parseCommand([
+        "member",
+        "add",
+        "--email",
+        "ed@example.com",
+        "--account",
+        "parks",
+        "--role",
+        "editor"
+      ])
+    ).toMatchObject({ kind: "member-add", email: "ed@example.com", role: "editor" });
+    expect(parseCommand(["site", "export", "demo", "--out", "demo.tgz"])).toEqual({
+      kind: "site-export",
+      site: "demo",
+      out: "demo.tgz"
+    });
+    expect(passwordResetAllowed({ NODE_ENV: "development" })).toBe(true);
+    expect(passwordResetAllowed({ NODE_ENV: "production" })).toBe(false);
+    expect(passwordResetAllowed({ NODE_ENV: "production", FLAGSTAGE_BREAK_GLASS: "1" })).toBe(true);
   });
 
   it("adds an organization admin and creates an account", async () => {
@@ -96,6 +127,70 @@ describe("flagstage commands", () => {
         caps: { maxPages: 1, maxDepth: 1, maxAssets: 1 }
       })
     ).rejects.toThrow(/No account/);
+    await client.close();
+  });
+
+  it("adds a member, resets a local password, and exports the published snapshot", async () => {
+    const client = new PGlite();
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+    const created = await createNamedAccount(db, "Parks");
+    const added = await addMember(db, {
+      email: "Ed@Example.com",
+      accountSlug: "parks",
+      role: "editor",
+      name: "Ed"
+    });
+    expect(added.created).toBe(true);
+    const again = await addMember(db, {
+      email: "ed@example.com",
+      accountSlug: "parks",
+      role: "reviewer"
+    });
+    expect(again.created).toBe(false);
+    const grants = await db.select().from(membership);
+    expect(grants).toHaveLength(1);
+    expect(grants[0]?.role).toBe("reviewer");
+    expect(grants[0]?.source).toBe("manual");
+
+    const reset = await resetPassword(db, {
+      email: "ed@example.com",
+      password: "new-password-value"
+    });
+    expect(reset.password).toBe("new-password-value");
+
+    const store = memoryStore();
+    const siteId = "site-1";
+    await db.insert(site).values({
+      id: siteId,
+      accountId: created.id,
+      name: "Parks",
+      slug: "parks-site",
+      status: "live"
+    });
+    await db.insert(snapshot).values({
+      id: "snap-1",
+      siteId,
+      kind: "publish",
+      storagePrefix: "snapshots/site-1/snap-1/",
+      fileCount: 1,
+      bytes: 10
+    });
+    await db.update(site).set({ currentSnapshotId: "snap-1" }).where(eq(site.id, siteId));
+    await store.put(
+      "snapshots/site-1/snap-1/index.html",
+      new TextEncoder().encode("<p>hi</p>"),
+      "text/html"
+    );
+    const exported = await exportSiteArchive({ db, store, siteRef: "parks-site" });
+    const text = gunzipSync(exported.body).toString("utf8");
+    expect(text).toContain("content.json");
+    expect(text).toContain("index.html");
+    expect(text).toContain("<p>hi</p>");
+    expect(text).toContain("parks-site");
+    await expect(exportSiteArchive({ db, store, siteRef: "missing" })).rejects.toThrow(/No site/);
+    expect(backupPlan({ storage: "s3", bucket: "sites" })).toContain("pg_dump");
+    expect(backupPlan({ storage: "s3", bucket: "sites" })).toContain("s3://sites");
     await client.close();
   });
 });
