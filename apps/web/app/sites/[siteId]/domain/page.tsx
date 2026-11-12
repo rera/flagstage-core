@@ -51,7 +51,7 @@ export default async function DomainPage({ params }: { params: Promise<{ siteId:
               {domain.hostname}{" "}
               <Badge tone={domain.status === "active" ? "ok" : "warn"}>{domain.status}</Badge>
             </h2>
-            <table>
+            <table className="data">
               <tbody>
                 {records.map((record) => (
                   <tr key={`${record.type}${record.name}${record.value}`}>

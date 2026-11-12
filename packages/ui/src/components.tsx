@@ -97,7 +97,7 @@ export function PoweredBy() {
 export function Mark({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="8" fill="#111620" />
+      <rect width="32" height="32" rx="8" fill="#1f4d3a" />
       <path d="M9 6.5v19" stroke="#F5F7FB" strokeWidth="1.6" />
       <path d="M10.2 7.2h12.2L17.6 13l4.8 5.6H10.2z" fill="#F5F7FB" />
       <path d="M10.2 13h7.2L14.6 16.2 17.4 18.6H10.2z" fill="#C6CFDE" />

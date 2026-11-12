@@ -12,13 +12,13 @@
   "dependencies": {
     "@flagstage/agent": "workspace:*",
     "@flagstage/ai": "workspace:*",
+    "@flagstage/analytics": "workspace:*",
     "@flagstage/auth": "workspace:*",
     "@flagstage/config": "workspace:*",
     "@flagstage/core": "workspace:*",
     "@flagstage/db": "workspace:*",
     "@flagstage/domains": "workspace:*",
     "@flagstage/forms": "workspace:*",
-    "@flagstage/analytics": "workspace:*",
     "@flagstage/importer": "workspace:*",
     "@flagstage/jobs": "workspace:*",
     "@flagstage/publish": "workspace:*",
@@ -33,10 +33,12 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^22.19.1",
     "@types/pg": "^8.15.6",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "tailwindcss": "^4.3.5",
     "typescript": "^5.9.3"
   }
 }
