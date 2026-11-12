@@ -35,8 +35,8 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("emailVerified").notNull().default(false),
   image: text("image"),
-  orgRole: text("org_role").notNull().default("none"),
-  orgRoleSource: text("org_role_source").notNull().default("none"),
+  org_role: text("org_role").notNull().default("none"),
+  org_role_source: text("org_role_source").notNull().default("none"),
   disabledAt: ts("disabled_at"),
   createdAt: ts("createdAt").notNull().defaultNow(),
   updatedAt: ts("updatedAt").notNull().defaultNow()

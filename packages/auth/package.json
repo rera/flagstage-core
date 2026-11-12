@@ -1,0 +1,26 @@
+{
+  "name": "@flagstage/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@better-auth/scim": "1.7.21",
+    "@better-auth/sso": "1.7.21",
+    "@flagstage/config": "workspace:*",
+    "@flagstage/core": "workspace:*",
+    "@flagstage/db": "workspace:*",
+    "better-auth": "1.7.21",
+    "drizzle-orm": "^0.45.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "typescript": "^5.9.3"
+  }
+}

@@ -9,4 +9,4 @@
 
 A person can belong to more than one account. Someone with no mapped group and no invite sees a page that says they do not have access.
 
-The matrix is enforced by `can()` and covered by tests once that module lands.
+`can()` in `@flagstage/core` is the check the app uses. The role matrix above is covered by unit tests.

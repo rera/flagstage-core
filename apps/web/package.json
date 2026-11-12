@@ -10,10 +10,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@better-auth/scim": "1.7.21",
+    "@better-auth/sso": "1.7.21",
+    "@flagstage/auth": "workspace:*",
     "@flagstage/config": "workspace:*",
+    "@flagstage/core": "workspace:*",
     "@flagstage/db": "workspace:*",
     "@flagstage/storage": "workspace:*",
     "@flagstage/ui": "workspace:*",
+    "better-auth": "1.7.21",
     "drizzle-orm": "^0.45.1",
     "next": "^16.0.0",
     "pg": "^8.16.3",

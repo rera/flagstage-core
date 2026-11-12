@@ -1,5 +1,7 @@
 import { loadConfig, createLogger } from "@flagstage/config";
 import { migrateWithLock, seedDemo, createDb, QUEUE_NAMES } from "@flagstage/db";
+import { bootstrapAdmin } from "@flagstage/auth";
+import { hashPassword } from "better-auth/crypto";
 import { PgBoss } from "pg-boss";
 
 let started = false;
@@ -12,9 +14,14 @@ export async function boot(): Promise<void> {
   await migrateWithLock(config.DATABASE_URL);
   if (config.SEED_DEMO) {
     const { db, pool } = createDb(config.DATABASE_URL);
-    await seedDemo(db);
+    await seedDemo(db, { passwordHash: await hashPassword("demo-demo-demo") });
     await pool.end();
-    log.info("demo organization seeded");
+    log.info({ email: "demo@example.com" }, "demo organization seeded");
+  }
+  {
+    const { db, pool } = createDb(config.DATABASE_URL);
+    await bootstrapAdmin(db, { email: config.BOOTSTRAP_ADMIN_EMAIL, appUrl: config.APP_URL }, log);
+    await pool.end();
   }
   const boss = new PgBoss(config.DATABASE_URL);
   await boss.start();

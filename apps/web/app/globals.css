@@ -222,6 +222,10 @@ table.data td {
   padding: 8px 6px;
   border-bottom: 1px solid var(--line);
 }
+.narrow {
+  max-width: 32rem;
+  margin-top: 16px;
+}
 code,
 .mono {
   font-family: "IBM Plex Mono", ui-monospace, monospace;

@@ -30,7 +30,7 @@ cp .env.example .env
 docker compose up
 ```
 
-Open http://localhost:3000. The demo organization is loaded when `SEED_DEMO=1` (the compose default). Sign-in for the seeded admin lands in a later step of first-run setup; until then the health check is http://localhost:3000/api/health.
+Open http://localhost:3000 and sign in as `demo@example.com` with password `demo-demo-demo`. Compose sets `SEED_DEMO=1`, which loads the demo organization and two accounts. Health check: http://localhost:3000/api/health.
 
 Hot reload against the same Postgres:
 

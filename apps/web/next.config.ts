@@ -2,7 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  transpilePackages: ["@flagstage/config", "@flagstage/db", "@flagstage/storage", "@flagstage/ui"],
+  transpilePackages: [
+    "@flagstage/auth",
+    "@flagstage/config",
+    "@flagstage/core",
+    "@flagstage/db",
+    "@flagstage/storage",
+    "@flagstage/ui"
+  ],
   poweredByHeader: false
 };
 
