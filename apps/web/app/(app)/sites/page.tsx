@@ -4,6 +4,7 @@ import { account, site } from "@flagstage/db";
 import { inArray } from "drizzle-orm";
 
 import { importSiteAction } from "../../../src/actions";
+import { TimeZoneInput } from "../../../src/time-zone-input";
 import { database, requirePrincipal } from "../../../src/guard";
 import { Page } from "../../../src/page";
 
@@ -96,6 +97,7 @@ export default async function SitesPage({
       {manageable.length > 0 ? (
         <form id="import-site" action={importSiteAction} className="max-w-md space-y-4">
           <h2 className="text-base font-semibold">{t("sites.import")}</h2>
+          <TimeZoneInput />
           <Field label={t("sites.name")} name="name" required />
           <Field label={t("sites.url")} name="sourceUrl" type="url" required />
           <div className="space-y-2">

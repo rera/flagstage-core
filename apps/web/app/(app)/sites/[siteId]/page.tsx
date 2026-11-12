@@ -1,16 +1,7 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
-import {
-  Alert,
-  Button,
-  EmptyState,
-  FlagstageMark,
-  Label,
-  Textarea,
-  fieldClass,
-  t
-} from "@flagstage/ui";
+import { Alert, Button, EmptyState, FlagstageMark, Textarea, t } from "@flagstage/ui";
 import { can } from "@flagstage/core";
 import { changeRequest, importRun, message, site, snapshot, thread } from "@flagstage/db";
 
@@ -121,7 +112,7 @@ export default async function SitePage({
       <ChatStream siteId={found.id} />
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold tracking-tight">{found.name}</h1>
+          <h1 className="truncate text-xl font-semibold tracking-tight">{found.name}</h1>
           <details className="relative">
             <summary className="cursor-pointer list-none font-mono text-xs text-muted-foreground marker:content-none">
               {host}
@@ -143,17 +134,35 @@ export default async function SitePage({
           </details>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <a href={`/sites/${found.id}/domain`} className="text-sm font-medium text-primary">
+          <a
+            href={`/sites/${found.id}/domain`}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
             {t("domains.title")}
           </a>
-          <a href={`/sites/${found.id}/forms`} className="text-sm font-medium text-primary">
+          <a
+            href={`/sites/${found.id}/forms`}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
             {t("forms.title")}
           </a>
-          <a href={`/sites/${found.id}/analytics`} className="text-sm font-medium text-primary">
+          <a
+            href={`/sites/${found.id}/analytics`}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
             {t("analytics.title")}
           </a>
-          <a href={`/sites/${found.id}/scheduled`} className="text-sm font-medium text-primary">
+          <a
+            href={`/sites/${found.id}/scheduled`}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
             Scheduled
+          </a>
+          <a
+            href={`/sites/${found.id}/settings`}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            Settings
           </a>
           {pendingSnapshot &&
           canPublish &&
@@ -185,11 +194,14 @@ export default async function SitePage({
                 </form>
               ))
             : null}
-          {canPublish && found.draftSnapshotId && found.draftSnapshotId !== found.currentSnapshotId ? (
+          {canPublish &&
+          found.draftSnapshotId &&
+          found.draftSnapshotId !== found.currentSnapshotId ? (
             <SchedulePanel
               siteId={found.id}
               accountId={found.accountId}
               snapshotId={found.draftSnapshotId}
+              timeZone={found.timeZone || "UTC"}
             />
           ) : null}
         </div>
@@ -301,38 +313,31 @@ export default async function SitePage({
                 />
               ) : (
                 <ul className="divide-y divide-border rounded-xl border border-border text-sm">
-                  {snaps.map((item) => (
-                    <li key={item.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                      <span className="font-medium">
-                        {versionLabel(item.kind, item.id, found.currentSnapshotId)}
-                      </span>
-                      <span className="text-muted-foreground">{friendlyWhen(item.createdAt)}</span>
-                    </li>
-                  ))}
+                  {snaps.map((item) => {
+                    const label = versionLabel(item.kind, item.id, found.currentSnapshotId);
+                    const restore =
+                      canPublish && label === "Published" && item.id !== found.currentSnapshotId;
+                    return (
+                      <li key={item.id} className="flex items-center gap-3 px-3 py-2.5">
+                        <span className="font-medium">{label}</span>
+                        <span className="ml-auto text-muted-foreground">
+                          {friendlyWhen(item.createdAt, found.timeZone || "UTC")}
+                        </span>
+                        {restore ? (
+                          <form action={rollbackAction}>
+                            <input type="hidden" name="siteId" value={found.id} />
+                            <input type="hidden" name="accountId" value={found.accountId} />
+                            <input type="hidden" name="snapshotId" value={item.id} />
+                            <Button type="submit" variant="outline" size="sm">
+                              Restore
+                            </Button>
+                          </form>
+                        ) : null}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
-              {canPublish && snaps.length > 1 ? (
-                <form action={rollbackAction} className="mt-3 flex flex-wrap items-end gap-2">
-                  <input type="hidden" name="siteId" value={found.id} />
-                  <input type="hidden" name="accountId" value={found.accountId} />
-                  <div className="space-y-2">
-                    <Label htmlFor="snapshotId">{t("chat.rollback")}</Label>
-                    <select id="snapshotId" name="snapshotId" className={fieldClass}>
-                      {snaps
-                        .filter((item) => item.id !== found.currentSnapshotId)
-                        .map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {versionLabel(item.kind, item.id, found.currentSnapshotId)}{" "}
-                            {friendlyWhen(item.createdAt)}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  <Button type="submit" variant="outline">
-                    {t("chat.rollback")}
-                  </Button>
-                </form>
-              ) : null}
             </section>
           </div>
           <div className="border-t border-border p-3">

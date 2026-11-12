@@ -20,12 +20,7 @@ import {
   subprocessRunner,
   undoEdit
 } from "@flagstage/agent";
-import {
-  disarmSchedule,
-  insertSchedule,
-  localInputToUtc,
-  rollbackTo
-} from "@flagstage/publish";
+import { disarmSchedule, insertSchedule, localInputToUtc, rollbackTo } from "@flagstage/publish";
 import { siteSchedule } from "@flagstage/db";
 import { account, siteDomain, snapshot } from "@flagstage/db";
 import {
@@ -194,13 +189,24 @@ export async function importSiteAction(formData: FormData) {
   const db = database();
   const siteId = randomUUID();
   const runId = randomUUID();
+  const requested = String(formData.get("timeZone") ?? "").trim();
+  let timeZone = "UTC";
+  if (requested) {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: requested });
+      timeZone = requested;
+    } catch {
+      timeZone = "UTC";
+    }
+  }
   await db.insert(site).values({
     id: siteId,
     accountId,
     name,
     slug: slugify(name),
     sourceUrl,
-    status: "importing"
+    status: "importing",
+    timeZone
   });
   await db.insert(importRun).values({ id: runId, siteId, sourceUrl, status: "queued" });
   try {
@@ -332,7 +338,8 @@ export async function schedulePublishAction(formData: FormData) {
   const siteId = String(formData.get("siteId") ?? "");
   const accountId = String(formData.get("accountId") ?? "");
   if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
-  const zone = String(formData.get("timeZone") || "UTC");
+  const found = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
+  const zone = found[0]?.timeZone || "UTC";
   const publish = localInputToUtc(String(formData.get("publishAt") ?? ""), zone);
   const revertRaw = String(formData.get("revertAt") ?? "");
   const revert = revertRaw ? localInputToUtc(revertRaw, zone) : null;
@@ -374,7 +381,8 @@ export async function rescheduleAction(formData: FormData) {
   const accountId = String(formData.get("accountId") ?? "");
   if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
   const id = String(formData.get("scheduleId") ?? "");
-  const zone = String(formData.get("timeZone") || "UTC");
+  const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
+  const zone = rows[0]?.timeZone || "UTC";
   const publish = localInputToUtc(String(formData.get("publishAt") ?? ""), zone);
   if (!publish) redirect(`/sites/${siteId}/scheduled?error=1`);
   const revertRaw = String(formData.get("revertAt") ?? "");
@@ -392,6 +400,21 @@ export async function rescheduleAction(formData: FormData) {
   await armSchedule(id, publish.date, "publish").catch(() => undefined);
   if (revert) await armSchedule(id, revert.date, "revert").catch(() => undefined);
   redirect(`/sites/${siteId}/scheduled`);
+}
+
+export async function updateSiteTimeZoneAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  const siteId = String(formData.get("siteId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!can(principal, "site.manage", { accountId })) redirect("/no-access");
+  const requested = String(formData.get("timeZone") ?? "").trim();
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: requested });
+  } catch {
+    redirect(`/sites/${siteId}/settings?error=1`);
+  }
+  await database().update(site).set({ timeZone: requested }).where(eq(site.id, siteId));
+  redirect(`/sites/${siteId}/settings`);
 }
 
 export async function rollbackAction(formData: FormData) {

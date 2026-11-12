@@ -2,17 +2,14 @@ import { expect, test } from "@playwright/test";
 
 const fixture = `http://127.0.0.1:${process.env.E2E_FIXTURE_PORT ?? "3999"}/`;
 
-function localInput(date: Date) {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
 test("schedules a publish a minute out and sees it go live", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium", "one browser is enough");
   test.setTimeout(180_000);
   const stamp = Date.now().toString(36);
   await page.goto("/sign-in");
-  const signIn = page.locator("form").filter({ has: page.getByRole("button", { name: "Sign in" }) });
+  const signIn = page
+    .locator("form")
+    .filter({ has: page.getByRole("button", { name: "Sign in" }) });
   await signIn.getByLabel("Email").fill("e2e@example.com");
   await signIn.getByLabel("Password").fill("e2e-password-e2e-password");
   await signIn.getByRole("button", { name: "Sign in" }).click();
@@ -41,7 +38,22 @@ test("schedules a publish a minute out and sees it go live", async ({ page }, te
   const when = new Date(Date.now() + 70_000);
   when.setSeconds(0, 0);
   if (when.getTime() < Date.now() + 25_000) when.setMinutes(when.getMinutes() + 1);
-  await page.getByLabel("Publish at").fill(localInput(when));
+  const monthTitle = when.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  if (!(await page.getByText(monthTitle, { exact: true }).isVisible())) {
+    await page.getByRole("button", { name: "Next month" }).click();
+  }
+  await page
+    .getByRole("button", {
+      name: when.toLocaleDateString("en-US", { month: "long", day: "numeric" }),
+      exact: true
+    })
+    .click();
+  const hour24 = when.getHours();
+  const meridiem = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+  await page.getByLabel("Hour").selectOption(String(hour12));
+  await page.getByLabel("Minute").selectOption(String(when.getMinutes()).padStart(2, "0"));
+  await page.getByLabel("AM or PM").selectOption(meridiem);
   await page.getByRole("button", { name: "Save schedule" }).click();
   await expect(page.getByRole("heading", { name: "Scheduled" })).toBeVisible();
   await expect(page.getByText(/Goes live/)).toBeVisible();

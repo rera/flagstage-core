@@ -11,12 +11,7 @@ import { describeInstant } from "./when";
 
 export type ScheduleRow = typeof siteSchedule.$inferSelect;
 
-async function usageRow(
-  db: Database,
-  siteId: string,
-  summary: string,
-  snapshotId: string | null
-) {
+async function usageRow(db: Database, siteId: string, summary: string, snapshotId: string | null) {
   const threads = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
   const threadId = threads[0]?.id ?? randomUUID();
   if (!threads[0]) {
@@ -195,10 +190,7 @@ export async function insertSchedule(
   }
 ) {
   const id = randomUUID();
-  await db
-    .update(site)
-    .set({ timeZone: input.timeZone })
-    .where(eq(site.id, input.siteId));
+  await db.update(site).set({ timeZone: input.timeZone }).where(eq(site.id, input.siteId));
   await db.insert(siteSchedule).values({
     id,
     siteId: input.siteId,
@@ -215,8 +207,10 @@ export async function insertSchedule(
 }
 
 export function describeSchedule(row: ScheduleRow, timeZone: string): string {
+  const when = describeInstant(row.publishAt, timeZone);
   if (row.status === "scheduled") {
-    return `Goes live ${describeInstant(row.publishAt, timeZone)}`;
+    const revert = row.revertAt ? `. Reverts ${describeInstant(row.revertAt, timeZone)}` : "";
+    return `Goes live ${when}${revert}`;
   }
   if (row.status === "live" && row.revertAt) {
     return `Live. Reverts ${describeInstant(row.revertAt, timeZone)}`;

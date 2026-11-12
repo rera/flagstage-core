@@ -71,10 +71,7 @@ function offsetMs(timeZone: string, date: Date): number {
 }
 
 /** Wall-clock time in a zone, as a UTC instant. A spring-forward gap moves ahead one hour. */
-export function zonedTimeToUtc(
-  wall: Wall,
-  timeZone: string
-): { date: Date; adjusted: boolean } {
+export function zonedTimeToUtc(wall: Wall, timeZone: string): { date: Date; adjusted: boolean } {
   const wanted = Date.UTC(wall.y, wall.m - 1, wall.d, wall.h, wall.min);
   let guess = wanted;
   for (let pass = 0; pass < 4; pass += 1) {
@@ -119,9 +116,7 @@ function resolveWhen(
   const clock = clockOf(text) ?? { h: 0, min: 0 };
   const hasClock = clockOf(text) != null;
   const today = parts(now, timeZone);
-  const weekday = text.match(
-    /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/
-  )?.[1];
+  const weekday = text.match(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/)?.[1];
   const month = text.match(
     /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:,?\s*(\d{4}))?\b/
   );
@@ -179,17 +174,39 @@ export function parseSchedulePhrase(
   return null;
 }
 
-export function describeInstant(date: Date, timeZone: string): string {
-  const when = new Intl.DateTimeFormat("en-US", {
+export function zoneShort(timeZone: string, date: Date): string {
+  if (timeZone === "UTC" || timeZone === "Etc/UTC") return "UTC";
+  const raw =
+    new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "short" })
+      .formatToParts(date)
+      .find((part) => part.type === "timeZoneName")?.value ?? timeZone;
+  if (raw === "GMT" || raw === "UTC") return "UTC";
+  return raw.replace(/[SD](?=T$)/, "");
+}
+
+export function zoneTitle(timeZone: string, date = new Date()): string {
+  if (timeZone === "UTC" || timeZone === "Etc/UTC") return "UTC";
+  const raw =
+    new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "long" })
+      .formatToParts(date)
+      .find((part) => part.type === "timeZoneName")?.value ?? timeZone;
+  return raw.replace(/ (Standard|Daylight)/, "");
+}
+
+export function formatScheduleWhen(date: Date, timeZone: string): string {
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(date);
+  const month = new Intl.DateTimeFormat("en-US", { timeZone, month: "short" }).format(date);
+  const day = new Intl.DateTimeFormat("en-US", { timeZone, day: "numeric" }).format(date);
+  const clock = new Intl.DateTimeFormat("en-US", {
     timeZone,
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
     hour: "numeric",
     minute: "2-digit"
   }).format(date);
-  return `${when} (${timeZone})`;
+  return `${weekday}, ${month} ${day} at ${clock} ${zoneShort(timeZone, date)}`;
+}
+
+export function describeInstant(date: Date, timeZone: string): string {
+  return formatScheduleWhen(date, timeZone);
 }
 
 export function localInputToUtc(
@@ -213,6 +230,8 @@ export function localInputToUtc(
 export function confirmSchedule(intent: ScheduleIntent, timeZone: string): string {
   const when = describeInstant(intent.at, timeZone);
   if (intent.action === "revert") return `I'll take it down on ${when}.`;
-  const note = intent.adjusted ? " That local time does not exist, so I moved it forward one hour." : "";
+  const note = intent.adjusted
+    ? " That local time does not exist, so I moved it forward one hour."
+    : "";
   return `I'll publish on ${when}.${note}`;
 }
