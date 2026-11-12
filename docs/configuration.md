@@ -35,9 +35,8 @@ secret is not in that file. The stack creates it in Secrets Manager.
 | `AI_MODEL_SMALL` | no | `amazon.nova-micro-v1:0` | Bedrock model id for short replies. The editor uses the model in flagstage.config.json. |
 | `AGENT_MODEL` | no | `amazon.nova-micro-v1:0` | Bedrock model id passed to OpenCode for site edits. |
 | `AGENT_TIMEOUT_SEC` | no | `600` | Hard timeout for one agent turn, in seconds. |
-| `SMTP_URL` | no | `` | Optional SMTP URL for invites and notices. When unset, mail is printed to the log. |
-| `MAIL_FROM` | no | `` | From address used when SMTP_URL is set. |
-| `FORM_NOTIFY_EMAIL` | no | `` | Optional addresses that receive a form submission when SMTP_URL is set. Separate several with commas. A form's own notify list is included too. |
+| `MAIL_FROM` | no | `` | From address for SES. Defaults to sesFrom in flagstage.config.json. |
+| `FORM_NOTIFY_EMAIL` | no | `` | Optional addresses that receive a form submission. Separate several with commas. A form's own notify list is included too. |
 | `EMAIL_PASSWORD_ENABLED` | no | `1` | Set to 0 to turn off email and password sign-in. |
 | `IMPORT_MAX_PAGES` | no | `500` | Default page cap for an import. |
 | `IMPORT_MAX_DEPTH` | no | `6` | Default link depth for an import. |

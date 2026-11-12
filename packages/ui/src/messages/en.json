@@ -32,6 +32,8 @@
   "signIn.password": "Password",
   "signIn.submit": "Sign in",
   "signIn.failed": "That sign-in did not work. Check the email and password.",
+  "signIn.reset": "Email me a new password",
+  "signIn.resetSent": "If that email can sign in, a new password is on its way.",
   "accounts.create": "Create account",
   "accounts.name": "Account name",
   "accounts.none": "No accounts yet.",

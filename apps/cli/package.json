@@ -13,9 +13,11 @@
   },
   "dependencies": {
     "@flagstage/ai": "workspace:*",
+    "@flagstage/auth": "workspace:*",
     "@flagstage/config": "workspace:*",
     "@flagstage/core": "workspace:*",
     "@flagstage/db": "workspace:*",
+    "@flagstage/forms": "workspace:*",
     "@flagstage/importer": "workspace:*",
     "@flagstage/storage": "workspace:*",
     "better-auth": "1.7.21",

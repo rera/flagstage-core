@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 
 export function notifyRecipients(formEmails: string[], envList: string | undefined): string[] {
   const fromEnv = (envList ?? "")
@@ -19,15 +19,46 @@ export function submissionLetter(
   };
 }
 
-export async function sendFormNotice(input: {
-  smtpUrl: string;
+export async function sendEmail(input: {
+  region: string;
   from: string;
   to: string[];
   subject: string;
   text: string;
+  send?: (message: {
+    region: string;
+    from: string;
+    to: string[];
+    subject: string;
+    text: string;
+  }) => Promise<void>;
 }): Promise<void> {
-  const transport = nodemailer.createTransport(input.smtpUrl);
-  await transport.sendMail({
+  if (input.to.length === 0) return;
+  const send =
+    input.send ??
+    (async (message: {
+      region: string;
+      from: string;
+      to: string[];
+      subject: string;
+      text: string;
+    }) => {
+      const client = new SESv2Client({ region: message.region });
+      await client.send(
+        new SendEmailCommand({
+          FromEmailAddress: message.from,
+          Destination: { ToAddresses: message.to },
+          Content: {
+            Simple: {
+              Subject: { Data: message.subject },
+              Body: { Text: { Data: message.text } }
+            }
+          }
+        })
+      );
+    });
+  await send({
+    region: input.region,
     from: input.from,
     to: input.to,
     subject: input.subject,

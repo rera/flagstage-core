@@ -52,7 +52,6 @@ export const envSchema = z
       z.string().min(1).default("amazon.nova-micro-v1:0")
     ),
     AGENT_TIMEOUT_SEC: intWithDefault(600),
-    SMTP_URL: optionalString,
     MAIL_FROM: optionalString,
     FORM_NOTIFY_EMAIL: optionalString,
     EMAIL_PASSWORD_ENABLED: z.preprocess(
@@ -135,13 +134,6 @@ export const envSchema = z
             "CLOUDFRONT_CONNECTION_GROUP_ID is required when DOMAINS_DRIVER=cloudfront-tenants."
         });
       }
-    }
-    if (value.SMTP_URL && !value.MAIL_FROM) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["MAIL_FROM"],
-        message: "MAIL_FROM is required when SMTP_URL is set."
-      });
     }
   });
 

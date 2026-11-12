@@ -37,7 +37,7 @@ pnpm test
 pnpm build
 ```
 
-Unit tests do not call AWS. `pnpm flagstage doctor` checks env, the database, storage, the model key, and SMTP.
+Unit tests do not call AWS. `pnpm flagstage doctor` checks env, the database, storage, and Bedrock.
 
 ## Migrations
 

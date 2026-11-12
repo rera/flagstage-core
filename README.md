@@ -20,7 +20,7 @@ Flagstage Core is a self-hosted app for an organization that runs many accounts 
 - Organization, accounts, and two roles: admin and account admin.
 - Email and password sign-in. An admin can promote or remove another admin.
 - Custom domains as a copyable DNS checklist with live checks against public resolvers.
-- Lead forms, with a signed webhook and optional SMTP mail, and cookie-free site analytics.
+- Lead forms, with a signed webhook and SES mail, and cookie-free site analytics.
 - Bring your own model API key. Edits run through OpenCode.
 - `flagstage admin add`, `flagstage account create`, and `flagstage import`.
 - No telemetry and no update check.

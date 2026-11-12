@@ -10,7 +10,7 @@ Read the `checks` object. `db` means Postgres is unreachable. `storage` means th
 
 ## Mail never arrives
 
-`SMTP_URL` is optional. When it is unset, invites are printed in the web log.
+Invites and password resets are sent with SES. `sesFrom` in `flagstage.config.json` is the from address.
 
 ## An import cannot reach the site
 

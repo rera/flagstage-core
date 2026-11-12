@@ -4,6 +4,7 @@ import pg from "pg";
 
 import { probeBedrock } from "@flagstage/ai";
 import { ConfigError, loadConfig } from "@flagstage/config";
+import { sendEmail } from "@flagstage/forms";
 import { createDb } from "@flagstage/db";
 import { createBlobStore } from "@flagstage/storage";
 
@@ -141,6 +142,16 @@ try {
     if (added.password) console.log(`password: ${added.password}`);
   } else if (parsed.kind === "reset-password") {
     const reset = await resetPassword(db, { email: parsed.email, password: parsed.password });
+    const region = config.product?.region ?? config.S3_REGION;
+    if (config.MAIL_FROM && region) {
+      await sendEmail({
+        region,
+        from: config.MAIL_FROM,
+        to: [reset.email],
+        subject: "Your new password",
+        text: `Your new password is ${reset.password}`
+      }).catch(() => undefined);
+    }
     console.log(`password: ${reset.password}`);
   } else if (parsed.kind === "site-export") {
     const exported = await exportSiteArchive({

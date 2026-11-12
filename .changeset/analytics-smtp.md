@@ -5,4 +5,4 @@
 "@flagstage/config": minor
 ---
 
-Show 7, 30, and 90 day analytics totals, and mail form submissions when SMTP is configured.
+Show 7, 30, and 90 day analytics totals, and mail form submissions with SES.

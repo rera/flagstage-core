@@ -6,8 +6,10 @@ import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { loadConfig } from "@flagstage/config";
+import { setUserPassword } from "@flagstage/auth";
 import { acceptInvitation, can, createAccount, createInvitation, slugify } from "@flagstage/core";
 import { importRun, message, site, thread, user } from "@flagstage/db";
+import { sendEmail } from "@flagstage/forms";
 import { approveImport } from "@flagstage/importer";
 import { enqueue } from "@flagstage/jobs";
 import { createBlobStore, snapshotPrefix } from "@flagstage/storage";
@@ -29,6 +31,15 @@ import {
 import { getAuth } from "./auth";
 import { applyAuthResponse } from "./cookies";
 import { database, requirePrincipal } from "./guard";
+
+async function deliver(to: string, subject: string, text: string) {
+  const config = loadConfig();
+  const region = config.product?.region ?? config.S3_REGION;
+  if (!config.MAIL_FROM || !region) return;
+  await sendEmail({ region, from: config.MAIL_FROM, to: [to], subject, text }).catch(
+    () => undefined
+  );
+}
 
 function appUrl() {
   return loadConfig().APP_URL;
@@ -87,6 +98,19 @@ export async function signOut() {
   redirect("/sign-in");
 }
 
+export async function requestPasswordReset(formData: FormData) {
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  try {
+    const reset = await setUserPassword(database(), { email });
+    await deliver(reset.email, "Your new password", `Your new password is ${reset.password}`);
+  } catch {
+    // The response is the same when the address is unknown.
+  }
+  redirect("/sign-in?reset=1");
+}
+
 export async function createAccountAction(formData: FormData) {
   const principal = await requirePrincipal();
   if (!can(principal, "org.manage")) redirect("/no-access");
@@ -113,7 +137,9 @@ export async function inviteMember(
     email,
     role: "account_admin"
   });
-  return { secret: `${appUrl()}/invitations/${invite.token}` };
+  const link = `${appUrl()}/invitations/${invite.token}`;
+  await deliver(email, "You are invited", `Open this link to join the account:\n${link}`);
+  return { secret: link };
 }
 
 export async function acceptInviteAction(formData: FormData) {

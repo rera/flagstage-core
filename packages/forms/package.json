@@ -11,9 +11,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "3.940.0",
     "@flagstage/db": "workspace:*",
-    "drizzle-orm": "^0.45.1",
-    "nodemailer": "^10.5.0"
+    "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.14",

@@ -155,24 +155,16 @@ export const ENV_FIELDS = [
     defaultValue: "600"
   },
   {
-    name: "SMTP_URL",
-    description:
-      "Optional SMTP URL for invites and notices. When unset, mail is printed to the log.",
-    requirement: "optional",
-    secret: true,
-    example: ""
-  },
-  {
     name: "MAIL_FROM",
-    description: "From address used when SMTP_URL is set.",
+    description: "From address for SES. Defaults to sesFrom in flagstage.config.json.",
     requirement: "optional",
     secret: false,
-    example: "Flagstage Core <noreply@example.com>"
+    example: "Flagstage <noreply@sites.example.com>"
   },
   {
     name: "FORM_NOTIFY_EMAIL",
     description:
-      "Optional addresses that receive a form submission when SMTP_URL is set. Separate several with commas. A form's own notify list is included too.",
+      "Optional addresses that receive a form submission. Separate several with commas. A form's own notify list is included too.",
     requirement: "optional",
     secret: false,
     example: "leads@example.com"

@@ -11,7 +11,7 @@ Discuss proposals in [GitHub Discussions](https://github.com/rera/flagstage-core
 - Site import, chat edits, preview, approve, publish, and rollback.
 - Organization, accounts, invites, and email and password.
 - Custom-domain DNS checklist.
-- Lead forms, optional SMTP notice, and 7, 30, and 90 day analytics.
+- Lead forms, SES mail, and 7, 30, and 90 day analytics.
 - CloudFormation stack for a single ECS service.
 - `flagstage` commands for an admin, an account, and an import.
 

@@ -7,4 +7,4 @@ export {
   takeToken,
   toCsv
 } from "./forms";
-export { notifyRecipients, sendFormNotice, submissionLetter } from "./mail";
+export { notifyRecipients, sendEmail, submissionLetter } from "./mail";

@@ -41,7 +41,7 @@ Checked against the mature-OSS checklist. Items above are the ones that are stil
 - `/api/health` and `/api/ready` (database, storage, and that the `pgboss` schema exists).
 - RDS backups of 7 days, S3 versioning, `docs/backup-restore.md`, and `flagstage site export`.
 - Migrations at boot behind an advisory lock. `docs/upgrading.md`. Changelog section for 0.1.0, unreleased, with no breaking changes yet.
-- Optional SMTP, console when it is unset.
+- SES for invites, password reset, and form mail.
 - Image: multi-stage, uid 10001, healthcheck, OCI source and license labels.
 - CloudFormation in `infra/cloudformation`, deployed with `./deploy.sh`. Helm is later.
 - `docs/roles.md` matches the `can()` roles. `LICENSE`, `NOTICE`, `TRADEMARKS.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CONTRIBUTING.md`, issue forms, discussion forms, the pull request template, and `docs/contributing/starter-issues.md`.
@@ -59,7 +59,7 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - An admin creates an account from the app or with `flagstage account create`. `flagstage member add` invites an account admin. See [Invite account admins](account-admins.md).
 - `pnpm e2e` signs in, imports a local fixture, sends a chat edit, opens the preview, publishes, and reads the DNS checklist. The workflow file is `docs/ci/workflows/e2e.yml`.
 - The runtime image no longer copies the workspace or runs TypeScript through `tsx`. Displayed size went from 2.8GB to 428MB.
-- Analytics shows 7, 30, and 90 day totals, a bar for each day, and the top pages. Form submissions keep the signed webhook and, when `SMTP_URL` is set, mail `FORM_NOTIFY_EMAIL` plus the form's own list.
+- Analytics shows 7, 30, and 90 day totals, a bar for each day, and the top pages. Form submissions keep the signed webhook and mail `FORM_NOTIFY_EMAIL` plus the form's own list through SES.
 - The README leads with a screenshot of the app. README and announcement copy still carry `copy-review: required before announce`.
 - Sign-in is email and password. An admin page lists people and can promote or remove an admin. The Admin link is hidden from everyone else. The one-time `/bootstrap` link sets its cookie in a route handler.
 - Accounts, sites, versions, form submissions, and analytics each show an empty state with one next action. Focus is visible on links, buttons, and fields, and the first Tab stop is "Skip to content". `pnpm e2e` runs axe.

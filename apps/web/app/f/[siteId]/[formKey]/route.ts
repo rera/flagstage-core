@@ -8,7 +8,7 @@ import {
   corsHeaders,
   isHoneypot,
   notifyRecipients,
-  sendFormNotice,
+  sendEmail,
   signBody,
   submissionLetter,
   takeToken
@@ -82,10 +82,11 @@ export async function POST(
   }
   const config = loadConfig();
   const recipients = notifyRecipients(form.notifyEmails, config.FORM_NOTIFY_EMAIL);
-  if (config.SMTP_URL && config.MAIL_FROM && recipients.length > 0) {
+  const region = config.product?.region ?? config.S3_REGION;
+  if (config.MAIL_FROM && region && recipients.length > 0) {
     const letter = submissionLetter(form.name, stored);
-    await sendFormNotice({
-      smtpUrl: config.SMTP_URL,
+    await sendEmail({
+      region,
       from: config.MAIL_FROM,
       to: recipients,
       subject: letter.subject,
