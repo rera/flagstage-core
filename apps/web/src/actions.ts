@@ -14,19 +14,13 @@ import {
   slugify,
   type MembershipRole
 } from "@flagstage/core";
-import {
-  idpGroupMapping,
-  importRun,
-  message,
-  orgSettings,
-  site,
-  ssoProvider,
-  thread
-} from "@flagstage/db";
+import { idpGroupMapping, importRun, message, orgSettings, site, thread } from "@flagstage/db";
 import { approveImport } from "@flagstage/importer";
 import { enqueue } from "@flagstage/jobs";
 import { createBlobStore, snapshotPrefix } from "@flagstage/storage";
 import { samlProviderConfig } from "@flagstage/auth";
+import { probeModel, type ProbeCode } from "@flagstage/ai";
+import { t } from "@flagstage/ui";
 import { approveChange, buildAgentEnv, skillsDirectory, subprocessRunner } from "@flagstage/agent";
 import { rollbackTo } from "@flagstage/publish";
 import { changeRequest, siteDomain, snapshot } from "@flagstage/db";
@@ -45,6 +39,28 @@ import { applyAuthResponse } from "./cookies";
 import { database, requirePrincipal } from "./guard";
 
 const ROLES = new Set<MembershipRole>(["account_admin", "editor", "reviewer"]);
+const LOGO_KEY = "brand/logo";
+const LOGO_LIMIT = 1_000_000;
+const LOGO_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+const MODEL_DETAIL: Record<
+  ProbeCode,
+  | "model.mock"
+  | "model.noKey"
+  | "model.bedrock"
+  | "model.baseUrl"
+  | "model.ok"
+  | "model.rejected"
+  | "model.unreachable"
+> = {
+  mock: "model.mock",
+  "no-key": "model.noKey",
+  bedrock: "model.bedrock",
+  "needs-base-url": "model.baseUrl",
+  ok: "model.ok",
+  rejected: "model.rejected",
+  unreachable: "model.unreachable"
+};
 
 function appUrl() {
   return loadConfig().APP_URL;
@@ -56,10 +72,10 @@ function nextPath(formData: FormData, fallback: string) {
   return fallback;
 }
 
-function failTo(formData: FormData, fallback: string): never {
+function failTo(formData: FormData, fallback: string, code = "1"): never {
   const next = nextPath(formData, fallback);
   const url = new URL(next, "http://local");
-  url.searchParams.set("error", "1");
+  url.searchParams.set("error", code);
   redirect(`${url.pathname}${url.search}`);
 }
 
@@ -115,6 +131,17 @@ export async function saveOrganization(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const baseDomain = String(formData.get("baseDomain") ?? "").trim();
   if (!name || !baseDomain) failTo(formData, "/setup?step=org");
+  const logo = formData.get("logo");
+  let logoUrl: string | undefined;
+  if (logo instanceof File && logo.size > 0) {
+    if (!LOGO_TYPES.has(logo.type) || logo.size > LOGO_LIMIT) failTo(formData, "/setup?step=org");
+    await createBlobStore(loadConfig()).put(
+      LOGO_KEY,
+      new Uint8Array(await logo.arrayBuffer()),
+      logo.type
+    );
+    logoUrl = "/brand/logo";
+  }
   await database()
     .update(orgSettings)
     .set({
@@ -122,7 +149,8 @@ export async function saveOrganization(formData: FormData) {
       baseDomain,
       previewDomain: baseDomain,
       configuredAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      ...(logoUrl ? { logoUrl } : {})
     })
     .where(eq(orgSettings.id, "org"));
   redirect(nextPath(formData, "/accounts"));
@@ -170,44 +198,82 @@ export async function acceptInviteAction(formData: FormData) {
   redirect("/accounts");
 }
 
+async function postAuth(path: string, body: unknown): Promise<Response> {
+  const incoming = await import("next/headers").then((mod) => mod.headers());
+  const headers = new Headers({
+    "content-type": "application/json",
+    origin: new URL(appUrl()).origin
+  });
+  const cookie = incoming.get("cookie");
+  if (cookie) headers.set("cookie", cookie);
+  return getAuth().handler(
+    new Request(`${appUrl()}/api/auth${path}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body)
+    })
+  );
+}
+
+async function saveSso(body: Record<string, unknown>, formData: FormData): Promise<void> {
+  const created = await postAuth("/sso/register", body);
+  if (!created.ok) {
+    const createdText = await created.text();
+    const exists = created.status === 422 && createdText.toLowerCase().includes("already exists");
+    if (!exists) failTo(formData, "/settings", "provider");
+    const updated = await postAuth("/sso/update-provider", body);
+    if (!updated.ok) failTo(formData, "/settings", "provider");
+  }
+  redirect(nextPath(formData, "/settings?saved=1"));
+}
+
 export async function saveOidcProvider(formData: FormData) {
   const principal = await requirePrincipal();
   if (!can(principal, "org.manage")) redirect("/no-access");
   const providerId = String(formData.get("providerId") ?? "").trim();
   const domain = String(formData.get("domain") ?? "").trim();
-  const issuer = String(formData.get("issuer") ?? "").trim();
+  const issuer = String(formData.get("issuer") ?? "")
+    .trim()
+    .replace(/\/$/, "");
   const clientId = String(formData.get("clientId") ?? "").trim();
   const clientSecret = String(formData.get("clientSecret") ?? "").trim();
   if (!providerId || !domain || !issuer || !clientId || !clientSecret)
     failTo(formData, "/settings");
-  const db = database();
-  const existing = await db
-    .select()
-    .from(ssoProvider)
-    .where(eq(ssoProvider.providerId, providerId))
-    .limit(1);
-  const oidcConfig = JSON.stringify({
-    clientId,
-    clientSecret,
-    discoveryEndpoint: `${issuer.replace(/\/$/, "")}/.well-known/openid-configuration`,
-    pkce: true,
-    mapping: { extraFields: { groups: "groups" } }
-  });
-  if (existing[0]) {
-    await db
-      .update(ssoProvider)
-      .set({ issuer, domain, oidcConfig })
-      .where(eq(ssoProvider.id, existing[0].id));
-  } else {
-    await db.insert(ssoProvider).values({
-      id: randomUUID(),
+  await saveSso(
+    {
       providerId,
       issuer,
       domain,
-      oidcConfig
-    });
-  }
-  redirect(nextPath(formData, "/settings?saved=1"));
+      oidcConfig: {
+        clientId,
+        clientSecret,
+        discoveryEndpoint: `${issuer}/.well-known/openid-configuration`,
+        pkce: true,
+        mapping: { extraFields: { groups: "groups" } }
+      }
+    },
+    formData
+  );
+}
+
+export async function testModelKeyAction(
+  _previous: { ok: boolean; detail: string } | null
+): Promise<{ ok: boolean; detail: string }> {
+  const principal = await requirePrincipal();
+  if (!can(principal, "org.manage")) return { ok: false, detail: t("model.denied") };
+  const config = loadConfig();
+  const result = await probeModel({
+    provider: config.AI_PROVIDER,
+    apiKey: config.AI_API_KEY,
+    baseUrl: config.AI_BASE_URL,
+    model: config.AI_MODEL_SMALL,
+    mock: config.AI_MOCK
+  });
+  const detail = t(MODEL_DETAIL[result.code]);
+  return {
+    ok: result.ok,
+    detail: result.status ? `${detail} (${result.status})` : detail
+  };
 }
 
 export async function saveGroupMapping(formData: FormData) {
@@ -249,24 +315,15 @@ export async function saveSamlProvider(formData: FormData) {
     certificate,
     callbackUrl: `${appUrl()}/api/auth/sso/saml2/sp/acs/${providerId}`
   });
-  const db = database();
-  const existing = await db
-    .select()
-    .from(ssoProvider)
-    .where(eq(ssoProvider.providerId, providerId))
-    .limit(1);
-  const samlConfig = JSON.stringify(config.samlConfig);
-  if (existing[0]) {
-    await db
-      .update(ssoProvider)
-      .set({ issuer, domain, samlConfig })
-      .where(eq(ssoProvider.id, existing[0].id));
-  } else {
-    await db
-      .insert(ssoProvider)
-      .values({ id: randomUUID(), providerId, issuer, domain, samlConfig });
-  }
-  redirect(nextPath(formData, "/settings?saved=1"));
+  await saveSso(
+    {
+      providerId,
+      issuer,
+      domain,
+      samlConfig: config.samlConfig
+    },
+    formData
+  );
 }
 
 export async function issueScimToken(_previous: { secret?: string; error?: string } | null) {

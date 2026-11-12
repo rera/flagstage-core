@@ -10,9 +10,11 @@ import {
   issueScimToken,
   saveGroupMapping,
   saveOidcProvider,
-  saveSamlProvider
+  saveSamlProvider,
+  testModelKeyAction
 } from "../../src/actions";
 import { database, requirePrincipal } from "../../src/guard";
+import { ModelKeyForm } from "../model-key-form";
 
 export default async function SettingsPage({
   searchParams
@@ -30,8 +32,14 @@ export default async function SettingsPage({
   return (
     <>
       <PageHeader title={t("settings.title")} description={t("settings.description")} />
+      <ModelKeyForm action={testModelKeyAction} label={t("model.test")} />
       {params.saved ? <Alert tone="ok">{t("settings.saved")}</Alert> : null}
-      {params.error ? <Alert tone="bad">{t("settings.invalid")}</Alert> : null}
+      {params.error === "provider" ? (
+        <Alert tone="bad">{t("settings.providerFailed")}</Alert>
+      ) : null}
+      {params.error && params.error !== "provider" ? (
+        <Alert tone="bad">{t("settings.invalid")}</Alert>
+      ) : null}
       <h2>{t("settings.sso")}</h2>
       <p className="mono">
         {t("settings.redirect")} {appUrl}/api/auth/sso/callback/{"{providerId}"}

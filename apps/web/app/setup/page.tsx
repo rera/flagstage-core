@@ -10,9 +10,11 @@ import {
   saveGroupMapping,
   saveOidcProvider,
   saveOrganization,
-  saveSamlProvider
+  saveSamlProvider,
+  testModelKeyAction
 } from "../../src/actions";
 import { database, requirePrincipal } from "../../src/guard";
+import { ModelKeyForm } from "../model-key-form";
 
 const STEPS = ["org", "idp", "account", "groups"] as const;
 type Step = (typeof STEPS)[number];
@@ -53,20 +55,39 @@ export default async function SetupPage({
           </li>
         ))}
       </ol>
-      {params.error ? <Alert tone="bad">{t("settings.invalid")}</Alert> : null}
+      {params.error === "provider" ? (
+        <Alert tone="bad">{t("settings.providerFailed")}</Alert>
+      ) : null}
+      {params.error && params.error !== "provider" ? (
+        <Alert tone="bad">{t("settings.invalid")}</Alert>
+      ) : null}
       {step === "org" ? (
-        <form action={saveOrganization} className="narrow">
-          <input type="hidden" name="next" value="/setup?step=idp" />
-          <TextField label={t("setup.name")} name="name" defaultValue={org?.name ?? ""} required />
-          <TextField
-            label={t("setup.domain")}
-            name="baseDomain"
-            defaultValue={org?.baseDomain ?? ""}
-            hint={t("setup.domainHint")}
-            required
-          />
-          <Button type="submit">{t("setup.save")}</Button>
-        </form>
+        <>
+          <form action={saveOrganization} className="narrow">
+            <input type="hidden" name="next" value="/setup?step=idp" />
+            <TextField
+              label={t("setup.name")}
+              name="name"
+              defaultValue={org?.name ?? ""}
+              required
+            />
+            <TextField
+              label={t("setup.domain")}
+              name="baseDomain"
+              defaultValue={org?.baseDomain ?? ""}
+              hint={t("setup.domainHint")}
+              required
+            />
+            <label className="field">
+              <span>{t("setup.logo")}</span>
+              <input name="logo" type="file" accept="image/png,image/jpeg,image/webp" />
+              <small>{t("setup.logoHint")}</small>
+            </label>
+            {org?.logoUrl ? <img src={org.logoUrl} alt="" width={48} height={48} /> : null}
+            <Button type="submit">{t("setup.save")}</Button>
+          </form>
+          <ModelKeyForm action={testModelKeyAction} label={t("model.test")} />
+        </>
       ) : null}
       {step === "idp" ? (
         <>

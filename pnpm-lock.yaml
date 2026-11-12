@@ -93,6 +93,9 @@ importers:
       '@flagstage/agent':
         specifier: workspace:*
         version: link:../../packages/agent
+      '@flagstage/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@flagstage/analytics':
         specifier: workspace:*
         version: link:../../packages/analytics

@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
-import { Mark, PoweredBy, t } from "@flagstage/ui";
+import { PoweredBy, t } from "@flagstage/ui";
 
+import { BrandMark } from "../src/brand";
 import "./globals.css";
 
 const sans = IBM_Plex_Sans({
@@ -30,7 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <div className="shell">
           <header className="topbar">
             <a className="brand" href="/">
-              <Mark />
+              <BrandMark />
               <span>{t("app.name")}</span>
             </a>
             <nav className="nav" aria-label="Primary">
