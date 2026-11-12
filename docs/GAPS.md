@@ -6,11 +6,11 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 ## Fix before a first release
 
-1. **The image is local only.** `docker image ls` reports 428MB, down from 2.8GB. `docker image inspect` reports 101,331,623 bytes, down from 682,365,327. The worker and the CLI are bundled JavaScript, the web process is the Next.js standalone server, and the container user is uid 10001. Nothing publishes the image. The single-VM compose file is for evaluation only.
+1. **The image is local only.** `docker image ls` reports 804MB after OpenCode 2.2.7 was added, up from 428MB. `docker image inspect` reports 223,652,790 bytes, up from 101,331,623. The worker and the CLI are bundled JavaScript, the web process is the Next.js standalone server, OpenCode is a binary under the `flagstage` home, and the container user is uid 10001. Nothing publishes the image. The single-VM compose file is for evaluation only.
 
 ## What mature projects have that this repo does not
 
-2. **Edits run through OpenCode on Bedrock.** The worker downloads the snapshot, runs `opencode` with the amazon-bedrock provider, and uploads the diff. The task role is the only credential. Intent stays a deterministic rule unless a model client is passed in. CI does not call Bedrock. The end-to-end test puts a local `opencode` double on `PATH`; that script is not in the product. `flagstage doctor` calls Bedrock and reports fail when the caller has no AWS credentials.
+2. **CI does not call Bedrock.** The image runs OpenCode 2.2.7 headless, and the task role is the only credential. Intent stays a deterministic rule unless a model client is passed in. The end-to-end test still puts a local `opencode` double on `PATH`. `bedrock-edit.integration.test.ts` calls the real binary and is skipped unless AWS credentials are present. `flagstage doctor` reports fail when the caller has no AWS credentials.
 
 3. **A hostname you add is a checklist, not an alias.** Published sites on the configured domain are `https://{slug}.{domain}`, from S3 through CloudFront, using a key value store. The stack does not add other hostnames as CloudFront aliases. `DOMAINS_DRIVER` stays `none` in that stack. The checklist tells the operator which DNS records to create. Nothing calls a registrar.
 
@@ -60,7 +60,7 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - A first run is empty. `adminEmail` in `flagstage.config.json` creates the first admin and prints a one-time sign-in link. There is no demo organization, demo site, or demo password.
 - An admin creates an account from the app or with `flagstage account create`. `flagstage member add` invites an account admin. See [Invite account admins](account-admins.md).
 - `pnpm e2e` signs in, imports a local fixture, sends a chat edit, opens the preview, publishes, and reads the DNS checklist. The workflow file is `docs/ci/workflows/e2e.yml`.
-- The runtime image no longer copies the workspace or runs TypeScript through `tsx`. Displayed size went from 2.8GB to 428MB.
+- The runtime image no longer copies the workspace or runs TypeScript through `tsx`. It includes OpenCode 2.2.7. Displayed size is 804MB.
 - Analytics shows 7, 30, and 90 day totals, a bar for each day, and the top pages. Form submissions keep the signed webhook and mail `FORM_NOTIFY_EMAIL` plus the form's own list through SES.
 - The README leads with a screenshot of the app. README and announcement copy still carry `copy-review: required before announce`.
 - Sign-in is email and password. An admin page lists people and can promote or remove an admin. The Admin link is hidden from everyone else. The one-time `/bootstrap` link sets its cookie in a route handler.

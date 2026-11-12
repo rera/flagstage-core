@@ -37,7 +37,7 @@ pnpm test
 pnpm build
 ```
 
-Unit tests do not call AWS. `pnpm flagstage doctor` checks env, the database, storage, and Bedrock.
+Unit tests do not call AWS. `packages/agent/src/bedrock-edit.integration.test.ts` edits a one-page site with OpenCode and is skipped unless AWS credentials are present. `pnpm flagstage doctor` checks env, the database, storage, and Bedrock.
 
 ## Migrations
 

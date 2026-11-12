@@ -16,7 +16,7 @@ pnpm dev
 
 Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstage.config.json`. The web log prints a one-time sign-in link. A first run has no accounts and no sites. `pnpm dev:sites` serves a published site from local files. It is a development script, not an app route.
 
-`docker compose up` from a clean checkout starts Postgres, the web app, and the worker. Edits need OpenCode on the worker `PATH`. The model is Amazon Bedrock, called with the task role.
+`docker compose up` from a clean checkout starts Postgres, the web app, and the worker. The image pins OpenCode 2.2.7 and runs it headless as the `flagstage` user. A checkout that is not the image needs that `opencode` binary on the worker `PATH`. The model is Amazon Bedrock, called with the task role.
 
 ## Repo tour
 

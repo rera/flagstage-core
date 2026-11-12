@@ -16,10 +16,19 @@ RUN pnpm --filter @flagstage/web build
 RUN node docker/bundle.mjs
 
 FROM node:22-bookworm-slim AS runtime
+ARG OPENCODE_VERSION=2.2.7
+ARG OPENCODE_SHA256=89a6cee227b54bc011179c528a5e63176032462b1a5e21723b616801cddc2ca7
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates tini wget \
   && rm -rf /var/lib/apt/lists/* \
-  && useradd --create-home --uid 10001 flagstage
+  && useradd --create-home --uid 10001 flagstage \
+  && wget -q -O /tmp/opencode.tar.gz "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-x64.tar.gz" \
+  && echo "${OPENCODE_SHA256}  /tmp/opencode.tar.gz" | sha256sum -c - \
+  && mkdir -p /home/flagstage/.local/bin \
+  && tar -xzf /tmp/opencode.tar.gz -C /home/flagstage/.local/bin \
+  && chmod 755 /home/flagstage/.local/bin/opencode \
+  && chown -R flagstage:flagstage /home/flagstage \
+  && rm /tmp/opencode.tar.gz
 # The worker and CLI are bundled JavaScript. Next standalone keeps its own
 # traced dependencies under /srv. Migrations and agent skills stay as files.
 COPY --from=build --chown=flagstage:flagstage /app/dist/worker.mjs /app/dist/worker.mjs
@@ -38,6 +47,10 @@ COPY brand /srv/brand
 RUN chmod +x /entrypoint.sh
 WORKDIR /app
 USER flagstage
+ENV HOME=/home/flagstage
+ENV PATH="/home/flagstage/.local/bin:${PATH}"
+ENV OPENCODE_VERSION=2.2.7
+ENV OPENCODE_DISABLE_AUTOUPDATE=1
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000

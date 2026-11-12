@@ -1,3 +1,7 @@
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { buildAgentEnv } from "./runner";
@@ -27,5 +31,28 @@ describe("subprocess editor", () => {
     expect(html).toContain("clean");
     expect(html).not.toContain("postgres://secret");
     expect(result.changed).toBe(true);
+  });
+
+  it("runs OpenCode headless against the bedrock model", async () => {
+    const bin = join(mkdtempSync(join(tmpdir(), "opencode-bin-")), "opencode");
+    writeFileSync(bin, '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$PWD/args.txt"\n');
+    chmodSync(bin, 0o755);
+    const result = await runSubprocessEdit({
+      bin,
+      files: new Map([["index.html", new TextEncoder().encode("<html></html>")]]),
+      request: "Add a note",
+      env: {
+        PATH: "/usr/bin:/bin",
+        HOME: tmpdir(),
+        AGENT_MODEL: "amazon.nova-micro-v1:0",
+        AWS_REGION: "us-east-1"
+      },
+      timeoutMs: 10_000
+    });
+    const args = new TextDecoder().decode(result.files.get("args.txt"));
+    expect(args).toContain("run\n--standalone\n--archived\n--auto\n--format\njson");
+    expect(args).toContain("--model\namazon-bedrock/amazon.nova-micro-v1:0");
+    expect(args).toContain("<untrusted>\nAdd a note\n</untrusted>");
+    expect(result.files.has("opencode.json")).toBe(false);
   });
 });

@@ -16,8 +16,10 @@ Sending a message stores it and queues an `agent-turn` job. The worker runs Open
 To edit a site:
 
 1. Set `bedrockModelId` and `region` in `flagstage.config.json`.
-2. Install the `opencode` binary on the PATH of the web and worker processes.
+2. The image installs OpenCode 2.2.7 for the `flagstage` user and runs `opencode run --standalone`. That is headless. It does not open a terminal, and it does not update itself.
 3. Send a message. OpenCode uses the amazon-bedrock provider and the task role. The subprocess does not receive `DATABASE_URL` or static access keys.
+
+A checkout that is not running the image needs the same `opencode` binary on the worker `PATH`. `packages/agent/src/bedrock-edit.integration.test.ts` edits a one-page site with that binary and is skipped unless AWS credentials are already in the environment.
 
 The subprocess is the only `AgentRunner`. It is less isolated than a separate function per turn: it shares the worker's machine and is limited by the process environment and a temp directory. A separate task runner is out of scope.
 

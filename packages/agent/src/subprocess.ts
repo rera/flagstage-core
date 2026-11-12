@@ -60,6 +60,7 @@ export async function runSubprocessEdit(input: {
       writeFileSync(
         join(dir, "opencode.json"),
         JSON.stringify({
+          $schema: "https://opencode.ai/config.json",
           model: `amazon-bedrock/${model}`,
           provider: { "amazon-bedrock": { options: { region } } }
         })
@@ -72,17 +73,37 @@ export async function runSubprocessEdit(input: {
         writeFileSync(target, readFileSync(join(input.skillsDir, path)));
       }
     }
+    const childEnv = {
+      ...input.env,
+      OPENCODE_DISABLE_AUTOUPDATE: "1",
+      OPENCODE_DISABLE_MODELS_FETCH: "1"
+    };
+    let stderr = "";
     const code = await new Promise<number>((resolve, reject) => {
-      const child = spawn(input.bin, input.args ?? ["run"], {
+      // `run --standalone` is the headless editor. `--auto` approves file
+      // edits, because there is no terminal to ask. amazon-bedrock uses the
+      // task role. There is no API key.
+      const child = spawn(input.bin, input.args ?? headlessArgs(input.request, model), {
         cwd: dir,
-        env: input.env as NodeJS.ProcessEnv,
-        stdio: "ignore",
+        env: childEnv as unknown as NodeJS.ProcessEnv,
+        stdio: ["ignore", "pipe", "pipe"],
         timeout: input.timeoutMs
+      });
+      child.stdout?.on("data", () => undefined);
+      child.stderr?.on("data", (chunk: Buffer) => {
+        if (stderr.length < 4000) stderr += chunk.toString("utf8");
       });
       child.on("error", reject);
       child.on("close", (status) => resolve(status ?? 1));
     });
-    if (code !== 0) throw new Error(`The editor exited with status ${code}.`);
+    if (code !== 0) {
+      const detail = stderr.trim();
+      throw new Error(
+        detail
+          ? `The editor exited with status ${code}. ${detail}`
+          : `The editor exited with status ${code}.`
+      );
+    }
     const next = new Map<string, Uint8Array>();
     for (const path of walk(dir)) {
       if (path === "opencode.json" || path === ".flagstage" || path.startsWith(`.flagstage${"/"}`))
@@ -103,6 +124,13 @@ export async function runSubprocessEdit(input: {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+function headlessArgs(request: string, model: string | undefined): string[] {
+  const args = ["run", "--standalone", "--archived", "--auto", "--format", "json"];
+  if (model) args.push("--model", `amazon-bedrock/${model}`);
+  args.push(buildPrompt(request));
+  return args;
 }
 
 export function subprocessRunner(options: {

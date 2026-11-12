@@ -26,7 +26,7 @@ Jobs live in Postgres via pg-boss. The web process enqueues an import or a chat 
 
 ## Agent isolation
 
-`AgentRunner` has one implementation, `subprocess`. The worker downloads the snapshot into a temp directory, runs OpenCode with the amazon-bedrock provider, and uploads the diff. The subprocess receives the task-role credential URI and the region. It does not receive `DATABASE_URL` or static access keys. The default timeout is 10 minutes.
+`AgentRunner` has one implementation, `subprocess`. The worker downloads the snapshot into a temp directory, runs OpenCode 2.2.7 headless (`opencode run --standalone`) with the amazon-bedrock provider, and uploads the diff. The binary is installed in the image for the non-root user. The subprocess receives the task-role credential URI and the region. It does not receive `DATABASE_URL` or static access keys. The default timeout is 10 minutes.
 
 This is a weaker boundary than a separate function with its own role. A future `ecs-task` runner is out of scope. The trade-off is one small service instead of a second compute platform.
 
