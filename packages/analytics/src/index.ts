@@ -5,6 +5,7 @@ export {
   injectAnalytics,
   RAW_EVENT_RETENTION_MS,
   rollupVisits,
+  pageviewsByDay,
   topPages,
   visitorHash,
   visitsInRange

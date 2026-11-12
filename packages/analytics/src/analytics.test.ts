@@ -4,6 +4,7 @@ import {
   expiredEventIds,
   injectAnalytics,
   rollupVisits,
+  pageviewsByDay,
   topPages,
   visitorHash,
   visitsInRange
@@ -97,5 +98,11 @@ describe("analytics", () => {
       { path: "/hours", pageviews: 4 },
       { path: "/", pageviews: 2 }
     ]);
+    const bars = pageviewsByDay(daily, recent, now, 7);
+    expect(bars).toHaveLength(7);
+    expect(bars[0]).toEqual({ day: "2026-03-04", pageviews: 4 });
+    expect(bars.at(-1)).toEqual({ day: "2026-03-10", pageviews: 2 });
+    expect(bars.filter((bar) => bar.pageviews === 0)).toHaveLength(5);
+    expect(pageviewsByDay(daily, recent, now, 7).at(-1)?.pageviews).toBe(2);
   });
 });

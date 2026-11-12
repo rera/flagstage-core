@@ -197,6 +197,12 @@ select:focus-visible,
   margin-top: 8px;
   font-weight: 500;
 }
+.chart {
+  width: 100%;
+  height: 120px;
+  display: block;
+  margin: 8px 0 20px;
+}
 .badge {
   display: inline-flex;
   border-radius: 999px;

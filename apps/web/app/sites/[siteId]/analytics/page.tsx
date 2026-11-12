@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
-import { topPages, visitsInRange } from "@flagstage/analytics";
+import { pageviewsByDay, topPages, visitsInRange } from "@flagstage/analytics";
 import { can } from "@flagstage/core";
 import { analyticsDaily, analyticsEvent, site } from "@flagstage/db";
 import { EmptyState, PageHeader, t, type MessageKey } from "@flagstage/ui";
@@ -54,6 +54,8 @@ export default async function AnalyticsPage({
   const pageviews = rows.reduce((sum, row) => sum + row.pageviews, 0);
   const visitors = rows.reduce((sum, row) => sum + row.visitors, 0);
   const pages = topPages(rows);
+  const series = pageviewsByDay(daily, recent, new Date(), days);
+  const peak = Math.max(1, ...series.map((item) => item.pageviews));
   return (
     <>
       <PageHeader title={t("analytics.title")} description={found.name} />
@@ -72,6 +74,29 @@ export default async function AnalyticsPage({
         {t("analytics.pageviews")}: {pageviews}. {t("analytics.visitors")}: {visitors}.{" "}
         {t("analytics.note")}
       </p>
+      {pages.length === 0 ? null : (
+        <svg className="chart" role="img" aria-label={t("analytics.chart")} viewBox="0 0 640 120">
+          <title>{t("analytics.chart")}</title>
+          {series.map((item, index) => {
+            const slot = 640 / series.length;
+            const barHeight = (item.pageviews / peak) * 112;
+            return (
+              <rect
+                key={item.day}
+                x={index * slot + 1}
+                y={116 - barHeight}
+                width={Math.max(slot - 2, 1)}
+                height={barHeight}
+                fill="#343d8f"
+              >
+                <title>
+                  {item.day}: {item.pageviews}
+                </title>
+              </rect>
+            );
+          })}
+        </svg>
+      )}
       <h2>{t("analytics.topPages")}</h2>
       {pages.length === 0 ? (
         <EmptyState

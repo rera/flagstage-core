@@ -99,7 +99,7 @@ export function visitsInRange(
   recent: Visit[],
   now: Date,
   days: number
-): Array<{ path: string; pageviews: number; visitors: number }> {
+): Array<{ day: string; path: string; pageviews: number; visitors: number }> {
   const start = rangeStart(now, days);
   const dailyRows = daily.filter((row) => row.day >= start);
   const covered = new Set(dailyRows.map((row) => row.day));
@@ -109,7 +109,33 @@ export function visitsInRange(
       return day >= start && !covered.has(day);
     })
   );
-  return [...dailyRows, ...raw];
+  return [...dailyRows, ...raw].map((row) => ({
+    day: row.day,
+    path: row.path,
+    pageviews: row.pageviews,
+    visitors: row.visitors
+  }));
+}
+
+/** One bar per day in the window, including days with no visits. */
+export function pageviewsByDay(
+  daily: Array<{ day: string; path: string; pageviews: number; visitors: number }>,
+  recent: Visit[],
+  now: Date,
+  days: number
+): Array<{ day: string; pageviews: number }> {
+  const rows = visitsInRange(daily, recent, now, days);
+  const totals = new Map<string, number>();
+  for (const row of rows) totals.set(row.day, (totals.get(row.day) ?? 0) + row.pageviews);
+  const series: Array<{ day: string; pageviews: number }> = [];
+  const cursor = new Date(`${rangeStart(now, days)}T00:00:00.000Z`);
+  const end = now.toISOString().slice(0, 10);
+  while (cursor.toISOString().slice(0, 10) <= end) {
+    const day = cursor.toISOString().slice(0, 10);
+    series.push({ day, pageviews: totals.get(day) ?? 0 });
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return series;
 }
 
 export function topPages(

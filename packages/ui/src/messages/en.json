@@ -143,6 +143,7 @@
   "analytics.note": "No cookies. Visitors are counted per page per day.",
   "analytics.topPages": "Top pages",
   "analytics.empty": "No visits in this range.",
+  "analytics.chart": "Pageviews by day",
   "analytics.emptyBody": "Publish the site, then open it. Visits for this range show up here.",
   "analytics.openSite": "Open the site",
   "noAccess.title": "No access yet",
