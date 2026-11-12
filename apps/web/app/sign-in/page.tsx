@@ -1,6 +1,6 @@
 import { Alert, Button, PageHeader, TextField, t } from "@flagstage/ui";
 
-import { signInWithPassword, signInWithSso } from "../../src/actions";
+import { signInWithPassword } from "../../src/actions";
 
 export default async function SignInPage({
   searchParams
@@ -28,14 +28,6 @@ export default async function SignInPage({
           required
         />
         <Button type="submit">{t("signIn.submit")}</Button>
-      </form>
-      <h2>{t("signIn.sso")}</h2>
-      <form action={signInWithSso} className="narrow">
-        <TextField label={t("signIn.email")} name="email" type="email" autoComplete="username" />
-        <TextField label={t("signIn.provider")} name="providerId" hint={t("signIn.ssoHint")} />
-        <Button type="submit" variant="quiet">
-          {t("signIn.sso")}
-        </Button>
       </form>
     </>
   );

@@ -5,4 +5,4 @@
 "@flagstage/web": minor
 ---
 
-Organization sign-in with OIDC, SAML, and SCIM, plus accounts, invitations, and group-to-role mapping.
+Email and password sign-in, accounts, invitations, and admin promotion.

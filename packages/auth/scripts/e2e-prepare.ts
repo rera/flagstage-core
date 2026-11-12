@@ -22,7 +22,7 @@ if (!existing[0]) {
     name: "E2E Admin",
     email,
     emailVerified: true,
-    org_role: "org_admin",
+    org_role: "admin",
     org_role_source: "manual",
     createdAt: now,
     updatedAt: now

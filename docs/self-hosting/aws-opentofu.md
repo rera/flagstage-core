@@ -76,7 +76,7 @@ Wait until the certificate is issued and the app hostname resolves. Then open `h
 
 If you set `bootstrap_admin_email`, the web log prints `{APP_URL}/bootstrap?token=…` once. Open it. The link signs that person in as organization admin and then stops working.
 
-In Setup, save the organization, then the identity provider. The redirect URI and the SCIM base URL are on that page. See [OIDC](../idp/oidc.md) and [SAML](../idp/saml.md).
+Sign in with the one-time link from the web log. The first admin email is `BOOTSTRAP_ADMIN_EMAIL`. Create an account, then import a site.
 
 The task environment sets `DOMAINS_DRIVER=cloudfront-tenants` and the distribution, connection group, and KeyValueStore ids. Adding a hostname in the app creates a distribution tenant and a managed certificate. You still create the DNS records the checklist shows. See [DNS checklist](../domains.md).
 

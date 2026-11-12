@@ -11,8 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@better-auth/scim": "1.7.21",
-    "@better-auth/sso": "1.7.21",
     "@flagstage/config": "workspace:*",
     "@flagstage/core": "workspace:*",
     "@flagstage/db": "workspace:*",

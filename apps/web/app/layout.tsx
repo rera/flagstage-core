@@ -5,6 +5,7 @@ import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import { PoweredBy, t } from "@flagstage/ui";
 
 import { BrandMark } from "../src/brand";
+import { viewerIsAdmin } from "../src/guard";
 import "./globals.css";
 
 const sans = IBM_Plex_Sans({
@@ -24,7 +25,8 @@ export const metadata: Metadata = {
   description: t("app.tagline")
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const admin = await viewerIsAdmin();
   return (
     <html lang="en">
       <body className={`${sans.variable} ${mono.variable} ${sans.className}`}>
@@ -40,7 +42,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <nav className="nav" aria-label="Primary">
               <a href="/accounts">{t("nav.accounts")}</a>
               <a href="/sites">{t("nav.sites")}</a>
-              <a href="/settings">{t("nav.settings")}</a>
+              {admin ? <a href="/admin">{t("nav.admin")}</a> : null}
               <a href="/sign-in">{t("nav.signIn")}</a>
             </nav>
           </header>

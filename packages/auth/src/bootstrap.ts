@@ -17,10 +17,10 @@ export async function bootstrapAdmin(
   const now = new Date();
   await database.insert(user).values({
     id,
-    name: "Organization admin",
+    name: "Admin",
     email: input.email.toLowerCase(),
     emailVerified: true,
-    org_role: "org_admin",
+    org_role: "admin",
     org_role_source: "bootstrap",
     createdAt: now,
     updatedAt: now
@@ -45,6 +45,6 @@ export async function bootstrapAdmin(
   });
   log.info(
     { email: input.email, url: `${input.appUrl}/bootstrap?token=${token}` },
-    "one-time organization admin sign-in link"
+    "one-time admin sign-in link"
   );
 }

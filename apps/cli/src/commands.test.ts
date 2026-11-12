@@ -82,11 +82,9 @@ describe("flagstage commands", () => {
         "--email",
         "ed@example.com",
         "--account",
-        "parks",
-        "--role",
-        "editor"
+        "parks"
       ])
-    ).toMatchObject({ kind: "member-add", email: "ed@example.com", role: "editor" });
+    ).toMatchObject({ kind: "member-add", email: "ed@example.com", role: "account_admin" });
     expect(parseCommand(["site", "export", "demo", "--out", "demo.tgz"])).toEqual({
       kind: "site-export",
       site: "demo",
@@ -112,7 +110,7 @@ describe("flagstage commands", () => {
     expect(again.created).toBe(false);
     const people = await db.select().from(user).where(eq(user.email, "ops@example.com"));
     expect(people).toHaveLength(1);
-    expect(people[0]?.org_role).toBe("org_admin");
+    expect(people[0]?.org_role).toBe("admin");
     const row = await createNamedAccount(db, "Parks");
     expect(row.slug).toBe("parks");
     const accounts = await db.select().from(account);
@@ -138,19 +136,19 @@ describe("flagstage commands", () => {
     const added = await addMember(db, {
       email: "Ed@Example.com",
       accountSlug: "parks",
-      role: "editor",
+      role: "account_admin",
       name: "Ed"
     });
     expect(added.created).toBe(true);
     const again = await addMember(db, {
       email: "ed@example.com",
       accountSlug: "parks",
-      role: "reviewer"
+      role: "account_admin"
     });
     expect(again.created).toBe(false);
     const grants = await db.select().from(membership);
     expect(grants).toHaveLength(1);
-    expect(grants[0]?.role).toBe("reviewer");
+    expect(grants[0]?.role).toBe("account_admin");
     expect(grants[0]?.source).toBe("manual");
 
     const reset = await resetPassword(db, {

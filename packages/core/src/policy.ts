@@ -1,7 +1,7 @@
-export const MEMBERSHIP_ROLES = ["account_admin", "editor", "reviewer"] as const;
+export const MEMBERSHIP_ROLES = ["account_admin"] as const;
 export type MembershipRole = (typeof MEMBERSHIP_ROLES)[number];
 
-export const ORG_ROLES = ["org_admin", "none"] as const;
+export const ORG_ROLES = ["admin", "none"] as const;
 export type OrgRole = (typeof ORG_ROLES)[number];
 
 export const ACTIONS = [
@@ -50,45 +50,24 @@ const ACCOUNT_ADMIN: ReadonlySet<Action> = new Set([
   "form.manage"
 ]);
 
-const EDITOR: ReadonlySet<Action> = new Set([
-  "account.read",
-  "site.read",
-  "site.edit",
-  "site.publish",
-  "site.comment",
-  "form.read"
-]);
-
-const REVIEWER: ReadonlySet<Action> = new Set([
-  "account.read",
-  "site.read",
-  "site.comment",
-  "form.read"
-]);
-
-function roleAllows(role: MembershipRole, action: Action): boolean {
-  if (role === "account_admin") return ACCOUNT_ADMIN.has(action);
-  if (role === "editor") return EDITOR.has(action);
-  return REVIEWER.has(action);
-}
-
 /**
- * Single authorization check. Organization admins can do everything.
- * Other roles are limited to accounts they belong to.
- * A disabled or unmapped user can do nothing.
+ * Two roles. An admin can do everything, including promoting another person
+ * to admin. An account admin can do everything inside the accounts they
+ * belong to, including members and invites. A third membership role is not
+ * used: account access is the account-admin grant.
  */
 export function can(user: Principal, action: Action, resource: Resource = {}): boolean {
   if (user.disabled) return false;
-  if (user.orgRole === "org_admin") return true;
+  if (user.orgRole === "admin") return true;
   if (action === "org.manage") return false;
   if (!resource.accountId) return false;
   const grant = user.memberships.find((membership) => membership.accountId === resource.accountId);
-  if (!grant) return false;
-  return roleAllows(grant.role, action);
+  if (!grant || grant.role !== "account_admin") return false;
+  return ACCOUNT_ADMIN.has(action);
 }
 
 export function hasAnyAccess(user: Principal): boolean {
   if (user.disabled) return false;
-  if (user.orgRole === "org_admin") return true;
-  return user.memberships.length > 0;
+  if (user.orgRole === "admin") return true;
+  return user.memberships.some((membership) => membership.role === "account_admin");
 }

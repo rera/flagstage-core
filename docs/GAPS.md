@@ -36,7 +36,7 @@ Checked against the mature-OSS checklist. Items above are the ones that are stil
 
 - `docker compose up`, `.env.example`, and `docs/configuration.md` generated from the env schema. A first run has no sites until someone imports one.
 - Setup wizard, including a logo and a model-key check, and `flagstage doctor`.
-- `docs/index.md` links getting started, the OpenTofu deploy, configuration, generic OIDC and SAML, the example-values table, roles, the DNS checklist, importing, upgrading, backup, architecture, troubleshooting, and the FAQ. A docs site is explicitly later.
+- `docs/index.md` links getting started, the OpenTofu deploy, configuration, roles, the DNS checklist, importing, upgrading, backup, architecture, troubleshooting, and the FAQ. A docs site is explicitly later.
 - README: screenshot, license and Discussions badges, features, quickstart, comparison, roadmap, community, contributing, security, license, trademarks, and the hosted option. `ROADMAP.md` points at Discussions.
 - `/api/health` and `/api/ready` (database, storage, and that the `pgboss` schema exists).
 - RDS backups of 7 days, S3 versioning, `docs/backup-restore.md`, and `flagstage site export`.
@@ -61,8 +61,8 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - The runtime image no longer copies the workspace or runs TypeScript through `tsx`. Displayed size went from 2.8GB to 428MB.
 - Analytics shows 7, 30, and 90 day totals, a bar for each day, and the top pages. Form submissions keep the signed webhook and, when `SMTP_URL` is set, mail `FORM_NOTIFY_EMAIL` plus the form's own list.
 - The README leads with a screenshot of the app. README and announcement copy still carry `copy-review: required before announce`.
-- Setup accepts a logo, and Settings can test the model key. OIDC and SAML providers are saved through Better Auth's register and update endpoints.
+- Sign-in is email and password. An admin page lists people and can promote or remove an admin. The Admin link is hidden from everyone else. The one-time `/bootstrap` link sets its cookie in a route handler.
 - Accounts, sites, versions, form submissions, and analytics each show an empty state with one next action. Focus is visible on links, buttons, and fields, and the first Tab stop is "Skip to content". `pnpm e2e` runs axe.
 - `flagstage member add` grants an account role. `flagstage user reset-password` works in local development, and in production only with `FLAGSTAGE_BREAK_GLASS=1`. `flagstage site export <site> --out file.tgz` packs the published snapshot and `content.json`. `flagstage backup` prints the `pg_dump` and storage commands and does not call AWS.
 - Issue templates, the pull request template, `CODEOWNERS` (`@rera`), and Dependabot are in the repo. `CHANGELOG.md` follows Keep a Changelog for 0.1.0, which is unreleased. Vulnerability reports go through GitHub private reporting, as `SECURITY.md` describes. There is no `FUNDING.yml`.
-- Operator docs cover getting started, a step-by-step OpenTofu deploy, generic OIDC and SAML, a docs-only example-values table, the DNS checklist, upgrading, and the FAQ.
+- Operator docs cover getting started, a step-by-step OpenTofu deploy, roles, the DNS checklist, upgrading, and the FAQ.

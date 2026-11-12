@@ -47,7 +47,7 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
             <tr key={member.id}>
               <td>{byId.get(member.userId)?.email ?? member.userId}</td>
               <td>
-                <Badge>{member.role}</Badge>
+                <Badge>{t("roles.accountAdmin")}</Badge>
               </td>
               <td>{member.source}</td>
             </tr>
@@ -64,14 +64,6 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
           >
             <input type="hidden" name="accountId" value={accountId} />
             <TextField label={t("signIn.email")} name="email" type="email" required />
-            <label className="field">
-              <span>{t("members.role")}</span>
-              <select name="role" defaultValue="editor">
-                <option value="account_admin">{t("roles.accountAdmin")}</option>
-                <option value="editor">{t("roles.editor")}</option>
-                <option value="reviewer">{t("roles.reviewer")}</option>
-              </select>
-            </label>
           </SecretForm>
         </>
       ) : null}

@@ -6,19 +6,11 @@ import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { loadConfig } from "@flagstage/config";
-import {
-  acceptInvitation,
-  can,
-  createAccount,
-  createInvitation,
-  slugify,
-  type MembershipRole
-} from "@flagstage/core";
-import { idpGroupMapping, importRun, message, orgSettings, site, thread } from "@flagstage/db";
+import { acceptInvitation, can, createAccount, createInvitation, slugify } from "@flagstage/core";
+import { importRun, message, orgSettings, site, thread, user } from "@flagstage/db";
 import { approveImport } from "@flagstage/importer";
 import { enqueue } from "@flagstage/jobs";
 import { createBlobStore, snapshotPrefix } from "@flagstage/storage";
-import { samlProviderConfig } from "@flagstage/auth";
 import { probeModel, type ProbeCode } from "@flagstage/ai";
 import { t } from "@flagstage/ui";
 import { approveChange, buildAgentEnv, skillsDirectory, subprocessRunner } from "@flagstage/agent";
@@ -38,7 +30,6 @@ import { getAuth } from "./auth";
 import { applyAuthResponse } from "./cookies";
 import { database, requirePrincipal } from "./guard";
 
-const ROLES = new Set<MembershipRole>(["account_admin", "editor", "reviewer"]);
 const LOGO_KEY = "brand/logo";
 const LOGO_LIMIT = 1_000_000;
 const LOGO_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -91,25 +82,6 @@ export async function signInWithPassword(formData: FormData) {
   await applyAuthResponse(response);
   if (!response.ok) redirect("/sign-in?error=1");
   redirect("/accounts");
-}
-
-export async function signInWithSso(formData: FormData) {
-  const response = await getAuth().handler(
-    new Request(`${appUrl()}/api/auth/sign-in/sso`, {
-      method: "POST",
-      headers: { "content-type": "application/json", origin: new URL(appUrl()).origin },
-      body: JSON.stringify({
-        email: String(formData.get("email") ?? ""),
-        providerId: String(formData.get("providerId") ?? "") || undefined,
-        callbackURL: `${appUrl()}/accounts`
-      })
-    })
-  );
-  await applyAuthResponse(response);
-  if (!response.ok) redirect("/sign-in?error=1");
-  const body = (await response.json()) as { url?: string };
-  if (!body.url) redirect("/sign-in?error=1");
-  redirect(body.url);
 }
 
 export async function signOut() {
@@ -171,8 +143,6 @@ export async function inviteMember(
   const accountId = String(formData.get("accountId") ?? "");
   if (!can(principal, "member.manage", { accountId }))
     return { error: "You cannot invite members of this account." };
-  const role = String(formData.get("role") ?? "");
-  if (!ROLES.has(role as MembershipRole)) return { error: "Choose a role." };
   const email = String(formData.get("email") ?? "")
     .trim()
     .toLowerCase();
@@ -180,7 +150,7 @@ export async function inviteMember(
   const invite = await createInvitation(database(), {
     accountId,
     email,
-    role: role as MembershipRole
+    role: "account_admin"
   });
   return { secret: `${appUrl()}/invitations/${invite.token}` };
 }
@@ -194,64 +164,6 @@ export async function acceptInviteAction(formData: FormData) {
     principal.email
   );
   redirect("/accounts");
-}
-
-async function postAuth(path: string, body: unknown): Promise<Response> {
-  const incoming = await import("next/headers").then((mod) => mod.headers());
-  const headers = new Headers({
-    "content-type": "application/json",
-    origin: new URL(appUrl()).origin
-  });
-  const cookie = incoming.get("cookie");
-  if (cookie) headers.set("cookie", cookie);
-  return getAuth().handler(
-    new Request(`${appUrl()}/api/auth${path}`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body)
-    })
-  );
-}
-
-async function saveSso(body: Record<string, unknown>, formData: FormData): Promise<void> {
-  const created = await postAuth("/sso/register", body);
-  if (!created.ok) {
-    const createdText = await created.text();
-    const exists = created.status === 422 && createdText.toLowerCase().includes("already exists");
-    if (!exists) failTo(formData, "/settings", "provider");
-    const updated = await postAuth("/sso/update-provider", body);
-    if (!updated.ok) failTo(formData, "/settings", "provider");
-  }
-  redirect(nextPath(formData, "/settings?saved=1"));
-}
-
-export async function saveOidcProvider(formData: FormData) {
-  const principal = await requirePrincipal();
-  if (!can(principal, "org.manage")) redirect("/no-access");
-  const providerId = String(formData.get("providerId") ?? "").trim();
-  const domain = String(formData.get("domain") ?? "").trim();
-  const issuer = String(formData.get("issuer") ?? "")
-    .trim()
-    .replace(/\/$/, "");
-  const clientId = String(formData.get("clientId") ?? "").trim();
-  const clientSecret = String(formData.get("clientSecret") ?? "").trim();
-  if (!providerId || !domain || !issuer || !clientId || !clientSecret)
-    failTo(formData, "/settings");
-  await saveSso(
-    {
-      providerId,
-      issuer,
-      domain,
-      oidcConfig: {
-        clientId,
-        clientSecret,
-        discoveryEndpoint: `${issuer}/.well-known/openid-configuration`,
-        pkce: true,
-        mapping: { extraFields: { groups: "groups" } }
-      }
-    },
-    formData
-  );
 }
 
 export async function testModelKeyAction(
@@ -273,70 +185,23 @@ export async function testModelKeyAction(
   };
 }
 
-export async function saveGroupMapping(formData: FormData) {
+export async function setOrgRoleAction(formData: FormData) {
   const principal = await requirePrincipal();
   if (!can(principal, "org.manage")) redirect("/no-access");
-  const providerId = String(formData.get("providerId") ?? "").trim();
-  const groupExternalId = String(formData.get("groupExternalId") ?? "").trim();
-  const target = String(formData.get("target") ?? "").trim();
-  const role = String(formData.get("role") ?? "").trim();
-  if (!providerId || !groupExternalId || !target || !role) failTo(formData, "/settings");
-  await database()
-    .insert(idpGroupMapping)
-    .values({
-      id: randomUUID(),
-      providerId,
-      groupExternalId,
-      groupDisplay: String(formData.get("groupDisplay") ?? ""),
-      target,
-      role
-    });
-  redirect(nextPath(formData, "/settings?saved=1"));
-}
-
-export async function saveSamlProvider(formData: FormData) {
-  const principal = await requirePrincipal();
-  if (!can(principal, "org.manage")) redirect("/no-access");
-  const providerId = String(formData.get("providerId") ?? "").trim();
-  const domain = String(formData.get("domain") ?? "").trim();
-  const issuer = String(formData.get("issuer") ?? "").trim();
-  const entryPoint = String(formData.get("entryPoint") ?? "").trim();
-  const certificate = String(formData.get("certificate") ?? "").trim();
-  if (!providerId || !domain || !issuer || !entryPoint || !certificate)
-    failTo(formData, "/settings");
-  const config = samlProviderConfig({
-    providerId,
-    domain,
-    issuer,
-    entryPoint,
-    certificate,
-    callbackUrl: `${appUrl()}/api/auth/sso/saml2/sp/acs/${providerId}`
-  });
-  await saveSso(
-    {
-      providerId,
-      issuer,
-      domain,
-      samlConfig: config.samlConfig
-    },
-    formData
-  );
-}
-
-export async function issueScimToken(_previous: { secret?: string; error?: string } | null) {
-  const principal = await requirePrincipal();
-  if (!can(principal, "org.manage"))
-    return { error: "Only an organization admin can create a SCIM token." };
-  const created = await getAuth().api.createSCIMManagedConnection({
-    body: {
-      creationRequestId: randomUUID(),
-      provisioningDomainId: "org",
-      actorId: principal.id,
-      scopes: ["scim.users.read", "scim.users.write", "scim.groups.read", "scim.groups.write"],
-      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-    }
-  });
-  return { secret: created.token };
+  const userId = String(formData.get("userId") ?? "");
+  const role = String(formData.get("role") ?? "");
+  if (!userId || (role !== "admin" && role !== "none")) redirect("/admin");
+  if (userId === principal.id && role !== "admin") redirect("/admin?error=self");
+  const db = database();
+  if (role === "none") {
+    const admins = await db.select({ id: user.id }).from(user).where(eq(user.org_role, "admin"));
+    if (admins.length < 2 && admins.some((row) => row.id === userId)) redirect("/admin?error=self");
+  }
+  await db
+    .update(user)
+    .set({ org_role: role, org_role_source: "manual", updatedAt: new Date() })
+    .where(eq(user.id, userId));
+  redirect("/admin");
 }
 
 export async function importSiteAction(formData: FormData) {

@@ -1,17 +1,15 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { and, eq } from "drizzle-orm";
-import {
-  account,
-  invitation,
-  membership,
-  user,
-  type Database,
-  currentDatabase
-} from "@flagstage/db";
+import { account, invitation, membership, user, type Database } from "@flagstage/db";
 
-import type { GrantSource, ReconcileResult, StoredMembership } from "./reconcile";
 import type { MembershipRole, OrgRole } from "./policy";
+
+export type StoredMembership = {
+  accountId: string;
+  role: MembershipRole;
+  source: string;
+};
 
 export function slugify(name: string): string {
   const slug = name
@@ -83,59 +81,29 @@ export async function acceptInvitation(db: Database, token: string, userId: stri
   return invite;
 }
 
-export async function applyReconcile(db: Database, userId: string, result: ReconcileResult) {
-  const handle = currentDatabase(db);
-  await handle.transaction(async (tx) => {
-    await tx
-      .update(user)
-      .set({
-        org_role: result.orgRole,
-        org_role_source: result.orgRoleSource,
-        disabledAt: result.clearSessions ? new Date() : null,
-        updatedAt: new Date()
-      })
-      .where(eq(user.id, userId));
-    await tx.delete(membership).where(eq(membership.userId, userId));
-    if (result.memberships.length > 0) {
-      await tx.insert(membership).values(
-        result.memberships.map((grant) => ({
-          id: randomUUID(),
-          accountId: grant.accountId,
-          userId,
-          role: grant.role,
-          source: grant.source
-        }))
-      );
-    }
-    if (result.clearSessions) {
-      const { session } = await import("@flagstage/db");
-      await tx.delete(session).where(eq(session.userId, userId));
-    }
-  });
-}
-
 export async function loadGrants(
   db: Database,
   userId: string
 ): Promise<{
   orgRole: OrgRole;
-  orgRoleSource: GrantSource | "none";
+  orgRoleSource: string;
   disabled: boolean;
   memberships: StoredMembership[];
 }> {
-  const handle = currentDatabase(db);
-  const rows = await handle.select().from(user).where(eq(user.id, userId)).limit(1);
+  const rows = await db.select().from(user).where(eq(user.id, userId)).limit(1);
   const found = rows[0];
   if (!found) throw new Error("User not found.");
-  const grants = await handle.select().from(membership).where(eq(membership.userId, userId));
+  const grants = await db.select().from(membership).where(eq(membership.userId, userId));
   return {
-    orgRole: found.org_role === "org_admin" ? "org_admin" : "none",
-    orgRoleSource: (found.org_role_source as GrantSource | "none") ?? "none",
+    orgRole: found.org_role === "admin" ? "admin" : "none",
+    orgRoleSource: found.org_role_source,
     disabled: found.disabledAt != null,
-    memberships: grants.map((grant) => ({
-      accountId: grant.accountId,
-      role: grant.role as MembershipRole,
-      source: grant.source as GrantSource
-    }))
+    memberships: grants
+      .filter((grant) => grant.role === "account_admin")
+      .map((grant) => ({
+        accountId: grant.accountId,
+        role: "account_admin" as const,
+        source: grant.source
+      }))
   };
 }

@@ -10,9 +10,9 @@ No. There is no telemetry and no update check.
 
 To CloudFront, then to the current snapshot in object storage. The app serves previews and the local demo, not production traffic.
 
-## Can we use our identity provider?
+## How do people sign in?
 
-Yes, if it speaks OIDC or SAML 2.0. SCIM 2.0 provisions users and groups. Map a group id to a role. Names are labels, not rules. The steps are [OIDC](idp/oidc.md), [SAML](idp/saml.md), and an [example values](idp/example-values.md) table. There is no vendor-specific client in the code.
+With an email and a password. An admin invites someone to an account, or `flagstage admin add` creates another admin. The first admin comes from `BOOTSTRAP_ADMIN_EMAIL` or the CLI.
 
 ## Do we have to bring a model key?
 

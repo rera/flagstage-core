@@ -1,12 +1,13 @@
 # Roles
 
-| Action                                                     | Organization admin | Account admin | Editor | Reviewer |
-| ---------------------------------------------------------- | ------------------ | ------------- | ------ | -------- |
-| Organization settings, accounts, group mappings, SSO, SCIM | yes                |               |        |          |
-| Members, sites, domains, and forms in the account          | yes                | yes           |        |          |
-| Chat, request a change, approve, publish, roll back        | yes                | yes           | yes    |          |
-| Read, view a preview, comment                              | yes                | yes           | yes    | yes      |
+There are two roles.
 
-A person can belong to more than one account. Someone with no mapped group and no invite sees a page that says they do not have access.
+| Action                                            | Admin | Account admin |
+| ------------------------------------------------- | ----- | ------------- |
+| Promote or remove an admin, organization settings | yes   |               |
+| Members, invites, sites, domains, and forms       | yes   | yes           |
+| Chat, preview, approve, publish, and roll back    | yes   | yes           |
 
-`can()` in `@flagstage/core` is the check the app uses. The role matrix above is covered by unit tests.
+An admin can do every action. An account admin can do every action inside the accounts they belong to. Someone with no account and no admin role sees a page that says they do not have access.
+
+`can()` in `@flagstage/core` is the check the app uses.

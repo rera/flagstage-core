@@ -22,8 +22,6 @@ export type Parsed =
   | { kind: "site-export"; site: string; out: string }
   | { kind: "backup" };
 
-const MEMBER_ROLES = new Set<MembershipRole>(["account_admin", "editor", "reviewer"]);
-
 function flag(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
   if (index < 0) return undefined;
@@ -57,11 +55,9 @@ export function parseCommand(argv: string[]): Parsed {
   if (command === "member" && sub === "add") {
     const email = flag(rest, "--email");
     const accountSlug = flag(rest, "--account");
-    const role = flag(rest, "--role");
-    if (!email || !accountSlug || !role || !MEMBER_ROLES.has(role as MembershipRole)) {
-      throw new Error(
-        "flagstage member add --email <email> --account <slug> --role account_admin|editor|reviewer"
-      );
+    const role = flag(rest, "--role") ?? "account_admin";
+    if (!email || !accountSlug || role !== "account_admin") {
+      throw new Error("flagstage member add --email <email> --account <slug>");
     }
     return {
       kind: "member-add",
@@ -99,7 +95,7 @@ export async function addOrgAdmin(
     await db
       .update(user)
       .set({
-        org_role: "org_admin",
+        org_role: "admin",
         org_role_source: "manual",
         name: input.name?.trim() || current.name,
         updatedAt: now
@@ -111,10 +107,10 @@ export async function addOrgAdmin(
   const id = randomUUID();
   await db.insert(user).values({
     id,
-    name: input.name?.trim() || "Organization admin",
+    name: input.name?.trim() || "Admin",
     email,
     emailVerified: true,
-    org_role: "org_admin",
+    org_role: "admin",
     org_role_source: "manual",
     createdAt: now,
     updatedAt: now
@@ -184,7 +180,7 @@ export async function importAccountSite(input: {
 
 async function ensureCredentialUser(
   db: Database,
-  input: { email: string; name?: string; password?: string; orgRole: "org_admin" | "none" }
+  input: { email: string; name?: string; password?: string; orgRole: "admin" | "none" }
 ) {
   const email = input.email.trim().toLowerCase();
   if (!email.includes("@")) throw new Error("Enter an email address.");

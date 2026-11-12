@@ -20,7 +20,7 @@
     "build": "pnpm -r --if-present run build",
     "lint": "eslint .",
     "typecheck": "pnpm -r --if-present run typecheck",
-    "test": "vitest run && node --import tsx --test packages/auth/src/*.node-test.ts",
+    "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

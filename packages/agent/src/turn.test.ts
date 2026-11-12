@@ -87,13 +87,13 @@ describe("chat publish", () => {
     expect(env.AI_API_KEY).toBe("model-key");
   });
 
-  it("does not let a reviewer publish", () => {
-    const reviewer: Principal = {
+  it("does not let someone outside the account publish", () => {
+    const outsider: Principal = {
       id: "user-1",
       orgRole: "none",
-      memberships: [{ accountId: "acct-1", role: "reviewer" }]
+      memberships: []
     };
-    expect(can(reviewer, "site.publish", { accountId: "acct-1" })).toBe(false);
+    expect(can(outsider, "site.publish", { accountId: "acct-1" })).toBe(false);
   });
 
   it("turns a message into a preview and publishes it", async () => {

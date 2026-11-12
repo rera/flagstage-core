@@ -1,6 +1,5 @@
 export {
   acceptInvitation,
-  applyReconcile,
   createAccount,
   createInvitation,
   hashToken,
@@ -17,11 +16,3 @@ export type {
   Principal,
   Resource
 } from "./policy";
-export { projectGroups, reconcileGrants } from "./reconcile";
-export type {
-  GrantSource,
-  GroupMapping,
-  Projection,
-  ReconcileResult,
-  StoredMembership
-} from "./reconcile";

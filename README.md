@@ -17,8 +17,8 @@ Flagstage Core is a self-hosted app for an organization that runs many accounts 
 - WordPress import into a versioned static snapshot, with a plain-language fidelity report.
 - Chat is the only way to request a change. An agent edits files in a sandbox and opens a preview.
 - Approve publishes with a compare-and-swap. Roll back the same way.
-- Organization, accounts, and roles: organization admin, account admin, editor, reviewer.
-- OIDC, SAML 2.0, and SCIM 2.0. Group ids map to roles. No vendor-specific identity code.
+- Organization, accounts, and two roles: admin and account admin.
+- Email and password sign-in. An admin can promote or remove another admin.
 - Custom domains as a copyable DNS checklist with live checks against public resolvers.
 - Lead forms, with a signed webhook and optional SMTP mail, and cookie-free site analytics.
 - Bring your own model API key. Edits run through OpenCode.
@@ -81,7 +81,7 @@ Agent turns run OpenCode as a subprocess in a temp directory. The subprocess env
 | Who edits                   | Anyone in the account, in chat | Whoever has wp-admin | Whoever has the project | Whoever has the repo    | Whoever can prompt a codebase |
 | What visitors hit           | Static files                   | PHP                  | Their hosting           | Static files            | Their hosting                 |
 | Approve before it goes live | Yes                            | Depends on plugins   | Their editor            | Your review process     | Varies                        |
-| Identity                    | OIDC, SAML, SCIM               | Plugins              | Their accounts          | Your git host           | Their accounts                |
+| Identity                    | Email and password             | Plugins              | Their accounts          | Your git host           | Their accounts                |
 | You run it                  | Yes                            | Yes                  | No                      | Yes                     | Usually no                    |
 
 The cells describe the typical shape of each approach. A given product can differ.

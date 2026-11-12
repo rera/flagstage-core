@@ -27,7 +27,7 @@ Open http://localhost:3000. The first admin comes from `BOOTSTRAP_ADMIN_EMAIL`. 
 | `apps/cli`           | `flagstage` admin CLI                                   |
 | `packages/config`    | Environment schema. Docs are generated from it.         |
 | `packages/db`        | Drizzle schema and migrations                       |
-| `packages/auth`      | Better Auth, SSO, SCIM, group mapping                   |
+| `packages/auth`      | Better Auth email and password                      |
 | `packages/core`      | Accounts, memberships, `can()`                          |
 | `packages/storage`   | `BlobStore` (`fs` and `s3`)                             |
 | `packages/importer`  | WordPress-first crawl                                   |
@@ -47,7 +47,7 @@ Open http://localhost:3000. The first admin comes from `BOOTSTRAP_ADMIN_EMAIL`. 
 - One place for each task. Delete unused code. Do not add feature flags.
 - Authorization goes through `can()` in `packages/core`.
 - The product word is Account. Do not introduce a Customer entity.
-- Identity is standards-only: OIDC, SAML 2.0, and SCIM 2.0. Do not add provider-specific clients in `src/`.
+- Sign-in is email and password. Do not add an identity-provider client in `src/`.
 - Chat is the only way to request a change. Do not add inbound email, SMS, or Slack.
 - UI strings live in `packages/ui/src/messages/en.json`.
 - Customer websites keep their own voice. Do not apply Flagstage's marketing voice to imported sites.

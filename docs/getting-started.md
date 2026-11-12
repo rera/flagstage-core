@@ -39,6 +39,6 @@ Then open the site in the app, choose Go live, and ask for a change in chat. App
 | You want to…               | Read                                                                                     |
 | -------------------------- | ---------------------------------------------------------------------------------------- |
 | Put it on AWS              | [Deploy on AWS](self-hosting/aws-opentofu.md)                                            |
-| Sign people in             | [OIDC](idp/oidc.md), [SAML](idp/saml.md), or the [example values](idp/example-values.md) |
+| Sign people in             | Email and password. The first admin is `BOOTSTRAP_ADMIN_EMAIL` or `flagstage admin add`. |
 | Point a hostname at a site | [DNS checklist](domains.md)                                                              |
 | Upgrade later              | [Upgrading](upgrading.md)                                                                |

@@ -121,16 +121,6 @@ export const invitation = pgTable("invitation", {
   createdAt: ts("created_at").notNull().defaultNow()
 });
 
-export const idpGroupMapping = pgTable("idp_group_mapping", {
-  id: text("id").primaryKey(),
-  providerId: text("provider_id").notNull(),
-  groupExternalId: text("group_external_id").notNull(),
-  groupDisplay: text("group_display").notNull().default(""),
-  target: text("target").notNull(),
-  role: text("role").notNull(),
-  createdAt: ts("created_at").notNull().defaultNow()
-});
-
 export const site = pgTable("site", {
   id: text("id").primaryKey(),
   accountId: text("account_id")
