@@ -6,7 +6,7 @@ import { PgBoss, type Job } from "pg-boss";
 
 import { postMessage, buildAgentEnv, skillsDirectory, subprocessRunner } from "@flagstage/agent";
 import { rollupStored } from "@flagstage/analytics";
-import { createLogger, loadConfig, runWithCorrelation, CORRELATION_ENV } from "@flagstage/config";
+import { createLogger, loadConfig } from "@flagstage/config";
 import {
   getDb,
   message,
@@ -18,7 +18,7 @@ import {
 } from "@flagstage/db";
 import { publicDnsLookup, recheckDueDomains, selectDomainsDriver } from "@flagstage/domains";
 import { runImport } from "@flagstage/importer";
-import { taskEnvironment, type AgentTurnJob, type ImportJob } from "@flagstage/jobs";
+import type { AgentTurnJob, ImportJob } from "@flagstage/jobs";
 import { createBlobStore } from "@flagstage/storage";
 
 const config = loadConfig();
@@ -51,22 +51,19 @@ await boss.work("import", async (jobs) => {
   for (const job of jobs) {
     const data = job.data as ImportJob;
     if (!data.siteId || !data.runId || !data.sourceUrl) continue;
-    const correlationId = data.correlationId || process.env[CORRELATION_ENV] || "";
-    await runWithCorrelation(correlationId, async () => {
-      log.info({ siteId: data.siteId, runId: data.runId }, "import started");
-      await runImport({
-        db: getDb(config.DATABASE_URL),
-        store: createBlobStore(config),
-        siteId: data.siteId,
-        importRunId: data.runId,
-        sourceUrl: data.sourceUrl,
-        appOrigin: config.APP_URL,
-        caps: {
-          maxPages: config.IMPORT_MAX_PAGES,
-          maxDepth: config.IMPORT_MAX_DEPTH,
-          maxAssets: config.IMPORT_MAX_ASSETS
-        }
-      });
+    log.info({ siteId: data.siteId, runId: data.runId }, "import started");
+    await runImport({
+      db: getDb(config.DATABASE_URL),
+      store: createBlobStore(config),
+      siteId: data.siteId,
+      importRunId: data.runId,
+      sourceUrl: data.sourceUrl,
+      appOrigin: config.APP_URL,
+      caps: {
+        maxPages: config.IMPORT_MAX_PAGES,
+        maxDepth: config.IMPORT_MAX_DEPTH,
+        maxAssets: config.IMPORT_MAX_ASSETS
+      }
     });
   }
 });
@@ -74,62 +71,52 @@ await boss.work("agent-turn", async (jobs) => {
   for (const job of jobs) {
     const data = job.data as AgentTurnJob;
     if (!data.siteId || !data.userId || !data.body) continue;
-    const correlationId = data.correlationId || process.env[CORRELATION_ENV] || "";
-    await runWithCorrelation(correlationId, async () => {
-      const db = getDb(config.DATABASE_URL);
+    const db = getDb(config.DATABASE_URL);
+    try {
+      await postMessage({
+        db,
+        store: createBlobStore(config),
+        siteId: data.siteId,
+        userId: data.userId,
+        body: data.body,
+        appOrigin: config.APP_URL,
+        commentOnly: data.commentOnly,
+        userRecorded: data.userRecorded,
+        allowHold: data.allowHold,
+        runner: subprocessRunner({
+          env: buildAgentEnv({
+            ...process.env,
+            AWS_REGION: process.env.AWS_REGION ?? config.product?.region ?? config.S3_REGION,
+            AWS_DEFAULT_REGION:
+              process.env.AWS_DEFAULT_REGION ?? config.product?.region ?? config.S3_REGION,
+            AGENT_MODEL: config.AGENT_MODEL,
+            AI_MODEL_SMALL: config.AI_MODEL_SMALL
+          }),
+          timeoutMs: config.AGENT_TIMEOUT_SEC * 1000,
+          skillsDir: skillsDirectory
+        })
+      });
+    } catch (error) {
+      log.error({ err: error, siteId: data.siteId }, "agent turn failed");
+      const threads = await db.select().from(thread).where(eq(thread.siteId, data.siteId)).limit(1);
+      const threadId = threads[0]?.id;
+      if (!threadId) continue;
+      await db.insert(message).values({
+        id: randomUUID(),
+        threadId,
+        author: "system",
+        body: "The change did not finish. Try again."
+      });
+      await db
+        .update(thread)
+        .set({ status: "open", updatedAt: new Date() })
+        .where(eq(thread.id, threadId));
       try {
-        await postMessage({
-          db,
-          store: createBlobStore(config),
-          siteId: data.siteId,
-          userId: data.userId,
-          body: data.body,
-          appOrigin: config.APP_URL,
-          correlationId,
-          commentOnly: data.commentOnly,
-          userRecorded: data.userRecorded,
-          allowHold: data.allowHold,
-          runner: subprocessRunner({
-            env: buildAgentEnv({
-              ...process.env,
-              ...taskEnvironment(correlationId),
-              AWS_REGION: process.env.AWS_REGION ?? config.product?.region ?? config.S3_REGION,
-              AWS_DEFAULT_REGION:
-                process.env.AWS_DEFAULT_REGION ?? config.product?.region ?? config.S3_REGION,
-              AGENT_MODEL: config.AGENT_MODEL,
-              AI_MODEL_SMALL: config.AI_MODEL_SMALL
-            }),
-            timeoutMs: config.AGENT_TIMEOUT_SEC * 1000,
-            skillsDir: skillsDirectory
-          })
-        });
-      } catch (error) {
-        log.error({ err: error, siteId: data.siteId }, "agent turn failed");
-        const threads = await db
-          .select()
-          .from(thread)
-          .where(eq(thread.siteId, data.siteId))
-          .limit(1);
-        const threadId = threads[0]?.id;
-        if (!threadId) return;
-        await db.insert(message).values({
-          id: randomUUID(),
-          threadId,
-          author: "system",
-          body: "The change did not finish. Try again.",
-          correlationId
-        });
-        await db
-          .update(thread)
-          .set({ status: "open", updatedAt: new Date() })
-          .where(eq(thread.id, threadId));
-        try {
-          await db.execute(sql`select pg_notify('flagstage_chat', ${threadId})`);
-        } catch {
-          // The site page also polls.
-        }
+        await db.execute(sql`select pg_notify('flagstage_chat', ${threadId})`);
+      } catch {
+        // The site page also polls.
       }
-    });
+    }
   }
 });
 await boss.work("publish", async (jobs) => note("publish", jobs));

@@ -6,14 +6,12 @@ export type ImportJob = {
   siteId: string;
   runId: string;
   sourceUrl: string;
-  correlationId: string;
 };
 
 export type AgentTurnJob = {
   siteId: string;
   userId: string;
   body: string;
-  correlationId: string;
   commentOnly?: boolean;
   userRecorded?: boolean;
   allowHold?: boolean;
@@ -34,10 +32,6 @@ async function bossFor(databaseUrl: string): Promise<PgBoss> {
     return boss;
   })();
   return started;
-}
-
-export function taskEnvironment(correlationId: string): { CORRELATION_ID: string } {
-  return { CORRELATION_ID: correlationId };
 }
 
 export async function enqueue(

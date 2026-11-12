@@ -63,7 +63,7 @@ const testEditor: AgentRunner = {
 
 async function applyMigrations(client: PGlite) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle");
-  for (const file of ["0000_init.sql", "0001_auth_plugins.sql", "0003_correlation.sql"]) {
+  for (const file of ["0000_init.sql", "0001_auth_plugins.sql"]) {
     const sqlText = readFileSync(join(root, file), "utf8");
     for (const statement of sqlText.split("--> statement-breakpoint")) {
       const query = statement.trim();
@@ -81,8 +81,7 @@ describe("chat publish", () => {
       AWS_ACCESS_KEY_ID: "key",
       AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: "/v2/credentials/task",
       AWS_REGION: "us-east-1",
-      AGENT_MODEL: "amazon.nova-micro-v1:0",
-      CORRELATION_ID: "abc"
+      AGENT_MODEL: "amazon.nova-micro-v1:0"
     });
     expect(env.DATABASE_URL).toBeUndefined();
     expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
@@ -90,7 +89,6 @@ describe("chat publish", () => {
     expect(env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI).toBe("/v2/credentials/task");
     expect(env.AWS_REGION).toBe("us-east-1");
     expect(env.AGENT_MODEL).toBe("amazon.nova-micro-v1:0");
-    expect(env.CORRELATION_ID).toBe("abc");
   });
 
   it("does not let someone outside the account publish", () => {
@@ -169,7 +167,6 @@ describe("chat publish", () => {
         userId: "user-1",
         body: "Make the headline warmer",
         appOrigin: "http://localhost:3000",
-        correlationId: "11111111-1111-1111-1111-111111111111",
         runner: testEditor
       });
       expect(posted.previewUrl).toContain("/preview/");
@@ -189,7 +186,6 @@ describe("chat publish", () => {
       const requests = await db.select().from(changeRequest);
       const request = requests[0];
       expect(request?.status).toBe("preview_ready");
-      expect(request?.correlationId).toBe("11111111-1111-1111-1111-111111111111");
       const published = await approveChange({
         db,
         store,

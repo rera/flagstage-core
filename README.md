@@ -56,7 +56,8 @@ Product settings are `flagstage.config.json`. Secrets stay in the environment lo
 - [Configuration](docs/configuration.md)
 - [Architecture](docs/architecture.md)
 - [Upgrading](docs/upgrading.md)
+- [After v1](TODO.md)
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before a pull request. Commits need a Developer Certificate of Origin sign-off (`git commit -s`). The license is [Apache-2.0](LICENSE). Report vulnerabilities privately, as [SECURITY.md](SECURITY.md) describes.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before a pull request. Commits need a Developer Certificate of Origin sign-off (`git commit -s`). The license is [Apache-2.0](LICENSE). Report vulnerabilities privately, as [SECURITY.md](SECURITY.md) describes. Work past v1 is [TODO.md](TODO.md).

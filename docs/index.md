@@ -19,7 +19,6 @@ Flagstage Core is the self-hosted edition. An organization runs accounts. An acc
 | [Upgrading](upgrading.md)               | Versions and breaking changes               |
 | [Backup and restore](backup-restore.md) | Database and files                          |
 | [Troubleshooting](troubleshooting.md)   | Common failures                             |
-| [Operations](operations.md)             | Correlation ids and a failed turn           |
 | [FAQ](faq.md)                           | Short answers                               |
 
 There is no docs site yet. These markdown files are the documentation.
