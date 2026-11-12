@@ -4,9 +4,19 @@ import { notFound } from "next/navigation";
 import { pageviewsByDay, topPages, visitsInRange } from "@flagstage/analytics";
 import { can } from "@flagstage/core";
 import { analyticsDaily, analyticsEvent, site } from "@flagstage/db";
-import { EmptyState, PageHeader, t, type MessageKey } from "@flagstage/ui";
+import {
+  EmptyState,
+  PageHeader,
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
+  t,
+  type MessageKey
+} from "@flagstage/ui";
 
-import { database, requirePrincipal } from "../../../../src/guard";
+import { database, requirePrincipal } from "../../../../../src/guard";
+import { Page } from "../../../../../src/page";
 
 const RANGES = [7, 30, 90] as const;
 type Range = (typeof RANGES)[number];
@@ -57,25 +67,35 @@ export default async function AnalyticsPage({
   const series = pageviewsByDay(daily, recent, new Date(), days);
   const peak = Math.max(1, ...series.map((item) => item.pageviews));
   return (
-    <>
+    <Page>
       <PageHeader title={t("analytics.title")} description={found.name} />
-      <nav className="nav" aria-label={t("analytics.range")}>
+      <nav className="flex gap-2" aria-label={t("analytics.range")}>
         {RANGES.map((item) => (
           <a
             key={item}
             href={`/sites/${siteId}/analytics?days=${item}`}
             aria-current={item === days ? "page" : undefined}
+            className={
+              item === days
+                ? "rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground"
+                : "rounded-full border border-border px-3 py-1 text-sm text-muted-foreground"
+            }
           >
             {t(RANGE_LABEL[item])}
           </a>
         ))}
       </nav>
-      <p>
+      <p className="text-sm text-muted-foreground">
         {t("analytics.pageviews")}: {pageviews}. {t("analytics.visitors")}: {visitors}.{" "}
         {t("analytics.note")}
       </p>
       {pages.length === 0 ? null : (
-        <svg className="chart" role="img" aria-label={t("analytics.chart")} viewBox="0 0 640 120">
+        <svg
+          className="h-32 w-full"
+          role="img"
+          aria-label={t("analytics.chart")}
+          viewBox="0 0 640 120"
+        >
           <title>{t("analytics.chart")}</title>
           {series.map((item, index) => {
             const slot = 640 / series.length;
@@ -87,7 +107,7 @@ export default async function AnalyticsPage({
                 y={116 - barHeight}
                 width={Math.max(slot - 2, 1)}
                 height={barHeight}
-                fill="#343d8f"
+                fill="var(--chart-1)"
               >
                 <title>
                   {item.day}: {item.pageviews}
@@ -97,25 +117,29 @@ export default async function AnalyticsPage({
           })}
         </svg>
       )}
-      <h2>{t("analytics.topPages")}</h2>
+      <h2 className="text-base font-semibold">{t("analytics.topPages")}</h2>
       {pages.length === 0 ? (
         <EmptyState
           title={t("analytics.empty")}
           description={t("analytics.emptyBody")}
-          action={<a href={`/sites/${siteId}`}>{t("analytics.openSite")}</a>}
+          action={
+            <a href={`/sites/${siteId}`} className="text-sm font-medium text-primary">
+              {t("analytics.openSite")}
+            </a>
+          }
         />
       ) : (
-        <table className="data">
-          <tbody>
+        <Table>
+          <TableBody>
             {pages.map((page) => (
-              <tr key={page.path}>
-                <td className="mono">{page.path}</td>
-                <td>{page.pageviews}</td>
-              </tr>
+              <TableRow key={page.path}>
+                <TableCell className="font-mono text-xs">{page.path}</TableCell>
+                <TableCell>{page.pageviews}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
-    </>
+    </Page>
   );
 }

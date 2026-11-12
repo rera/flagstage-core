@@ -19,13 +19,15 @@ export function SecretForm({
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   return (
-    <form action={formAction} className="narrow">
+    <form action={formAction} className="space-y-4">
       {children}
-      <Button disabled={pending}>{submit}</Button>
-      {state?.error ? <Alert tone="bad">{state.error}</Alert> : null}
+      <Button type="submit" disabled={pending}>
+        {submit}
+      </Button>
+      {state?.error ? <Alert variant="destructive">{state.error}</Alert> : null}
       {state?.secret ? (
-        <Alert tone="ok">
-          {secretLabel} <code className="mono">{state.secret}</code>
+        <Alert>
+          {secretLabel} <code className="font-mono text-xs">{state.secret}</code>
         </Alert>
       ) : null}
     </form>

@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 
 import { can } from "@flagstage/core";
 import { formSubmission, leadForm, site } from "@flagstage/db";
-import { EmptyState, PageHeader, t } from "@flagstage/ui";
+import { EmptyState, PageHeader, Table, TableBody, TableCell, TableRow, t } from "@flagstage/ui";
 
-import { database, requirePrincipal } from "../../../../src/guard";
+import { database, requirePrincipal } from "../../../../../src/guard";
+import { Page } from "../../../../../src/page";
 
 export default async function FormsPage({ params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
@@ -29,33 +30,38 @@ export default async function FormsPage({ params }: { params: Promise<{ siteId: 
           );
   const names = new Map(forms.map((form) => [form.id, form.name]));
   return (
-    <>
+    <Page>
       <PageHeader title={t("forms.title")} description={found.name} />
       {submissions.length === 0 ? (
         <EmptyState
           title={t("forms.emptyTitle")}
           description={t("forms.emptyBody")}
-          action={<a href={`/sites/${siteId}`}>{t("forms.emptyAction")}</a>}
+          action={
+            <a href={`/sites/${siteId}`} className="text-sm font-medium text-primary">
+              {t("forms.emptyAction")}
+            </a>
+          }
         />
       ) : (
-        <table className="data">
-          <tbody>
+        <Table>
+          <TableBody>
             {submissions.map((row) => (
-              <tr key={row.id}>
-                <td>{names.get(row.leadFormId) ?? row.leadFormId}</td>
-                <td className="mono">{row.createdAt.toISOString()}</td>
-                <td>
+              <TableRow key={row.id}>
+                <TableCell>{names.get(row.leadFormId) ?? row.leadFormId}</TableCell>
+                <TableCell className="font-mono text-xs">{row.createdAt.toISOString()}</TableCell>
+                <TableCell>
                   <a
+                    className="font-medium text-primary"
                     href={`/sites/${siteId}/forms/${forms.find((form) => form.id === row.leadFormId)?.formKey ?? ""}`}
                   >
                     {t("forms.download")}
                   </a>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
-    </>
+    </Page>
   );
 }
