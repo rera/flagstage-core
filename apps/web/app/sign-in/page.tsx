@@ -17,27 +17,16 @@ export default async function SignInPage({
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,oklch(0.4_0.1_265/0.07),transparent_55%)]"
       />
-      <Card className="relative w-full max-w-md overflow-hidden p-0 shadow-[0_12px_40px_rgba(17,22,32,0.08)] md:max-w-4xl">
-        <div className="grid md:min-h-[520px] md:grid-cols-2">
-          <div className="flex flex-col justify-center gap-6 p-6 md:p-8">
-            <div className="flex flex-col items-center gap-3 text-center">
-              <AppBrand variant="auth" surface="Core" />
-              <div className="space-y-2">
-                <h1 className="text-2xl font-semibold tracking-tight">{t("nav.signIn")}</h1>
-                <p className="text-sm text-balance text-muted-foreground">
-                  {t("signIn.description")}
-                </p>
-              </div>
+      <Card className="relative w-full max-w-md p-6 shadow-[0_12px_40px_rgba(17,22,32,0.08)] sm:p-8">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <AppBrand variant="auth" />
+            <div className="space-y-2">
+              <h1 className="text-2xl font-semibold tracking-tight">{t("nav.signIn")}</h1>
+              <p className="text-sm text-balance text-muted-foreground">{t("signIn.description")}</p>
             </div>
-            <SignInForm failed={Boolean(params.error)} sent={Boolean(params.reset)} />
           </div>
-          <div className="relative hidden min-h-72 border-l border-border/60 md:block">
-            <img
-              src="/auth-hero/hero-workshop.webp"
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          </div>
+          <SignInForm failed={Boolean(params.error)} sent={Boolean(params.reset)} />
         </div>
       </Card>
     </div>

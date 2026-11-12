@@ -4,7 +4,7 @@
 
 Import the site you already have. Change it in chat. Publish when the preview looks right.
 
-Flagstage Core is a self-hosted app for an organization that runs many accounts and many sites. The owner of a site edits it in chat, looks at a preview, and publishes. Live sites are static files. Visitors never hit the app.
+Flagstage Core is self-hosted software for a team that runs many accounts and many sites. Someone on the team edits a site in chat, looks at a preview, and publishes. Live sites are static files. Visitors never hit the app.
 
 ![The site page, with the import live and ready for a chat edit](docs/assets/screenshot-app.png)
 

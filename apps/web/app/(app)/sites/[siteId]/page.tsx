@@ -23,6 +23,7 @@ import {
 } from "../../../../src/actions";
 import { BrowserFrame } from "../../../../src/browser-frame";
 import { database, requirePrincipal } from "../../../../src/guard";
+import { chatBody, friendlyWhen, versionLabel } from "../../../../src/time";
 import { ChatStream } from "./chat-stream";
 
 type Report = {
@@ -247,7 +248,7 @@ export default async function SitePage({
                           : "max-w-[85%] rounded-2xl bg-muted px-3 py-2 text-sm whitespace-pre-wrap"
                       }
                     >
-                      {item.body}
+                      {chatBody(item.body)}
                     </p>
                   </div>
                 );
@@ -291,13 +292,10 @@ export default async function SitePage({
                 <ul className="divide-y divide-border rounded-xl border border-border text-sm">
                   {snaps.map((item) => (
                     <li key={item.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                      <span>{item.kind}</span>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {item.createdAt.toISOString()}
+                      <span className="font-medium">
+                        {versionLabel(item.kind, item.id, found.currentSnapshotId)}
                       </span>
-                      <span>
-                        {item.id === found.currentSnapshotId ? t("versions.current") : ""}
-                      </span>
+                      <span className="text-muted-foreground">{friendlyWhen(item.createdAt)}</span>
                     </li>
                   ))}
                 </ul>
@@ -313,7 +311,8 @@ export default async function SitePage({
                         .filter((item) => item.id !== found.currentSnapshotId)
                         .map((item) => (
                           <option key={item.id} value={item.id}>
-                            {item.kind} {item.createdAt.toISOString()}
+                            {versionLabel(item.kind, item.id, found.currentSnapshotId)}{" "}
+                            {friendlyWhen(item.createdAt)}
                           </option>
                         ))}
                     </select>

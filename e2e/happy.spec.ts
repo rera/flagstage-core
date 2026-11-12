@@ -56,10 +56,10 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
     await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeVisible();
   }).toPass({ timeout: 60_000 });
 
-  const previewText = await page.getByText(/Preview ready:/).textContent();
-  const previewUrl = previewText?.match(/https?:\/\/\S+/)?.[0];
-  expect(previewUrl).toBeTruthy();
-  const preview = await page.request.get(previewUrl ?? "");
+  await expect(page.getByText("Preview updated")).toBeVisible();
+  const src = await page.locator("iframe").getAttribute("src");
+  expect(src).toBeTruthy();
+  const preview = await page.request.get(new URL(src ?? "/", page.url()).toString());
   expect(preview.ok()).toBe(true);
   expect(await preview.text()).toContain("the park is open today");
 

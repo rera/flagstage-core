@@ -355,10 +355,10 @@ export async function setBudgetAction(formData: FormData) {
   const raw = String(formData.get("monthlyBudgetUsd") ?? "").trim();
   const monthlyBudgetUsd = raw === "" ? null : Number(raw);
   if (monthlyBudgetUsd != null && (!Number.isFinite(monthlyBudgetUsd) || monthlyBudgetUsd < 0)) {
-    redirect("/admin");
+    redirect("/admin/usage");
   }
   await database().update(account).set({ monthlyBudgetUsd }).where(eq(account.id, accountId));
-  redirect("/admin");
+  redirect("/admin/usage");
 }
 
 export async function undoEditAction(formData: FormData) {

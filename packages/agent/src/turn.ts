@@ -281,7 +281,7 @@ export async function postMessage(input: {
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     });
     const previewUrl = `${input.appOrigin}/preview/${token}`;
-    const reply = `Preview ready: ${previewUrl}`;
+    const reply = "Preview updated";
     await db.insert(message).values({ id: randomUUID(), threadId, author: "system", body: reply });
     if (currentSite?.accountId) {
       await maybeAlertBudget(db, currentSite.accountId).catch(() => undefined);
