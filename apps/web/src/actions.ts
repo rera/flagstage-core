@@ -11,8 +11,6 @@ import { importRun, message, site, thread, user } from "@flagstage/db";
 import { approveImport } from "@flagstage/importer";
 import { enqueue } from "@flagstage/jobs";
 import { createBlobStore, snapshotPrefix } from "@flagstage/storage";
-import { probeModel, type ProbeCode } from "@flagstage/ai";
-import { t } from "@flagstage/ui";
 import { approveChange, buildAgentEnv, skillsDirectory, subprocessRunner } from "@flagstage/agent";
 import { rollbackTo } from "@flagstage/publish";
 import { changeRequest, siteDomain, snapshot } from "@flagstage/db";
@@ -31,23 +29,6 @@ import {
 import { getAuth } from "./auth";
 import { applyAuthResponse } from "./cookies";
 import { database, requirePrincipal } from "./guard";
-
-const MODEL_DETAIL: Record<
-  ProbeCode,
-  | "model.noKey"
-  | "model.bedrock"
-  | "model.baseUrl"
-  | "model.ok"
-  | "model.rejected"
-  | "model.unreachable"
-> = {
-  "no-key": "model.noKey",
-  bedrock: "model.bedrock",
-  "needs-base-url": "model.baseUrl",
-  ok: "model.ok",
-  rejected: "model.rejected",
-  unreachable: "model.unreachable"
-};
 
 function appUrl() {
   return loadConfig().APP_URL;
@@ -146,25 +127,6 @@ export async function acceptInviteAction(formData: FormData) {
   redirect("/accounts");
 }
 
-export async function testModelKeyAction(
-  _previous: { ok: boolean; detail: string } | null
-): Promise<{ ok: boolean; detail: string }> {
-  const principal = await requirePrincipal();
-  if (!can(principal, "org.manage")) return { ok: false, detail: t("model.denied") };
-  const config = loadConfig();
-  const result = await probeModel({
-    provider: config.AI_PROVIDER,
-    apiKey: config.AI_API_KEY,
-    baseUrl: config.AI_BASE_URL,
-    model: config.AI_MODEL_SMALL
-  });
-  const detail = t(MODEL_DETAIL[result.code]);
-  return {
-    ok: result.ok,
-    detail: result.status ? `${detail} (${result.status})` : detail
-  };
-}
-
 export async function setOrgRoleAction(formData: FormData) {
   const principal = await requirePrincipal();
   if (!can(principal, "org.manage")) redirect("/no-access");
@@ -243,8 +205,15 @@ export async function approveSiteAction(formData: FormData) {
 
 function editor() {
   const config = loadConfig();
+  const region = process.env.AWS_REGION ?? config.product?.region ?? config.S3_REGION;
   return subprocessRunner({
-    env: buildAgentEnv(process.env),
+    env: buildAgentEnv({
+      ...process.env,
+      AWS_REGION: region,
+      AWS_DEFAULT_REGION: process.env.AWS_DEFAULT_REGION ?? region,
+      AGENT_MODEL: config.AGENT_MODEL,
+      AI_MODEL_SMALL: config.AI_MODEL_SMALL
+    }),
     timeoutMs: config.AGENT_TIMEOUT_SEC * 1000,
     skillsDir: skillsDirectory
   });

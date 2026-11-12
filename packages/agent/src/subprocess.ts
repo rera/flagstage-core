@@ -54,6 +54,17 @@ export async function runSubprocessEdit(input: {
     }
     mkdirSync(join(dir, ".flagstage"), { recursive: true });
     writeFileSync(join(dir, ".flagstage", "request.md"), buildPrompt(input.request));
+    const model = input.env.AGENT_MODEL;
+    const region = input.env.AWS_REGION ?? input.env.AWS_DEFAULT_REGION;
+    if (model && region) {
+      writeFileSync(
+        join(dir, "opencode.json"),
+        JSON.stringify({
+          model: `amazon-bedrock/${model}`,
+          provider: { "amazon-bedrock": { options: { region } } }
+        })
+      );
+    }
     if (input.skillsDir) {
       for (const path of walk(input.skillsDir)) {
         const target = join(dir, ".flagstage", "skills", path);
@@ -74,7 +85,8 @@ export async function runSubprocessEdit(input: {
     if (code !== 0) throw new Error(`The editor exited with status ${code}.`);
     const next = new Map<string, Uint8Array>();
     for (const path of walk(dir)) {
-      if (path === ".flagstage" || path.startsWith(`.flagstage${"/"}`)) continue;
+      if (path === "opencode.json" || path === ".flagstage" || path.startsWith(`.flagstage${"/"}`))
+        continue;
       next.set(path, new Uint8Array(readFileSync(join(dir, path))));
     }
     let changed = next.size !== input.files.size;

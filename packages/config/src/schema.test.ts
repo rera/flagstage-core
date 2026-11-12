@@ -49,10 +49,9 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...valid, STORAGE_DRIVER: "s3" })).toThrow(/S3_BUCKET/);
   });
 
-  it("does not require an API key for bedrock", () => {
-    const config = loadConfig({ ...valid, AI_PROVIDER: "bedrock", NODE_ENV: "production" });
-    expect(config.AI_PROVIDER).toBe("bedrock");
-    expect(config.AI_API_KEY).toBeUndefined();
+  it("does not require a model API key in production", () => {
+    const config = loadConfig({ ...valid, NODE_ENV: "production" });
+    expect(config.AGENT_MODEL).toBe("amazon.nova-micro-v1:0");
   });
 
   it("keeps docs/configuration.md in sync with the schema", () => {

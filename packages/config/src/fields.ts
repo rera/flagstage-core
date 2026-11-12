@@ -131,43 +131,20 @@ export const ENV_FIELDS = [
     defaultValue: "none"
   },
   {
-    name: "AI_PROVIDER",
-    description:
-      "Provider for the small intent, judge, and reply models, and the default agent provider. One of anthropic, openai, bedrock, openrouter, openai-compatible, google, azure.",
-    requirement: "optional",
-    secret: false,
-    example: "anthropic",
-    defaultValue: "anthropic"
-  },
-  {
-    name: "AI_API_KEY",
-    description: "Bring-your-own model API key. Bedrock may use the task role instead of a key.",
-    requirement: "optional",
-    secret: true,
-    example: ""
-  },
-  {
-    name: "AI_BASE_URL",
-    description: "Base URL for openai-compatible, openrouter, or a custom gateway.",
-    requirement: "optional",
-    secret: false,
-    example: ""
-  },
-  {
     name: "AI_MODEL_SMALL",
-    description: "Model id for intent, trust judge, and short replies.",
+    description: "Bedrock model id for short replies. The editor uses the model in flagstage.config.json.",
     requirement: "optional",
     secret: false,
-    example: "claude-haiku-4-5",
-    defaultValue: "claude-haiku-4-5"
+    example: "amazon.nova-micro-v1:0",
+    defaultValue: "amazon.nova-micro-v1:0"
   },
   {
     name: "AGENT_MODEL",
-    description: "Model id passed to OpenCode for site edits.",
+    description: "Bedrock model id passed to OpenCode for site edits.",
     requirement: "optional",
     secret: false,
-    example: "claude-sonnet-4-5",
-    defaultValue: "claude-sonnet-4-5"
+    example: "amazon.nova-micro-v1:0",
+    defaultValue: "amazon.nova-micro-v1:0"
   },
   {
     name: "AGENT_TIMEOUT_SEC",

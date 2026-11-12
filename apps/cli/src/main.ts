@@ -2,6 +2,7 @@ import { writeFileSync } from "node:fs";
 
 import pg from "pg";
 
+import { probeBedrock } from "@flagstage/ai";
 import { ConfigError, loadConfig } from "@flagstage/config";
 import { createDb } from "@flagstage/db";
 import { createBlobStore } from "@flagstage/storage";
@@ -58,8 +59,7 @@ if (parsed.kind === "doctor") {
   const lines = [
     `env: ok (${config.NODE_ENV})`,
     `storage: ${config.STORAGE_DRIVER}`,
-    `ai: ${config.AI_PROVIDER}`,
-    `smtp: ${config.SMTP_URL ? "configured" : "console"}`
+    `bedrock: ${config.product?.bedrockModelId ?? config.AGENT_MODEL}`
   ];
   try {
     const pool = new pg.Pool({ connectionString: config.DATABASE_URL });
@@ -76,11 +76,10 @@ if (parsed.kind === "doctor") {
   } catch (error) {
     lines.push(`storage write: fail (${error instanceof Error ? error.message : "unknown"})`);
   }
-  if (!config.AI_API_KEY && config.AI_PROVIDER !== "bedrock") {
-    lines.push("ai key: missing");
-  } else {
-    lines.push("ai key: ok");
-  }
+  const region = config.product?.region ?? config.S3_REGION ?? process.env.AWS_REGION ?? "";
+  const model = config.product?.bedrockModelId ?? config.AGENT_MODEL;
+  const bedrock = await probeBedrock({ region, modelId: model });
+  lines.push(bedrock.ok ? "bedrock: ok" : `bedrock: fail (${bedrock.detail})`);
   console.log(lines.join("\n"));
   process.exit(lines.some((line) => line.includes("fail") || line.includes("missing")) ? 1 : 0);
 }

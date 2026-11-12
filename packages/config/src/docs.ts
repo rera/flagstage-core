@@ -34,7 +34,7 @@ ${rows}
 - \`STORAGE_DRIVER=s3\` talks to AWS or any S3-compatible endpoint (\`S3_ENDPOINT\`, \`S3_FORCE_PATH_STYLE\`).
 - \`HOSTMAP_DRIVER=fs\` writes the live hostname map next to the files. \`cloudfront-kvs\` updates a CloudFront KeyValueStore.
 - \`DOMAINS_DRIVER=none\` still builds the DNS checklist. \`cloudfront-tenants\` creates or updates a distribution tenant and its managed certificate, then reads that status into the checklist.
-- The worker runs OpenCode for site edits. Set \`AI_API_KEY\` unless \`AI_PROVIDER\` is \`bedrock\`.
+- The worker runs OpenCode. OpenCode uses the amazon-bedrock provider and the task role. There is no model API key.
 
 ## Telemetry
 

@@ -1,18 +1,8 @@
 import { z } from "zod";
 
 import { ENV_FIELDS, PLACEHOLDER_SECRETS } from "./fields";
-import { findConfigFile, loadFileConfig, type FileConfig } from "./file";
 import { ConfigError } from "./errors";
-
-const providers = [
-  "anthropic",
-  "openai",
-  "bedrock",
-  "openrouter",
-  "openai-compatible",
-  "google",
-  "azure"
-] as const;
+import { findConfigFile, loadFileConfig, type FileConfig } from "./file";
 
 function blankToUndefined(value: unknown): unknown {
   if (typeof value === "string" && value.trim() === "") return undefined;
@@ -53,11 +43,14 @@ export const envSchema = z
     CLOUDFRONT_CONNECTION_GROUP_ENDPOINT: optionalString,
     CLOUDFRONT_CONNECTION_GROUP_ID: optionalString,
     DOMAINS_DRIVER: z.enum(["none", "cloudfront-tenants"]).default("none"),
-    AI_PROVIDER: z.enum(providers).default("anthropic"),
-    AI_API_KEY: optionalString,
-    AI_BASE_URL: optionalString,
-    AI_MODEL_SMALL: z.preprocess(blankToUndefined, z.string().min(1).default("claude-haiku-4-5")),
-    AGENT_MODEL: z.preprocess(blankToUndefined, z.string().min(1).default("claude-sonnet-4-5")),
+    AI_MODEL_SMALL: z.preprocess(
+      blankToUndefined,
+      z.string().min(1).default("amazon.nova-micro-v1:0")
+    ),
+    AGENT_MODEL: z.preprocess(
+      blankToUndefined,
+      z.string().min(1).default("amazon.nova-micro-v1:0")
+    ),
     AGENT_TIMEOUT_SEC: intWithDefault(600),
     SMTP_URL: optionalString,
     MAIL_FROM: optionalString,
@@ -142,13 +135,6 @@ export const envSchema = z
             "CLOUDFRONT_CONNECTION_GROUP_ID is required when DOMAINS_DRIVER=cloudfront-tenants."
         });
       }
-    }
-    if (value.AI_PROVIDER !== "bedrock" && !value.AI_API_KEY && value.NODE_ENV === "production") {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["AI_API_KEY"],
-        message: "Set AI_API_KEY. Bedrock may use the task role instead of a key."
-      });
     }
     if (value.SMTP_URL && !value.MAIL_FROM) {
       ctx.addIssue({

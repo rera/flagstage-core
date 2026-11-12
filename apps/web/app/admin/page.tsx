@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
+import { loadConfig } from "@flagstage/config";
 import { Alert, Badge, Button, PageHeader, t } from "@flagstage/ui";
 import { can } from "@flagstage/core";
 import { user } from "@flagstage/db";
@@ -16,10 +17,21 @@ export default async function AdminPage({
   const principal = await requirePrincipal();
   if (!can(principal, "org.manage")) redirect("/accounts");
   const params = await searchParams;
+  let product: ReturnType<typeof loadConfig>["product"];
+  try {
+    product = loadConfig().product;
+  } catch {
+    product = undefined;
+  }
   const people = await database().select().from(user).orderBy(user.email);
   return (
     <>
       <PageHeader title={t("admin.title")} description={t("admin.lead")} />
+      <p>
+        {product
+          ? `Bedrock ${product.bedrockModelId} in ${product.region}. The task role calls it.`
+          : "Bedrock is not configured."}
+      </p>
       {params.error === "self" ? <Alert tone="bad">{t("admin.last")}</Alert> : null}
       <table className="data">
         <thead>

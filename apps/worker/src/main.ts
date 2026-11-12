@@ -84,7 +84,14 @@ await boss.work("agent-turn", async (jobs) => {
         userRecorded: data.userRecorded,
         allowHold: data.allowHold,
         runner: subprocessRunner({
-          env: buildAgentEnv(process.env),
+          env: buildAgentEnv({
+            ...process.env,
+            AWS_REGION: process.env.AWS_REGION ?? config.product?.region ?? config.S3_REGION,
+            AWS_DEFAULT_REGION:
+              process.env.AWS_DEFAULT_REGION ?? config.product?.region ?? config.S3_REGION,
+            AGENT_MODEL: config.AGENT_MODEL,
+            AI_MODEL_SMALL: config.AI_MODEL_SMALL
+          }),
           timeoutMs: config.AGENT_TIMEOUT_SEC * 1000,
           skillsDir: skillsDirectory
         })

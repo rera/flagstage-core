@@ -79,12 +79,16 @@ describe("chat publish", () => {
       DATABASE_URL: "postgres://secret",
       AWS_SECRET_ACCESS_KEY: "secret",
       AWS_ACCESS_KEY_ID: "key",
-      AI_API_KEY: "model-key"
+      AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: "/v2/credentials/task",
+      AWS_REGION: "us-east-1",
+      AGENT_MODEL: "amazon.nova-micro-v1:0"
     });
     expect(env.DATABASE_URL).toBeUndefined();
     expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
     expect(env.AWS_ACCESS_KEY_ID).toBeUndefined();
-    expect(env.AI_API_KEY).toBe("model-key");
+    expect(env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI).toBe("/v2/credentials/task");
+    expect(env.AWS_REGION).toBe("us-east-1");
+    expect(env.AGENT_MODEL).toBe("amazon.nova-micro-v1:0");
   });
 
   it("does not let someone outside the account publish", () => {
