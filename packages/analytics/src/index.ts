@@ -5,6 +5,8 @@ export {
   injectAnalytics,
   RAW_EVENT_RETENTION_MS,
   rollupVisits,
-  visitorHash
+  topPages,
+  visitorHash,
+  visitsInRange
 } from "./analytics";
 export { rollupStored } from "./store";

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { expiredEventIds, injectAnalytics, rollupVisits, visitorHash } from "./analytics";
+import {
+  expiredEventIds,
+  injectAnalytics,
+  rollupVisits,
+  topPages,
+  visitorHash,
+  visitsInRange
+} from "./analytics";
 
 describe("analytics", () => {
   it("hashes a visitor with a daily salt and never returns the address", () => {
@@ -63,5 +70,32 @@ describe("analytics", () => {
       now
     );
     expect(ids).toEqual(["old"]);
+  });
+
+  it("keeps 7, 30, and 90 day windows and ranks pages", () => {
+    const now = new Date("2026-03-10T12:00:00Z");
+    const daily = [
+      { day: "2026-03-10", path: "/", pageviews: 2, visitors: 1 },
+      { day: "2026-03-04", path: "/hours", pageviews: 4, visitors: 3 },
+      { day: "2025-12-01", path: "/old", pageviews: 9, visitors: 9 }
+    ];
+    const recent = [
+      {
+        siteId: "site",
+        path: "/",
+        referrer: null,
+        visitorHash: "c",
+        createdAt: new Date("2026-03-10T08:00:00Z")
+      }
+    ];
+    const week = visitsInRange(daily, recent, now, 7);
+    expect(week.map((row) => row.path).sort()).toEqual(["/", "/hours"]);
+    expect(week.find((row) => row.path === "/")?.pageviews).toBe(2);
+    const quarter = visitsInRange(daily, [], now, 90);
+    expect(quarter).toHaveLength(2);
+    expect(topPages(week)).toEqual([
+      { path: "/hours", pageviews: 4 },
+      { path: "/", pageviews: 2 }
+    ]);
   });
 });

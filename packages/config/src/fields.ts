@@ -210,6 +210,14 @@ export const ENV_FIELDS = [
     example: "Flagstage Core <noreply@example.com>"
   },
   {
+    name: "FORM_NOTIFY_EMAIL",
+    description:
+      "Optional addresses that receive a form submission when SMTP_URL is set. Separate several with commas. A form's own notify list is included too.",
+    requirement: "optional",
+    secret: false,
+    example: "leads@example.com"
+  },
+  {
     name: "BOOTSTRAP_ADMIN_EMAIL",
     description:
       "When the database has no users, a one-time sign-in link for this address is printed to the logs (and sent if SMTP is set).",

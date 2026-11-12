@@ -61,6 +61,7 @@ export const envSchema = z
     AGENT_TIMEOUT_SEC: intWithDefault(600),
     SMTP_URL: optionalString,
     MAIL_FROM: optionalString,
+    FORM_NOTIFY_EMAIL: optionalString,
     BOOTSTRAP_ADMIN_EMAIL: z.preprocess(blankToUndefined, z.string().email().optional()),
     EMAIL_PASSWORD_ENABLED: z.preprocess(
       (value) => (value === undefined || value === "" ? "1" : value),

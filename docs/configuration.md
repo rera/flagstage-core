@@ -37,6 +37,7 @@ rejected when `NODE_ENV=production`.
 | `AGENT_TIMEOUT_SEC` | no | `600` | Hard timeout for one agent turn, in seconds. |
 | `SMTP_URL` | no | `` | Optional SMTP URL for invites and notices. When unset, mail is printed to the log. |
 | `MAIL_FROM` | no | `` | From address used when SMTP_URL is set. |
+| `FORM_NOTIFY_EMAIL` | no | `` | Optional addresses that receive a form submission when SMTP_URL is set. Separate several with commas. A form's own notify list is included too. |
 | `BOOTSTRAP_ADMIN_EMAIL` | no | `` | When the database has no users, a one-time sign-in link for this address is printed to the logs (and sent if SMTP is set). |
 | `EMAIL_PASSWORD_ENABLED` | no | `1` | Set to 0 to turn off email and password sign-in. SSO remains available. |
 | `IMPORT_MAX_PAGES` | no | `500` | Default page cap for an import. |

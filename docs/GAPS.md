@@ -10,29 +10,25 @@ The import, chat, preview, and publish loop is real, and `pnpm build` and `pnpm 
 
 ## What mature projects have that this repo does not
 
-2. **The analytics screen is a list, not a product.** Plausible's bar is a date range, top pages, and top referrers without cookies. Core hashes visitors the same way, rolls raw events into daily rows after 48 hours, and removes the script on the next publish when analytics is off. The page does not offer 7, 30, or 90 days, and it does not chart anything.
+2. **First run still skips the last mile.** Setup walks through the organization, an OIDC or SAML provider, the first account, and a group-to-role mapping. There is no logo upload and no button that tests the model key.
 
-3. **Forms notify by webhook only.** A signed webhook and a CSV download exist. SMTP is a config field and is not used to mail a submission. Ghost and Documenso both send mail as part of the main loop.
+3. **The editor is a mock unless you bring a binary.** `AI_MOCK=1` appends the request to `index.html`. With the mock off, the subprocess runner executes `opencode` with a scrubbed prompt and a short skill set (clarify, forms, images, contrast). The Vercel AI SDK is not a dependency. Intent uses a deterministic rule, or one OpenAI-compatible chat call when a model is configured. The commercial skill shelf was rewritten down, not copied. Nobody has run this against a real key in CI.
 
-4. **First run still skips the last mile.** Setup walks through the organization, an OIDC or SAML provider, the first account, and a group-to-role mapping. There is no logo upload and no button that tests the model key.
+4. **Some operator commands are still missing.** `flagstage admin add`, `flagstage account create`, and `flagstage import <url> --account` work. Resetting a password, exporting a site, and adding a member from the terminal do not.
 
-5. **The editor is a mock unless you bring a binary.** `AI_MOCK=1` appends the request to `index.html`. With the mock off, the subprocess runner executes `opencode` with a scrubbed prompt and a short skill set (clarify, forms, images, contrast). The Vercel AI SDK is not a dependency. Intent uses a deterministic rule, or one OpenAI-compatible chat call when a model is configured. The commercial skill shelf was rewritten down, not copied. Nobody has run this against a real key in CI.
-
-6. **Some operator commands are still missing.** `flagstage admin add`, `flagstage account create`, and `flagstage import <url> --account` work. Resetting a password, exporting a site, and adding a member from the terminal do not.
-
-7. **Screenshots are a placeholder SVG.** The README describes the product and points at `docs/assets/screenshot-app.svg`. Ghost, Plausible, and Documenso lead with pictures of the real UI. Replace the placeholder before any announcement. README and docs that describe the product are marked `copy-review: required before announce`.
+5. **Screenshots are a placeholder SVG.** The README describes the product and points at `docs/assets/screenshot-app.svg`. Ghost, Plausible, and Documenso lead with pictures of the real UI. Replace the placeholder before any announcement. README and docs that describe the product are marked `copy-review: required before announce`.
 
 ## Smaller, still real
 
-8. **Strings live in one JSON file.** `t()` reads `packages/ui/src/messages/en.json`. next-intl is not wired, so there is no locale switch and no extraction pipeline.
+6. **Strings live in one JSON file.** `t()` reads `packages/ui/src/messages/en.json`. next-intl is not wired, so there is no locale switch and no extraction pipeline.
 
-9. **SSO settings write provider rows directly.** Sign-in uses Better Auth. The settings page inserts the provider row instead of calling Better Auth's register endpoint. Behavior matches the tests. The path is not the one the library documents.
+7. **SSO settings write provider rows directly.** Sign-in uses Better Auth. The settings page inserts the provider row instead of calling Better Auth's register endpoint. Behavior matches the tests. The path is not the one the library documents.
 
-10. **CI workflows sit in `docs/ci/workflows/`.** They are not under `.github/workflows/` because this branch lives in a private repository where those files would run. Move them when the public repository exists. The OpenTofu examples point at `github.com/rera/flagstage` `core/main` for the same reason. Point them at `github.com/rera/flagstage-core` and a release tag when that repository exists.
+8. **CI workflows sit in `docs/ci/workflows/`.** They are not under `.github/workflows/` because this branch lives in a private repository where those files would run. Move them when the public repository exists. The OpenTofu examples point at `github.com/rera/flagstage` `core/main` for the same reason. Point them at `github.com/rera/flagstage-core` and a release tag when that repository exists.
 
-11. **No release automation beyond changesets.** There is a changelog stub and changeset files. There is no tag, no GitHub release, no image publish. The image workflow is written to build and not push.
+9. **No release automation beyond changesets.** There is a changelog stub and changeset files. There is no tag, no GitHub release, no image publish. The image workflow is written to build and not push.
 
-12. **Accessibility and empty states are thin.** Buttons and fields use the shared components. There is no keyboard pass, no screen-reader pass, and several pages are unstyled tables. Cal.com and Documenso treat this as part of the product, not a follow-up.
+10. **Accessibility and empty states are thin.** Buttons and fields use the shared components. There is no keyboard pass, no screen-reader pass, and several pages are unstyled tables. Cal.com and Documenso treat this as part of the product, not a follow-up.
 
 ## Intentionally out
 
@@ -46,3 +42,4 @@ No phone-home and no update check. No billing. No inbound email, SMS, or Slack. 
 - Setup is a four-step wizard: organization, identity provider, first account, then a group-to-role mapping. `flagstage admin add`, `flagstage account create`, and `flagstage import` do the same work from a shell. See [Assign department admins](department-admins.md).
 - `pnpm e2e` signs in, imports a local fixture, sends a chat edit, opens the preview, publishes, and reads the DNS checklist. The workflow file is `docs/ci/workflows/e2e.yml`.
 - The runtime image no longer copies the workspace or runs TypeScript through `tsx`. Displayed size went from 2.8GB to 428MB.
+- Analytics shows 7, 30, and 90 day totals and the top pages. It does not chart. Form submissions keep the signed webhook and, when `SMTP_URL` is set, mail `FORM_NOTIFY_EMAIL` plus the form's own list.

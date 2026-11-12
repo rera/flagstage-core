@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@flagstage/db": "workspace:*",
-    "drizzle-orm": "^0.45.1"
+    "drizzle-orm": "^0.45.1",
+    "nodemailer": "^10.5.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.14",

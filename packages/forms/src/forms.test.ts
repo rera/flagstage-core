@@ -10,6 +10,7 @@ import type { Database } from "@flagstage/db";
 import * as fullSchema from "@flagstage/db";
 
 import { allowedOrigin, isHoneypot, signBody, takeToken, toCsv } from "./forms";
+import { notifyRecipients, submissionLetter } from "./mail";
 
 async function applyMigrations(client: PGlite) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle");
@@ -66,5 +67,16 @@ describe("lead forms", () => {
     } finally {
       await client.close();
     }
+  });
+
+  it("addresses a submission from the form list and the environment", () => {
+    expect(
+      notifyRecipients([" parks@example.com "], "leads@example.com, parks@example.com")
+    ).toEqual(["parks@example.com", "leads@example.com"]);
+    expect(notifyRecipients([], undefined)).toEqual([]);
+    expect(submissionLetter("Contact", { name: "Ada", message: "Hello" })).toEqual({
+      subject: "New submission: Contact",
+      text: "name: Ada\nmessage: Hello"
+    });
   });
 });

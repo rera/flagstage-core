@@ -89,6 +89,41 @@ export function rollupVisits(events: Visit[]): DailyRow[] {
   }));
 }
 
+export function rangeStart(now: Date, days: number): string {
+  const start = new Date(now.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
+  return start.toISOString().slice(0, 10);
+}
+
+export function visitsInRange(
+  daily: Array<{ day: string; path: string; pageviews: number; visitors: number }>,
+  recent: Visit[],
+  now: Date,
+  days: number
+): Array<{ path: string; pageviews: number; visitors: number }> {
+  const start = rangeStart(now, days);
+  const dailyRows = daily.filter((row) => row.day >= start);
+  const covered = new Set(dailyRows.map((row) => row.day));
+  const raw = rollupVisits(
+    recent.filter((event) => {
+      const day = event.createdAt.toISOString().slice(0, 10);
+      return day >= start && !covered.has(day);
+    })
+  );
+  return [...dailyRows, ...raw];
+}
+
+export function topPages(
+  rows: Array<{ path: string; pageviews: number }>,
+  limit = 10
+): Array<{ path: string; pageviews: number }> {
+  const totals = new Map<string, number>();
+  for (const row of rows) totals.set(row.path, (totals.get(row.path) ?? 0) + row.pageviews);
+  return [...totals.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, limit)
+    .map(([path, pageviews]) => ({ path, pageviews }));
+}
+
 export const RAW_EVENT_RETENTION_MS = 48 * 60 * 60 * 1000;
 
 export function expiredEventIds(

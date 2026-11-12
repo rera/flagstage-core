@@ -111,6 +111,15 @@
   "domains.current": "Currently",
   "forms.title": "Forms",
   "analytics.title": "Analytics",
+  "analytics.range": "Range",
+  "analytics.days7": "7 days",
+  "analytics.days30": "30 days",
+  "analytics.days90": "90 days",
+  "analytics.pageviews": "Pageviews",
+  "analytics.visitors": "Visitors",
+  "analytics.note": "No cookies. Visitors are counted per page per day.",
+  "analytics.topPages": "Top pages",
+  "analytics.empty": "No visits in this range.",
   "noAccess.title": "No access yet",
   "noAccess.body": "An organization admin has to map your group or invite you to an account."
 }

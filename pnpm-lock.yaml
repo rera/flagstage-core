@@ -372,6 +372,9 @@ importers:
       drizzle-orm:
         specifier: ^0.45.1
         version: 0.45.4(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1)
+      nodemailer:
+        specifier: ^10.5.0
+        version: 10.5.0
     devDependencies:
       '@electric-sql/pglite':
         specifier: ^0.3.14
@@ -2532,6 +2535,10 @@ packages:
         optional: true
       sass:
         optional: true
+
+  nodemailer@10.5.0:
+    resolution: {integrity: sha512-L/w/HH5MqpzMDuZD7fQdt/+KqymuvrpaApaIjAH2XA3ILePwlcvXCVVvP75xVrXCEt2ggK2marrrHHFB5Qu0kA==}
+    engines: {node: '>=20.0.0'}
 
   non-error@0.1.0:
     resolution: {integrity: sha512-TMB1uHiGsHRGv1uYclfhivcnf0/PdFp2pNqRxXjncaAsjYMoisaQJI+SSZCqRq+VliwRTC8tsMQfmrWjDMhkPQ==}
@@ -5034,6 +5041,8 @@ snapshots:
       - '@babel/core'
       - '@types/node'
       - babel-plugin-macros
+
+  nodemailer@10.5.0: {}
 
   non-error@0.1.0: {}
 

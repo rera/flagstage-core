@@ -4,7 +4,15 @@ import { eq } from "drizzle-orm";
 
 import { loadConfig } from "@flagstage/config";
 import { leadForm, orgSettings, site, siteDomain, formSubmission } from "@flagstage/db";
-import { corsHeaders, isHoneypot, signBody, takeToken } from "@flagstage/forms";
+import {
+  corsHeaders,
+  isHoneypot,
+  notifyRecipients,
+  sendFormNotice,
+  signBody,
+  submissionLetter,
+  takeToken
+} from "@flagstage/forms";
 
 import { database } from "../../../../src/guard";
 
@@ -70,6 +78,18 @@ export async function POST(
         "x-flagstage-signature": signBody(form.webhookSecret, body)
       },
       body
+    }).catch(() => undefined);
+  }
+  const config = loadConfig();
+  const recipients = notifyRecipients(form.notifyEmails, config.FORM_NOTIFY_EMAIL);
+  if (config.SMTP_URL && config.MAIL_FROM && recipients.length > 0) {
+    const letter = submissionLetter(form.name, stored);
+    await sendFormNotice({
+      smtpUrl: config.SMTP_URL,
+      from: config.MAIL_FROM,
+      to: recipients,
+      subject: letter.subject,
+      text: letter.text
     }).catch(() => undefined);
   }
   return new Response(null, { status: 204, headers });
