@@ -1,4 +1,4 @@
-import { Alert, EmptyState, PageHeader, t } from "@flagstage/ui";
+import { Alert, Badge, EmptyState, PageHeader, t } from "@flagstage/ui";
 import { can } from "@flagstage/core";
 import { account, site, siteDomain, snapshot } from "@flagstage/db";
 import { inArray } from "drizzle-orm";
@@ -94,16 +94,18 @@ export default async function SitesPage({
               <a
                 key={row.id}
                 href={`/sites/${row.id}`}
-                className="grid gap-3 rounded-xl border border-border bg-card px-5 py-4 hover:bg-[var(--wash)] sm:grid-cols-[minmax(0,1.3fr)_7rem_minmax(0,1fr)_minmax(0,1fr)] sm:items-center"
+                className="grid gap-3 rounded-xl border border-border bg-card px-5 py-4 hover:bg-[var(--wash)] sm:grid-cols-[minmax(0,1.3fr)_auto_minmax(0,1fr)_minmax(0,1fr)] sm:items-center"
               >
                 <span>
                   <span className="block font-semibold">{row.name}</span>
                   <span className="text-sm text-muted-foreground">{names.get(row.accountId)}</span>
                 </span>
-                <span className="text-sm">
-                  <span className="block font-medium">{statusLabel(row.status)}</span>
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <Badge variant={row.status === "live" ? "success" : "default"}>
+                    {statusLabel(row.status)}
+                  </Badge>
                   {row.draftSnapshotId && row.draftSnapshotId !== row.currentSnapshotId ? (
-                    <span className="text-muted-foreground">Draft waiting</span>
+                    <Badge variant="warning">Draft waiting</Badge>
                   ) : null}
                 </span>
                 <span className="truncate font-mono text-xs text-muted-foreground">{domain}</span>

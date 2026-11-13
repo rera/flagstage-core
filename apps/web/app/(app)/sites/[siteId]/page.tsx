@@ -128,7 +128,6 @@ export default async function SiteOverviewPage({
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-border bg-card px-4 py-4">
           <h2 className="text-base font-semibold">History</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Publishes and earlier versions.</p>
           {snaps.length === 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">
               Versions show up after the import finishes.

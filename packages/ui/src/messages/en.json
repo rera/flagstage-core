@@ -111,7 +111,7 @@
   "domains.check": "Check again",
   "domains.add": "Add hostname",
   "domains.hostname": "Hostname",
-  "domains.lead": "Create these records at your DNS host. Core does not change DNS for you.",
+  "domains.lead": "Add a hostname, then create the records at your DNS host.",
   "domains.found": "Found",
   "domains.missing": "Not found yet",
   "domains.current": "Currently",

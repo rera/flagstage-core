@@ -212,7 +212,10 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
             <div
               className="h-full bg-primary"
               style={{
-                width: `${Math.max(spentAmount > 0 ? 2 : 0, Math.min(100, (spentAmount / found.monthlyBudgetUsd) * 100))}%`
+                width:
+                  spentAmount > 0
+                    ? `max(0.75rem, ${Math.min(100, (spentAmount / found.monthlyBudgetUsd) * 100)}%)`
+                    : "0%"
               }}
             />
           </div>
