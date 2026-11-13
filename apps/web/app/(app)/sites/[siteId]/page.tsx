@@ -16,21 +16,13 @@ import {
   user
 } from "@flagstage/db";
 import { describeSchedule } from "@flagstage/publish";
-import { Badge, Button, buttonVariants, EmptyState } from "@flagstage/ui";
+import { Badge, Button, EmptyState } from "@flagstage/ui";
 
 import { approveSiteAction, rollbackAction } from "../../../../src/actions";
 import { database, requirePrincipal } from "../../../../src/guard";
 import { Page } from "../../../../src/page";
-import { SiteNav } from "../../../../src/site-nav";
+import { SiteIdentity, SiteNav } from "../../../../src/site-nav";
 import { friendlyWhen, versionLabel } from "../../../../src/time";
-
-function statusLabel(status: string) {
-  if (status === "live") return "Live";
-  if (status === "importing") return "Importing";
-  if (status === "preview") return "Ready to publish";
-  if (status === "failed") return "Didn't finish";
-  return status;
-}
 
 export default async function SiteOverviewPage({
   params
@@ -50,7 +42,9 @@ export default async function SiteOverviewPage({
   );
   const current = snaps.find((item) => item.id === found.currentSnapshotId);
   const schedules = await db.select().from(siteSchedule).where(eq(siteSchedule.siteId, siteId));
-  const upcoming = schedules.filter((item) => item.status === "scheduled");
+  const upcoming = schedules
+    .filter((item) => item.status === "scheduled")
+    .sort((left, right) => left.publishAt.getTime() - right.publishAt.getTime());
   const domains = await db.select().from(siteDomain).where(eq(siteDomain.siteId, siteId));
   const forms = await db.select().from(leadForm).where(eq(leadForm.siteId, siteId));
   const submissions =
@@ -104,36 +98,24 @@ export default async function SiteOverviewPage({
     canPublish && !found.currentSnapshotId && found.status === "preview" && Boolean(pending);
   return (
     <Page>
-      <SiteNav siteId={found.id} current="overview" editor={false} />
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{found.name}</h1>
-            <Badge variant={found.status === "live" ? "success" : "default"}>
-              {statusLabel(found.status)}
-            </Badge>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            <span className="font-mono">{host}</span>
-            {current
-              ? ` · Published ${friendlyWhen(current.createdAt, zone)}`
-              : " · Nothing published yet"}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {showGoLive && pending ? (
-            <form action={approveSiteAction}>
-              <input type="hidden" name="siteId" value={found.id} />
-              <input type="hidden" name="accountId" value={found.accountId} />
-              <input type="hidden" name="snapshotId" value={pending.id} />
-              <Button type="submit">Go live</Button>
-            </form>
-          ) : null}
-          <a href={`/sites/${found.id}/edit`} className={buttonVariants()}>
-            Make changes
-          </a>
-        </div>
-      </header>
+      <div className="space-y-4">
+        <SiteIdentity
+          siteId={found.id}
+          name={found.name}
+          status={found.status}
+          host={host}
+          published={current ? friendlyWhen(current.createdAt, zone) : null}
+        />
+        <SiteNav siteId={found.id} current="overview" />
+      </div>
+      {showGoLive && pending ? (
+        <form action={approveSiteAction}>
+          <input type="hidden" name="siteId" value={found.id} />
+          <input type="hidden" name="accountId" value={found.accountId} />
+          <input type="hidden" name="snapshotId" value={pending.id} />
+          <Button type="submit">Go live</Button>
+        </form>
+      ) : null}
       {found.status === "live" &&
       (!found.draftSnapshotId || found.draftSnapshotId === found.currentSnapshotId) ? (
         <p
@@ -143,12 +125,14 @@ export default async function SiteOverviewPage({
           This snapshot is live.
         </p>
       ) : null}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-border bg-card px-4 py-4">
           <h2 className="text-base font-semibold">History</h2>
           <p className="mt-1 text-sm text-muted-foreground">Publishes and earlier versions.</p>
           {snaps.length === 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">No versions yet.</p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Versions show up after the import finishes.
+            </p>
           ) : (
             <ul className="mt-3 divide-y divide-border text-sm">
               {snaps.map((item) => {
@@ -185,7 +169,9 @@ export default async function SiteOverviewPage({
             </a>
           </div>
           {upcoming.length === 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">Nothing is waiting to go live.</p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Nothing scheduled. When a draft looks right, use Make changes to pick a time.
+            </p>
           ) : (
             <ul className="mt-3 space-y-2 text-sm">
               {upcoming.map((item) => (
@@ -204,9 +190,17 @@ export default async function SiteOverviewPage({
             </a>
           </div>
           {domains.length === 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">
-              No custom domain yet. The site answers on {host}.
-            </p>
+            <>
+              <p className="mt-3 text-sm text-muted-foreground">
+                No custom domain yet. It still answers on {host}.
+              </p>
+              <a
+                href={`/sites/${found.id}/domain`}
+                className="mt-2 inline-block text-sm font-medium text-primary"
+              >
+                Add a domain
+              </a>
+            </>
           ) : (
             <ul className="mt-3 space-y-2 text-sm">
               {domains.map((domain) => (
@@ -228,8 +222,11 @@ export default async function SiteOverviewPage({
             </a>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
-            {forms.length} {forms.length === 1 ? "form" : "forms"} · {submissions.length}{" "}
-            {submissions.length === 1 ? "submission" : "submissions"}
+            {forms.length === 0
+              ? "No forms yet. They show up here when an import finds one on the site."
+              : submissions.length === 0
+                ? `${forms.length} ${forms.length === 1 ? "form" : "forms"}. No submissions yet.`
+                : `${forms.length} ${forms.length === 1 ? "form" : "forms"} · ${submissions.length} ${submissions.length === 1 ? "submission" : "submissions"}`}
           </p>
         </section>
         <section className="rounded-xl border border-border bg-card px-4 py-4">
@@ -239,10 +236,18 @@ export default async function SiteOverviewPage({
               Last 7 days
             </a>
           </div>
-          <p className="mt-3 text-2xl font-semibold tracking-tight">{pageviews}</p>
-          <p className="text-sm text-muted-foreground">
-            page views · {visitors} {visitors === 1 ? "visitor" : "visitors"}
-          </p>
+          {pageviews === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              No visitors yet. Visits show up after the site is live.
+            </p>
+          ) : (
+            <>
+              <p className="mt-3 text-2xl font-semibold tracking-tight">{pageviews}</p>
+              <p className="text-sm text-muted-foreground">
+                page views · {visitors} {visitors === 1 ? "visitor" : "visitors"}
+              </p>
+            </>
+          )}
         </section>
         <section className="rounded-xl border border-border bg-card px-4 py-4">
           <div className="flex items-center justify-between gap-3">

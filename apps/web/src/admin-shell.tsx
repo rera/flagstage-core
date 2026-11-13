@@ -7,8 +7,6 @@ import { cn, FlagstageMark } from "@flagstage/ui";
 
 const LINKS = [
   { href: "/admin", label: "People", exact: true },
-  { href: "/admin/accounts", label: "Accounts" },
-  { href: "/admin/sites", label: "Sites" },
   { href: "/admin/usage", label: "Usage" },
   { href: "/admin/settings", label: "Settings" }
 ];

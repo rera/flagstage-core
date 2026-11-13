@@ -27,8 +27,8 @@ export default async function AdminSettingsPage() {
       ]}
     >
       <p className="max-w-2xl text-sm text-muted-foreground">
-        These values come from flagstage.config.json. Change them there and redeploy. Site time
-        zones are set on each site.
+        These values come from flagstage.config.json. Change them there and redeploy. Budgets belong
+        on each account. Time zones belong on each site.
       </p>
     </AdminPage>
   );

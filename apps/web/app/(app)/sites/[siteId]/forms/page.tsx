@@ -7,7 +7,8 @@ import { EmptyState, PageHeader, Table, TableBody, TableCell, TableRow, t } from
 
 import { database, requirePrincipal } from "../../../../../src/guard";
 import { Page } from "../../../../../src/page";
-import { SiteNav } from "../../../../../src/site-nav";
+import { SiteIdentity, SiteNav } from "../../../../../src/site-nav";
+import { friendlyWhen } from "../../../../../src/time";
 
 export default async function FormsPage({ params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
@@ -30,10 +31,22 @@ export default async function FormsPage({ params }: { params: Promise<{ siteId: 
             )
           );
   const names = new Map(forms.map((form) => [form.id, form.name]));
+  const newest = [...submissions].sort(
+    (left, right) => right.createdAt.getTime() - left.createdAt.getTime()
+  );
+  const zone = found.timeZone || "UTC";
   return (
     <Page>
-      <SiteNav siteId={found.id} current="forms" />
-      <PageHeader title={t("forms.title")} description={found.name} />
+      <div className="space-y-4">
+        <SiteIdentity
+          siteId={found.id}
+          name={found.name}
+          status={found.status}
+          host={`${found.slug}.localhost`}
+        />
+        <SiteNav siteId={found.id} current="forms" />
+      </div>
+      <PageHeader level={2} title={t("forms.title")} description="Submissions from forms on this site." />
       {submissions.length === 0 ? (
         <EmptyState
           title={t("forms.emptyTitle")}
@@ -47,10 +60,12 @@ export default async function FormsPage({ params }: { params: Promise<{ siteId: 
       ) : (
         <Table>
           <TableBody>
-            {submissions.map((row) => (
+            {newest.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{names.get(row.leadFormId) ?? row.leadFormId}</TableCell>
-                <TableCell className="font-mono text-xs">{row.createdAt.toISOString()}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {friendlyWhen(row.createdAt, zone)}
+                </TableCell>
                 <TableCell>
                   <a
                     className="font-medium text-primary"

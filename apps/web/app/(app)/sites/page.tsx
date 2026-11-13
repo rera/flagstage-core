@@ -52,7 +52,7 @@ export default async function SitesPage({
     <Page>
       <PageHeader
         title={t("sites.title")}
-        description={sites.length === 0 ? undefined : t("sites.lead")}
+        description={sites.length === 0 ? undefined : "Open a site, or import another."}
       />
       {params.error ? <Alert variant="destructive">{t("sites.failed")}</Alert> : null}
       {sites.length === 0 ? (

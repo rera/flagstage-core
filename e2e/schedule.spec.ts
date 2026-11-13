@@ -20,7 +20,7 @@ test("schedules a publish a minute out and sees it go live", async ({ page }, te
   await page.getByLabel("Site address").fill(fixture);
   await page.getByRole("button", { name: "Import a site" }).click();
   await expect(page).toHaveURL(/\/sites\/[^/]+$/);
-  await page.getByRole("link", { name: "Make changes" }).click();
+  await page.getByRole("link", { name: "Make changes", exact: true }).click();
   await expect(page).toHaveURL(/\/edit$/);
   await expect(async () => {
     await page.reload();

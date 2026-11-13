@@ -1,4 +1,54 @@
-import { buttonVariants, cn } from "@flagstage/ui";
+import { Badge, buttonVariants, cn } from "@flagstage/ui";
+
+function statusLabel(status: string) {
+  if (status === "live") return "Live";
+  if (status === "importing") return "Importing";
+  if (status === "preview") return "Ready to publish";
+  if (status === "failed") return "Didn't finish";
+  return status;
+}
+
+export function SiteIdentity({
+  siteId,
+  name,
+  status,
+  host,
+  published
+}: {
+  siteId: string;
+  name: string;
+  status: string;
+  host: string;
+  published?: string | null;
+}) {
+  return (
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">{name}</h1>
+          <Badge
+            variant={
+              status === "live" ? "success" : status === "failed" ? "destructive" : "default"
+            }
+          >
+            {statusLabel(status)}
+          </Badge>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <span className="font-mono">{host}</span>
+          {published
+            ? ` · Published ${published}`
+            : status === "live"
+              ? ""
+              : " · Nothing published yet"}
+        </p>
+      </div>
+      <a href={`/sites/${siteId}/edit`} className={buttonVariants()}>
+        Make changes
+      </a>
+    </header>
+  );
+}
 
 const ITEMS = [
   { id: "overview", label: "Overview", path: "" },
@@ -9,17 +59,9 @@ const ITEMS = [
   { id: "settings", label: "Settings", path: "/settings" }
 ];
 
-export function SiteNav({
-  siteId,
-  current,
-  editor = true
-}: {
-  siteId: string;
-  current: string;
-  editor?: boolean;
-}) {
+export function SiteNav({ siteId, current }: { siteId: string; current: string }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+    <div className="border-b border-border pb-3">
       <nav className="flex flex-wrap gap-1" aria-label="Site">
         {ITEMS.map((item) => {
           const active = item.id === current;
@@ -38,11 +80,6 @@ export function SiteNav({
           );
         })}
       </nav>
-      {editor ? (
-        <a href={`/sites/${siteId}/edit`} className={buttonVariants()}>
-          Make changes
-        </a>
-      ) : null}
     </div>
   );
 }

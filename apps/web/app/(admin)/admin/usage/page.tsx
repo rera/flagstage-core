@@ -1,8 +1,6 @@
 import {
   Alert,
-  Button,
   EmptyState,
-  Field,
   Table,
   TableBody,
   TableCell,
@@ -13,19 +11,22 @@ import {
 } from "@flagstage/ui";
 import { account, changeRequest, site } from "@flagstage/db";
 
-import { setBudgetAction } from "../../../../src/actions";
 import { AdminPage } from "../../../../src/admin-page";
 import { database } from "../../../../src/guard";
 import { formatUsd } from "../../../../src/money";
-import { friendlyWhen } from "../../../../src/time";
+import { friendlyWhen, monthKey } from "../../../../src/time";
 
 export default async function UsagePage() {
   const db = database();
   const accounts = await db.select().from(account);
   const sites = await db.select().from(site);
   const edits = await db.select().from(changeRequest);
-  const month = new Date().toISOString().slice(0, 7);
-  const monthEdits = edits.filter((entry) => entry.createdAt.toISOString().slice(0, 7) === month);
+  const now = new Date();
+  const zoneOf = new Map(sites.map((item) => [item.id, item.timeZone || "UTC"]));
+  const monthEdits = edits.filter((entry) => {
+    const zone = zoneOf.get(entry.siteId) || "UTC";
+    return monthKey(entry.createdAt, zone) === monthKey(now, zone);
+  });
   const spent = formatUsd(
     monthEdits.reduce((sum, entry) => {
       const usage = entry.usage as { estimatedUsd?: number } | null;
@@ -35,7 +36,7 @@ export default async function UsagePage() {
   return (
     <AdminPage
       title="Usage"
-      description="Token counts and estimated Bedrock cost for each edit, plus the monthly budget."
+      description="Estimated model cost for every account. Set a budget on the account page."
       stats={[
         { label: "Edits this month", value: String(monthEdits.length) },
         { label: "Estimated cost", value: spent.text, title: spent.title }
@@ -49,34 +50,29 @@ export default async function UsagePage() {
       ) : (
         accounts.map((item) => {
           const owned = sites.filter((entry) => entry.accountId === item.id);
-          const rows = edits.filter((entry) =>
-            owned.some((ownedSite) => ownedSite.id === entry.siteId)
-          );
+          const rows = edits
+            .filter((entry) => owned.some((ownedSite) => ownedSite.id === entry.siteId))
+            .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
           const accountSpent = rows.reduce((sum, entry) => {
-            if (entry.createdAt.toISOString().slice(0, 7) !== month) return sum;
+            const zone = zoneOf.get(entry.siteId) || "UTC";
+            if (monthKey(entry.createdAt, zone) !== monthKey(now, zone)) return sum;
             const usage = entry.usage as { estimatedUsd?: number } | null;
             return sum + (usage?.estimatedUsd ?? 0);
           }, 0);
           const over = item.monthlyBudgetUsd != null && accountSpent >= item.monthlyBudgetUsd;
           return (
             <section key={item.id} className="space-y-3">
-              <h2 className="text-base font-semibold">{item.name}</h2>
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-base font-semibold">
+                  <a href={`/accounts/${item.id}`} className="hover:underline">
+                    {item.name}
+                  </a>
+                </h2>
+                <a href={`/accounts/${item.id}`} className="text-sm font-medium text-primary">
+                  Account
+                </a>
+              </div>
               {over ? <Alert variant="destructive">{t("usage.over")}</Alert> : null}
-              <form action={setBudgetAction} className="max-w-xs space-y-3">
-                <input type="hidden" name="accountId" value={item.id} />
-                <Field
-                  id={`budget-${item.id}`}
-                  label={t("usage.budget")}
-                  name="monthlyBudgetUsd"
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue={item.monthlyBudgetUsd ?? ""}
-                />
-                <Button type="submit" variant="outline">
-                  {t("usage.save")}
-                </Button>
-              </form>
               {rows.length === 0 ? (
                 <EmptyState
                   title="No edits yet"
@@ -105,7 +101,7 @@ export default async function UsagePage() {
                       return (
                         <TableRow key={entry.id}>
                           <TableCell className="text-muted-foreground">
-                            {friendlyWhen(entry.createdAt)}
+                            {friendlyWhen(entry.createdAt, owner?.timeZone || "UTC")}
                           </TableCell>
                           <TableCell>{owner?.name}</TableCell>
                           <TableCell className="font-mono text-xs">

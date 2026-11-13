@@ -8,7 +8,6 @@ import {
   Button,
   EmptyState,
   Field,
-  PageHeader,
   Table,
   TableBody,
   TableCell,
@@ -23,7 +22,7 @@ import { database, requirePrincipal } from "../../../../src/guard";
 import { formatUsd } from "../../../../src/money";
 import { Page } from "../../../../src/page";
 import { SecretForm } from "../../../../src/secret-form";
-import { friendlyWhen } from "../../../../src/time";
+import { friendlyWhen, monthKey } from "../../../../src/time";
 
 function statusLabel(status: string) {
   if (status === "live") return "Live";
@@ -70,8 +69,14 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
               sites.map((item) => item.id)
             )
           );
-  const month = new Date().toISOString().slice(0, 7);
-  const monthEdits = edits.filter((entry) => entry.createdAt.toISOString().slice(0, 7) === month);
+  const now = new Date();
+  const zoneOf = new Map(sites.map((item) => [item.id, item.timeZone || "UTC"]));
+  const monthEdits = edits
+    .filter((entry) => {
+      const zone = zoneOf.get(entry.siteId) || "UTC";
+      return monthKey(entry.createdAt, zone) === monthKey(now, zone);
+    })
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
   const spent = formatUsd(
     monthEdits.reduce((sum, entry) => {
       const usage = entry.usage as { estimatedUsd?: number } | null;
@@ -82,91 +87,98 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
   const canBudget = can(principal, "org.manage");
   return (
     <Page>
-      <PageHeader
-        title={found.name}
-        description="Sites, people, and estimated model cost for this account."
-      />
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">Sites</h2>
-        {sites.length === 0 ? (
-          <EmptyState
-            title="No sites yet"
-            description="Import a site into this account from Sites."
-          />
-        ) : (
-          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-            {sites.map((item) => (
-              <a
-                key={item.id}
-                href={`/sites/${item.id}`}
-                className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--wash)]"
-              >
-                <span>
-                  <span className="block font-medium">{item.name}</span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {item.slug}.localhost
+      <header className="border-b border-border pb-4">
+        <h1 className="text-2xl font-semibold tracking-tight">{found.name}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {found.slug} · {sites.length} {sites.length === 1 ? "site" : "sites"} · {members.length}{" "}
+          {members.length === 1 ? "person" : "people"} ·{" "}
+          <span title={spent.title}>{spent.text} estimated this month</span>
+        </p>
+      </header>
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <section className="space-y-3">
+          <h2 className="text-base font-semibold">Sites</h2>
+          {sites.length === 0 ? (
+            <EmptyState
+              title="No sites yet"
+              description="Import a site into this account from Sites."
+              action={
+                <a href="/sites" className="text-sm font-medium text-primary">
+                  {t("nav.sites")}
+                </a>
+              }
+            />
+          ) : (
+            <div className="grid gap-3">
+              {sites.map((item) => (
+                <a
+                  key={item.id}
+                  href={`/sites/${item.id}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:bg-[var(--wash)]"
+                >
+                  <span>
+                    <span className="block font-medium">{item.name}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {item.slug}.localhost
+                    </span>
                   </span>
-                </span>
-                <Badge variant={item.status === "live" ? "success" : "default"}>
-                  {statusLabel(item.status)}
-                </Badge>
-              </a>
-            ))}
-          </div>
-        )}
-      </section>
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">People</h2>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("members.person")}</TableHead>
-              <TableHead>{t("members.role")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {members.map((member) => (
-              <TableRow key={member.id}>
-                <TableCell>{byId.get(member.userId)?.email ?? member.userId}</TableCell>
-                <TableCell>
+                  <Badge variant={item.status === "live" ? "success" : "default"}>
+                    {statusLabel(item.status)}
+                  </Badge>
+                </a>
+              ))}
+            </div>
+          )}
+        </section>
+        <section className="space-y-3 rounded-xl border border-border bg-card px-4 py-4">
+          <h2 className="text-base font-semibold">People</h2>
+          {members.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No one is on this account yet.</p>
+          ) : (
+            <ul className="divide-y divide-border text-sm">
+              {members.map((member) => (
+                <li key={member.id} className="flex items-center justify-between gap-3 py-2">
+                  <span>{byId.get(member.userId)?.email ?? member.userId}</span>
                   <Badge>
                     {member.role === "account_admin" ? t("roles.accountAdmin") : member.role}
                   </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {pending.length > 0 ? (
-          <ul className="space-y-1 text-sm text-muted-foreground">
-            {pending.map((invite) => (
-              <li key={invite.id}>Invite pending for {invite.email}</li>
-            ))}
-          </ul>
-        ) : null}
-        {canInvite ? (
-          <div className="max-w-md space-y-4">
-            <h3 className="text-sm font-semibold">{t("members.invite")}</h3>
+                </li>
+              ))}
+            </ul>
+          )}
+          {pending.length > 0 ? (
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              {pending.map((invite) => (
+                <li key={invite.id}>Invite pending for {invite.email}</li>
+              ))}
+            </ul>
+          ) : null}
+          {canInvite ? (
             <SecretForm
+              inline
               action={inviteMember}
               submit={t("members.invite")}
               secretLabel={t("members.linkOnce")}
             >
               <input type="hidden" name="accountId" value={accountId} />
-              <label className="block space-y-2 text-sm font-medium" htmlFor="invite-email">
+              <label
+                className="min-w-48 flex-1 space-y-1 text-sm font-medium"
+                htmlFor="invite-email"
+              >
                 <span>{t("signIn.email")}</span>
                 <input
                   id="invite-email"
                   name="email"
                   type="email"
                   required
+                  placeholder="name@company.com"
                   className="h-9 w-full rounded-md border border-input px-3 text-sm font-normal"
                 />
               </label>
             </SecretForm>
-          </div>
-        ) : null}
-      </section>
+          ) : null}
+        </section>
+      </div>
       <section className="space-y-3">
         <h2 className="text-base font-semibold">Usage</h2>
         <p className="text-sm text-muted-foreground" title={spent.title}>
@@ -194,7 +206,7 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
                 return (
                   <TableRow key={entry.id}>
                     <TableCell className="text-muted-foreground">
-                      {friendlyWhen(entry.createdAt)}
+                      {friendlyWhen(entry.createdAt, owner?.timeZone || "UTC")}
                     </TableCell>
                     <TableCell>{owner?.name}</TableCell>
                     <TableCell title={cost.title}>{cost.text}</TableCell>
@@ -205,17 +217,18 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
           </Table>
         )}
       </section>
-      <section className="max-w-md space-y-3">
+      <section className="max-w-md space-y-3 rounded-xl border border-border bg-card px-4 py-4">
         <h2 className="text-base font-semibold">Settings</h2>
         <p className="text-sm text-muted-foreground">
-          The monthly budget is for estimated model cost. Each site keeps its own time zone.
+          Monthly model budget. When estimated cost for this month reaches it, the account is marked
+          over budget. Edits are not blocked. Each site keeps its own time zone.
         </p>
         {canBudget ? (
           <form action={setBudgetAction} className="space-y-3">
             <input type="hidden" name="accountId" value={found.id} />
             <input type="hidden" name="next" value={`/accounts/${found.id}`} />
             <Field
-              label={t("usage.budget")}
+              label="Budget (USD)"
               name="monthlyBudgetUsd"
               type="number"
               min="0"
@@ -223,13 +236,12 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
               defaultValue={found.monthlyBudgetUsd ?? ""}
             />
             <Button type="submit" variant="outline">
-              {t("usage.save")}
+              Save budget
             </Button>
           </form>
         ) : (
           <p className="text-sm">
-            Monthly budget:{" "}
-            {found.monthlyBudgetUsd == null ? "Not set" : `$${found.monthlyBudgetUsd}`}
+            Budget: {found.monthlyBudgetUsd == null ? "Not set" : `$${found.monthlyBudgetUsd}`}
           </p>
         )}
       </section>

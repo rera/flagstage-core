@@ -35,7 +35,10 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await page.getByLabel("Site address").fill(fixture);
   await page.getByRole("button", { name: "Import a site" }).click();
   await expect(page).toHaveURL(/\/sites\/[^/]+$/);
-  await page.getByRole("link", { name: "Make changes" }).click();
+  const headingBox = await page.getByRole("heading", { name: siteName }).boundingBox();
+  const tabBox = await page.getByRole("link", { name: "Overview", exact: true }).boundingBox();
+  expect(headingBox && tabBox && headingBox.y < tabBox.y).toBe(true);
+  await page.getByRole("link", { name: "Make changes", exact: true }).click();
   await expect(page).toHaveURL(/\/edit$/);
 
   await expect(async () => {
@@ -83,5 +86,16 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await page.getByRole("link", { name: "Forms", exact: true }).click();
   await expect(page.getByRole("heading", { name: "No form submissions" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open the site" })).toBeVisible();
+
+  await page.goto("/accounts");
+  await page.getByRole("link", { name: "Parks" }).click();
+  await expect(page.getByRole("heading", { name: "Sites" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Invite" })).toBeVisible();
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: "People" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name: "Accounts" })
+  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Usage" })).toBeVisible();
   await expectAccessible(page);
 });

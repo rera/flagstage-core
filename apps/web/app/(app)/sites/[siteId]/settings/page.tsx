@@ -9,7 +9,7 @@ import { site } from "@flagstage/db";
 import { updateSiteTimeZoneAction } from "../../../../../src/actions";
 import { database, requirePrincipal } from "../../../../../src/guard";
 import { Page } from "../../../../../src/page";
-import { SiteNav } from "../../../../../src/site-nav";
+import { SiteIdentity, SiteNav } from "../../../../../src/site-nav";
 
 const ZONES = [
   "America/Los_Angeles",
@@ -45,8 +45,17 @@ export default async function SiteSettingsPage({
   const canManage = can(principal, "site.manage", { accountId: found.accountId });
   return (
     <Page>
-      <SiteNav siteId={found.id} current="settings" />
+      <div className="space-y-4">
+        <SiteIdentity
+          siteId={found.id}
+          name={found.name}
+          status={found.status}
+          host={`${found.slug}.localhost`}
+        />
+        <SiteNav siteId={found.id} current="settings" />
+      </div>
       <PageHeader
+        level={2}
         title="Site settings"
         description={`${found.name} uses ${zoneTitle(found.timeZone)} for scheduled publishes.`}
       />

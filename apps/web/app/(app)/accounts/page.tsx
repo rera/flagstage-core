@@ -25,7 +25,7 @@ export default async function AccountsPage() {
     <Page>
       <PageHeader
         title={t("accounts.title")}
-        description={rows.length === 0 ? undefined : t("accounts.empty")}
+        description={rows.length === 0 ? undefined : "Accounts you belong to."}
       />
       {rows.length === 0 ? (
         <EmptyState

@@ -11,7 +11,7 @@ import { cancelScheduleAction } from "../../../../../src/actions";
 import { database, requirePrincipal } from "../../../../../src/guard";
 import { Page } from "../../../../../src/page";
 import { SchedulePanel } from "../../../../../src/schedule-form";
-import { SiteNav } from "../../../../../src/site-nav";
+import { SiteIdentity, SiteNav } from "../../../../../src/site-nav";
 
 export default async function ScheduledPage({ params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
@@ -22,17 +22,31 @@ export default async function ScheduledPage({ params }: { params: Promise<{ site
   if (!found || !can(principal, "site.read", { accountId: found.accountId })) notFound();
   const applied = await runDueSchedules(db, new Date()).catch(() => [] as string[]);
   for (const id of applied) await syncScheduleHost(db, id).catch(() => undefined);
-  const schedules = await db.select().from(siteSchedule).where(eq(siteSchedule.siteId, siteId));
+  const schedules = (
+    await db.select().from(siteSchedule).where(eq(siteSchedule.siteId, siteId))
+  ).sort((left, right) => right.publishAt.getTime() - left.publishAt.getTime());
   const zone = found.timeZone || "UTC";
   const canPublish = can(principal, "site.publish", { accountId: found.accountId });
   return (
     <Page>
-      <SiteNav siteId={found.id} current="scheduled" />
-      <PageHeader title="Scheduled" description={`${found.name}. Times use ${zoneTitle(zone)}.`} />
+      <div className="space-y-4">
+        <SiteIdentity
+          siteId={found.id}
+          name={found.name}
+          status={found.status}
+          host={`${found.slug}.localhost`}
+        />
+        <SiteNav siteId={found.id} current="scheduled" />
+      </div>
+      <PageHeader
+        level={2}
+        title="Scheduled"
+        description={`Times use ${zoneTitle(zone)}.`}
+      />
       {schedules.length === 0 ? (
         <EmptyState
           title="Nothing scheduled"
-          description="Schedule a publish when a preview looks right. It stays pinned to that snapshot."
+          description="When a draft looks right, use Make changes to pick a time. It stays pinned to that snapshot."
         />
       ) : (
         <ul className="divide-y divide-border rounded-xl border border-border">

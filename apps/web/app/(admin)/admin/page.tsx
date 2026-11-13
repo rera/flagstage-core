@@ -28,7 +28,7 @@ export default async function PeoplePage({
   return (
     <AdminPage
       title="People"
-      description="Promote or remove an admin for this install."
+      description="Install admins. People on an account are managed from that account."
       stats={[
         { label: "People", value: String(people.length) },
         { label: "Admins", value: String(admins) }

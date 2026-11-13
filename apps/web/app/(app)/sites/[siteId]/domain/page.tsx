@@ -9,7 +9,7 @@ import { Badge, Button, Field, PageHeader, t } from "@flagstage/ui";
 import { addDomainAction, recheckDomainAction } from "../../../../../src/actions";
 import { database, requirePrincipal } from "../../../../../src/guard";
 import { Page } from "../../../../../src/page";
-import { SiteNav } from "../../../../../src/site-nav";
+import { SiteIdentity, SiteNav } from "../../../../../src/site-nav";
 
 export default async function DomainPage({ params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
@@ -22,9 +22,16 @@ export default async function DomainPage({ params }: { params: Promise<{ siteId:
   const canManage = can(principal, "domain.manage", { accountId: found.accountId });
   return (
     <Page>
-      <SiteNav siteId={found.id} current="domain" />
-      <PageHeader title={t("domains.title")} description={found.name} />
-      <p className="text-sm text-muted-foreground">{t("domains.lead")}</p>
+      <div className="space-y-4">
+        <SiteIdentity
+          siteId={found.id}
+          name={found.name}
+          status={found.status}
+          host={`${found.slug}.localhost`}
+        />
+        <SiteNav siteId={found.id} current="domain" />
+      </div>
+      <PageHeader level={2} title={t("domains.title")} description={t("domains.lead")} />
       {canManage ? (
         <form action={addDomainAction} className="max-w-md space-y-4">
           <input type="hidden" name="siteId" value={found.id} />
