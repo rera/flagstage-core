@@ -78,10 +78,7 @@ export default async function AccountSitesPage({
                 href={`/a/${found.slug}/sites/${row.id}`}
                 className="grid gap-3 rounded-xl border border-border bg-card px-5 py-4 hover:bg-[var(--wash)] sm:grid-cols-[minmax(0,1.3fr)_auto_minmax(0,1fr)_minmax(0,1fr)] sm:items-center"
               >
-                <span>
-                  <span className="block font-semibold">{row.name}</span>
-                  <span className="text-sm text-muted-foreground">{found.name}</span>
-                </span>
+                <span className="block font-semibold">{row.name}</span>
                 <span className="flex flex-wrap items-center gap-1.5">
                   <Badge variant={row.status === "live" ? "success" : "default"}>
                     {statusLabel(row.status)}

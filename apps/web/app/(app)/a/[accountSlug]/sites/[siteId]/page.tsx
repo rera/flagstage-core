@@ -75,19 +75,16 @@ export default async function SiteOverviewPage({
     .select()
     .from(membership)
     .where(eq(membership.accountId, found.accountId));
+  const personIds = [
+    ...new Set([
+      ...members.map((member) => member.userId),
+      ...snaps.map((item) => item.createdBy).filter((id): id is string => Boolean(id))
+    ])
+  ];
   const people =
-    members.length === 0
-      ? []
-      : await db
-          .select()
-          .from(user)
-          .where(
-            inArray(
-              user.id,
-              members.map((member) => member.userId)
-            )
-          );
+    personIds.length === 0 ? [] : await db.select().from(user).where(inArray(user.id, personIds));
   const byId = new Map(people.map((person) => [person.id, person]));
+  const history = snaps.slice(0, 3);
   const canPublish = can(principal, "site.publish", { accountId: found.accountId });
   const pending = snaps.find((item) => item.kind === "import");
   const showGoLive =
@@ -110,32 +107,39 @@ export default async function SiteOverviewPage({
           <Button type="submit">Go live</Button>
         </form>
       ) : null}
-      {found.status === "live" &&
-      (!found.draftSnapshotId || found.draftSnapshotId === found.currentSnapshotId) ? (
-        <p
-          role="status"
-          className="rounded-md border border-[var(--brand-signal)]/30 bg-[var(--done-wash)] px-4 py-3 text-sm"
-        >
-          This snapshot is live.
+      {found.draftSnapshotId && found.draftSnapshotId !== found.currentSnapshotId ? (
+        <p role="status" className="rounded-md border border-border bg-card px-4 py-3 text-sm">
+          A draft is waiting to go live.
+        </p>
+      ) : null}
+      {upcoming[0] ? (
+        <p className="rounded-md border border-border bg-card px-4 py-3 text-sm">
+          {describeSchedule(upcoming[0], zone)}
         </p>
       ) : null}
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-border bg-card px-4 py-4">
           <h2 className="text-base font-semibold">History</h2>
-          {snaps.length === 0 ? (
+          {history.length === 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">
               Versions show up after the import finishes.
             </p>
           ) : (
             <ul className="mt-3 divide-y divide-border text-sm">
-              {snaps.map((item) => {
+              {history.map((item) => {
                 const label = versionLabel(item.kind, item.id, found.currentSnapshotId);
+                const who = item.createdBy ? byId.get(item.createdBy) : undefined;
                 const restore =
                   canPublish && label === "Published" && item.id !== found.currentSnapshotId;
                 return (
                   <li key={item.id} className="flex items-center gap-3 py-2.5">
-                    <span className="font-medium">{label}</span>
-                    <span className="ml-auto text-muted-foreground">
+                    <span className="min-w-0">
+                      <span className="block font-medium">{label}</span>
+                      <span className="block text-muted-foreground">
+                        {who?.name || who?.email || "Someone on the account"}
+                      </span>
+                    </span>
+                    <span className="ml-auto shrink-0 text-muted-foreground">
                       {friendlyWhen(item.createdAt, zone)}
                     </span>
                     {restore ? (
@@ -245,7 +249,7 @@ export default async function SiteOverviewPage({
         <section className="rounded-xl border border-border bg-card px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">People</h2>
-            <a href={`/accounts/${found.accountId}`} className="text-sm font-medium text-primary">
+            <a href={`/a/${accountSlug}/people`} className="text-sm font-medium text-primary">
               Manage access
             </a>
           </div>
@@ -259,7 +263,13 @@ export default async function SiteOverviewPage({
               {members.map((member) => (
                 <li key={member.id} className="flex items-center justify-between gap-3">
                   <span>{byId.get(member.userId)?.email ?? member.userId}</span>
-                  <span className="text-muted-foreground">Account admin</span>
+                  <span className="text-muted-foreground">
+                    {member.role === "account_admin"
+                      ? "Account admin"
+                      : member.role === "member"
+                        ? "Member"
+                        : member.role}
+                  </span>
                 </li>
               ))}
             </ul>

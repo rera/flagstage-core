@@ -100,8 +100,8 @@ const leeId = await ensureUser({
 });
 
 const parksId = await ensureAccount("Parks", "parks");
-const harborId = await ensureAccount("Harbor", "harbor", 40);
-const northId = await ensureAccount("North", "north");
+const harborId = await ensureAccount("Harbor Labs", "harbor", 40);
+const northId = await ensureAccount("North Studio", "north");
 
 await ensureMembership(parksId, adminId, "account_admin");
 await ensureMembership(harborId, adaId, "account_admin");
@@ -110,29 +110,55 @@ await ensureMembership(harborId, samId, "account_admin");
 await ensureMembership(northId, samId, "account_admin");
 await ensureMembership(northId, leeId, "account_admin");
 
-const harborSites = await db.select().from(site).where(eq(site.slug, "harbor"));
+const harborSites = await db.select().from(site).where(eq(site.slug, "waterfront"));
 if (!harborSites[0]) {
   const siteId = randomUUID();
   const snapId = randomUUID();
+  const earlierId = randomUUID();
+  const oldestId = randomUUID();
   const threadId = randomUUID();
+  const now = Date.now();
   await db.insert(site).values({
     id: siteId,
     accountId: harborId,
-    name: "Harbor",
-    slug: "harbor",
+    name: "Waterfront",
+    slug: "waterfront",
     sourceUrl: "https://harbor.example",
     status: "importing",
     timeZone: "America/Los_Angeles"
   });
-  await db.insert(snapshot).values({
-    id: snapId,
-    siteId,
-    kind: "publish",
-    storagePrefix: `sites/${siteId}/${snapId}`,
-    fileCount: 4,
-    bytes: 12000,
-    createdBy: adaId
-  });
+  await db.insert(snapshot).values([
+    {
+      id: oldestId,
+      siteId,
+      kind: "import",
+      storagePrefix: `sites/${siteId}/${oldestId}`,
+      fileCount: 3,
+      bytes: 9000,
+      createdBy: samId,
+      createdAt: new Date(now - 5 * 24 * 60 * 60 * 1000)
+    },
+    {
+      id: earlierId,
+      siteId,
+      kind: "edit",
+      storagePrefix: `sites/${siteId}/${earlierId}`,
+      fileCount: 4,
+      bytes: 11000,
+      createdBy: miaId,
+      createdAt: new Date(now - 24 * 60 * 60 * 1000)
+    },
+    {
+      id: snapId,
+      siteId,
+      kind: "publish",
+      storagePrefix: `sites/${siteId}/${snapId}`,
+      fileCount: 4,
+      bytes: 12000,
+      createdBy: adaId,
+      createdAt: new Date(now)
+    }
+  ]);
   await db
     .update(site)
     .set({ status: "live", currentSnapshotId: snapId })
@@ -167,13 +193,13 @@ if (!pierSites[0]) {
   });
 }
 
-const northSites = await db.select().from(site).where(eq(site.slug, "north-hall"));
+const northSites = await db.select().from(site).where(eq(site.slug, "studio-hall"));
 if (!northSites[0]) {
   await db.insert(site).values({
     id: randomUUID(),
     accountId: northId,
-    name: "North hall",
-    slug: "north-hall",
+    name: "Studio hall",
+    slug: "studio-hall",
     sourceUrl: "https://north.example",
     status: "preview",
     timeZone: "UTC"

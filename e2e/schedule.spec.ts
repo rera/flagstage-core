@@ -65,6 +65,6 @@ test("schedules a publish a minute out and sees it go live", async ({ page }, te
 
   await expect(async () => {
     await page.reload();
-    await expect(page.getByText("Live", { exact: true })).toBeVisible();
+    await expect(page.locator("#content").getByText("Live", { exact: true }).first()).toBeVisible();
   }).toPass({ timeout: 120_000 });
 });

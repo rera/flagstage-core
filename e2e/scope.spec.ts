@@ -32,7 +32,7 @@ test("scopes navigation to the signed-in role", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Accounts", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Switch account/ })).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Admin" })).toHaveCount(0);
-  await expect(page.getByText("North hall")).toHaveCount(0);
+  await expect(page.getByText("Studio hall")).toHaveCount(0);
   await page.goto("/a/north/sites");
   await expect(page.getByRole("heading", { name: "This page is not available" })).toBeVisible();
   await page.goto("/a/harbor/sites/not-a-harbor-site");
@@ -61,8 +61,8 @@ test("scopes navigation to the signed-in role", async ({ page }) => {
   await revealNav(page);
   await page.getByRole("button", { name: /Switch account/ }).click();
   await expect(page.getByRole("listbox", { name: "Accounts" }).getByRole("option")).toHaveText([
-    "Harbor",
-    "North"
+    "Harbor Labs",
+    "North Studio"
   ]);
   await expect(page.getByRole("link", { name: "Accounts", exact: true })).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Admin" })).toHaveCount(0);
@@ -78,8 +78,8 @@ test("scopes navigation to the signed-in role", async ({ page }) => {
   await expect(
     page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name: "Sites" })
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: /Harbor/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /North/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Harbor Labs/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /North Studio/ })).toBeVisible();
 });
 
 test("remembers the collapsed sidebar and scopes the account switcher", async ({
@@ -98,14 +98,14 @@ test("remembers the collapsed sidebar and scopes the account switcher", async ({
   await signIn(page, "sam@example.com");
   await page.getByRole("button", { name: /Switch account/ }).click();
   await expect(page.getByRole("listbox", { name: "Accounts" }).getByRole("option")).toHaveText([
-    "Harbor",
-    "North"
+    "Harbor Labs",
+    "North Studio"
   ]);
   await signOut(page);
 
   await signIn(page, "lee@example.com");
   await expect(page).toHaveURL(/\/a\/north\/sites\/[^/]+$/);
-  await expect(page.getByRole("heading", { name: "North hall" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Studio hall" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Switch account/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Make changes", exact: true })).toBeVisible();
 });
@@ -133,7 +133,7 @@ test("writes role screenshots", async ({ browser }, testInfo) => {
   await expect(page.getByRole("heading", { name: "Usage" })).toBeVisible();
   await page.screenshot({ path: `${dir}/account-admin-usage.png` });
   await page.getByRole("link", { name: "All sites", exact: true }).click();
-  await page.getByRole("link", { name: /^Harbor/ }).click();
+  await page.getByRole("link", { name: /^Waterfront/ }).click();
   await expect(page.getByRole("link", { name: "Make changes", exact: true })).toBeVisible();
   await page.screenshot({ path: `${dir}/account-admin-site.png` });
   await page.getByRole("button", { name: "Collapse sidebar" }).click();
@@ -151,13 +151,13 @@ test("writes role screenshots", async ({ browser }, testInfo) => {
 
   await signIn(page, "sam@example.com");
   await page.getByRole("button", { name: /Switch account/ }).click();
-  await expect(page.getByRole("option", { name: "North" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "North Studio" })).toBeVisible();
   await page.screenshot({ path: `${dir}/account-switcher.png` });
   await page.screenshot({ path: `${dir}/switcher.png` });
   await signOut(page);
 
   await signIn(page, "lee@example.com");
-  await expect(page.getByRole("heading", { name: "North hall" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Studio hall" })).toBeVisible();
   await page.screenshot({ path: `${dir}/single-site-overview.png` });
   await signOut(page);
 

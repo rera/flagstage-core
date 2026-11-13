@@ -18,6 +18,15 @@ function rememberCollapsed(next: boolean) {
   document.cookie = `${SIDEBAR_COOKIE}=${next ? "collapsed" : "expanded"}; Path=/; Max-Age=31536000; SameSite=Lax`;
 }
 
+function initials(person: string) {
+  const parts = person.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = parts[0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1] ?? "") : "";
+  const letters = last ? `${first[0] ?? ""}${last[0] ?? ""}` : first.slice(0, 2);
+  return letters.toUpperCase();
+}
+
 export type ShellAccount = { id: string; slug: string; name: string };
 export type ShellSite = { id: string; name: string; status: string; host: string };
 
@@ -184,7 +193,7 @@ export function AppShell({
           collapsed ? "md:w-16" : "md:w-60"
         )}
       >
-        <div className="relative flex items-start gap-2 px-3 pt-3">
+        <div className="relative flex items-start gap-2.5 px-3 pt-4">
           <a href={home} className="mt-0.5 shrink-0" aria-label={name}>
             {logoSrc ? (
               <img src={logoSrc} alt="" width={36} height={36} className="size-9 rounded-[9px]" />
@@ -195,73 +204,75 @@ export function AppShell({
             )}
           </a>
           <div className={cn("flex min-w-0 flex-1 flex-col", rail && "md:hidden")}>
-            {showAccount ? (
+            {current && showAccount ? (
               <button
                 type="button"
-                className="flex min-w-0 items-center gap-1 rounded-[10px] px-1.5 py-1 text-left text-sm font-semibold hover:bg-background"
+                className="flex min-w-0 items-center gap-1 px-0.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
                 aria-expanded={menu === "account"}
                 aria-haspopup="listbox"
-                aria-label={
-                  current ? `Switch account, ${current.name}` : "Switch account, Choose an account"
-                }
+                aria-label={`Switch account, ${current.name}`}
                 onClick={() => setMenu((value) => (value === "account" ? null : "account"))}
               >
-                <span className="truncate">{current?.name ?? "Choose an account"}</span>
-                <span
-                  aria-hidden
-                  className="inline-block size-1.5 shrink-0 rotate-45 border-b border-r border-current"
-                />
-              </button>
-            ) : null}
-            {current && showSiteMenu ? (
-              <button
-                type="button"
-                className="flex min-w-0 items-center gap-1 rounded-[10px] px-1.5 py-1 text-left text-sm font-semibold hover:bg-background"
-                aria-expanded={menu === "site"}
-                aria-haspopup="listbox"
-                aria-label={`Switch site, ${siteLabel}`}
-                onClick={() => setMenu((value) => (value === "site" ? null : "site"))}
-              >
-                {showAccount ? (
-                  <span aria-hidden className="text-muted-foreground">
-                    ›
-                  </span>
-                ) : null}
-                <span className="truncate">{siteLabel}</span>
+                <span className="truncate">{current.name}</span>
                 <span
                   aria-hidden
                   className="inline-block size-1.5 shrink-0 rotate-45 border-b border-r border-current"
                 />
               </button>
             ) : current ? (
-              <span className="flex min-w-0 items-center gap-1 px-1.5 py-1 text-sm font-semibold">
-                {showAccount ? (
-                  <span aria-hidden className="text-muted-foreground">
-                    ›
+              <p className="truncate px-0.5 text-xs font-medium text-muted-foreground">
+                {current.name}
+              </p>
+            ) : showAccount ? (
+              <button
+                type="button"
+                className="flex min-w-0 items-center gap-1 px-0.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+                aria-expanded={menu === "account"}
+                aria-haspopup="listbox"
+                aria-label="Switch account, Choose an account"
+                onClick={() => setMenu((value) => (value === "account" ? null : "account"))}
+              >
+                <span className="truncate">Choose an account</span>
+                <span
+                  aria-hidden
+                  className="inline-block size-1.5 shrink-0 rotate-45 border-b border-r border-current"
+                />
+              </button>
+            ) : (
+              <p className="truncate px-0.5 text-sm font-semibold">{name}</p>
+            )}
+            {current && showSiteMenu ? (
+              <button
+                type="button"
+                className="mt-0.5 flex min-w-0 flex-col items-start px-0.5 text-left hover:text-foreground"
+                aria-expanded={menu === "site"}
+                aria-haspopup="listbox"
+                aria-label={`Switch site, ${siteLabel}`}
+                onClick={() => setMenu((value) => (value === "site" ? null : "site"))}
+              >
+                <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
+                  {currentSite ? (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "size-1.5 shrink-0 rounded-full",
+                        currentSite.status === "live" ? "bg-primary" : "bg-muted-foreground"
+                      )}
+                    />
+                  ) : null}
+                  <span className="truncate">{siteLabel}</span>
+                </span>
+                {currentSite ? (
+                  <span className="mt-0.5 flex min-w-0 items-center gap-2 pl-3 text-[11px] text-muted-foreground">
+                    <span className="truncate font-mono">{currentSite.host}</span>
+                    <span>{statusLabel(currentSite.status)}</span>
                   </span>
                 ) : null}
-                <span className="truncate">{siteLabel}</span>
-              </span>
-            ) : !showAccount ? (
-              <span className="truncate px-1.5 py-1 text-sm font-semibold">{name}</span>
+              </button>
+            ) : current ? (
+              <p className="mt-0.5 truncate px-0.5 text-sm font-semibold">{siteLabel}</p>
             ) : null}
           </div>
-          <button
-            type="button"
-            className="mt-0.5 hidden size-8 shrink-0 items-center justify-center rounded-[10px] text-muted-foreground hover:bg-background hover:text-foreground md:inline-flex"
-            aria-pressed={collapsed}
-            aria-keyshortcuts="Control+B Meta+B"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={() => {
-              setCollapsed((value) => {
-                rememberCollapsed(!value);
-                return !value;
-              });
-            }}
-          >
-            <NavIcon name={collapsed ? "expand" : "collapse"} />
-          </button>
           {menu === "account" && showAccount ? (
             <ul
               role="listbox"
@@ -406,18 +417,51 @@ export function AppShell({
           ) : null}
         </div>
         <div className="mt-auto border-t border-border p-3">
-          <p className={cn("truncate px-3 pb-1 text-sm font-medium", rail && "md:sr-only")}>
-            {person || name}
-          </p>
-          <form action={signOut}>
+          <div className={cn("flex items-center gap-2", rail && "md:flex-col")}>
+            <span
+              className={cn(
+                "grid size-9 shrink-0 place-items-center rounded-full border border-border text-xs font-semibold",
+                rail ? "md:grid" : "hidden"
+              )}
+              title={person || name}
+            >
+              {initials(person || name)}
+            </span>
+            <p className={cn("min-w-0 flex-1 truncate text-sm font-medium", rail && "md:sr-only")}>
+              {person || name}
+            </p>
+            <button
+              type="button"
+              className="hidden size-9 shrink-0 items-center justify-center rounded-[10px] text-muted-foreground hover:text-foreground md:inline-flex"
+              aria-pressed={collapsed}
+              aria-keyshortcuts="Control+B Meta+B"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={() => {
+                setCollapsed((value) => {
+                  rememberCollapsed(!value);
+                  return !value;
+                });
+              }}
+            >
+              <NavIcon name={collapsed ? "expand" : "collapse"} />
+            </button>
+          </div>
+          <form action={signOut} className="mt-1">
             <Button
               type="submit"
               variant="ghost"
               size="sm"
               className={cn("w-full justify-start", rail && "md:justify-center md:px-0")}
-              title={rail ? "Sign out" : undefined}
+              title="Sign out"
             >
               <span className={rail ? "md:sr-only" : undefined}>Sign out</span>
+              <span
+                className={cn("hidden text-base leading-none", rail && "md:inline")}
+                aria-hidden
+              >
+                ↪
+              </span>
             </Button>
           </form>
         </div>
