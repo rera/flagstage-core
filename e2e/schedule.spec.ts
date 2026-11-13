@@ -13,14 +13,16 @@ test("schedules a publish a minute out and sees it go live", async ({ page }, te
   await signIn.getByLabel("Email").fill("e2e@example.com");
   await signIn.getByLabel("Password").fill("e2e-password-e2e-password");
   await signIn.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/accounts/);
+  await expect(page).toHaveURL(/\/admin\/accounts/);
 
-  await page.goto("/sites");
+  await page.goto("/a/parks/sites");
   await page.getByRole("button", { name: "New site" }).click();
   await page.getByLabel("Site name").fill(`Schedule ${stamp}`);
   await page.getByLabel("Site address").fill(fixture);
   await page.getByRole("button", { name: "Import a site" }).click();
   await expect(page).toHaveURL(/\/sites\/[^/]+$/);
+  const menu = page.getByRole("button", { name: "Menu", exact: true });
+  if (await menu.isVisible()) await menu.click();
   await page.getByRole("link", { name: "Make changes", exact: true }).click();
   await expect(page).toHaveURL(/\/edit$/);
   await expect(async () => {

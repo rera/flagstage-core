@@ -32,13 +32,13 @@ pnpm flagstage import https://example.com --account parks --name "Parks site"
 
 Then open the site in the app, choose Go live, and ask for a change in chat. Publish the preview.
 
-`flagstage admin add --email you@example.com` creates an admin and prints a password once. `flagstage member add` grants account admin on an account. See [Invite account admins](account-admins.md).
+`flagstage admin add --email you@example.com` creates an admin and prints a password once. `flagstage member add` grants account admin on an account. `flagstage member add --role member` grants read access. See [Invite account admins](account-admins.md).
 
 ## What to do next
 
-| You want to…               | Read                                                                                                      |
-| -------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Put it on AWS              | [Deploy on AWS](self-hosting/aws.md)                                                                      |
-| Sign people in             | Email and password. The first admin is `adminEmail` in `flagstage.config.json`, or `flagstage admin add`. |
-| Point a hostname at a site | [DNS checklist](domains.md)                                                                               |
-| Upgrade later              | [Upgrading](upgrading.md)                                                                                 |
+| You want to…               | Read                                                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Put it on AWS              | [Deploy on AWS](self-hosting/aws.md)                                                                                                                               |
+| Sign people in             | Email and password. The first admin is `adminEmail` in `flagstage.config.json`, or `flagstage admin add`. `flagstage member add --role member` grants read access. |
+| Point a hostname at a site | [DNS checklist](domains.md)                                                                                                                                        |
+| Upgrade later              | [Upgrading](upgrading.md)                                                                                                                                          |

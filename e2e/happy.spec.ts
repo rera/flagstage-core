@@ -27,25 +27,27 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await signIn.getByLabel("Email").fill("e2e@example.com");
   await signIn.getByLabel("Password").fill("e2e-password-e2e-password");
   await signIn.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/accounts/);
+  await expect(page).toHaveURL(/\/admin\/accounts/);
   await revealNav(page);
   await expect(
-    page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Sites" })
+    page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name: "Accounts" })
   ).toBeVisible();
   await expect(
-    page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Accounts" })
+    page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name: "People" })
   ).toBeVisible();
   await expectAccessible(page);
 
-  await page.goto("/sites");
+  await page.goto("/a/parks/sites");
   await page.getByRole("button", { name: "New site" }).click();
   await page.getByLabel("Site name").fill(siteName);
   await page.getByLabel("Site address").fill(fixture);
   await page.getByRole("button", { name: "Import a site" }).click();
   await expect(page).toHaveURL(/\/sites\/[^/]+$/);
-  const headingBox = await page.getByRole("heading", { name: siteName }).boundingBox();
-  const tabBox = await page.getByRole("link", { name: "Overview", exact: true }).boundingBox();
-  expect(headingBox && tabBox && headingBox.y < tabBox.y).toBe(true);
+  await expect(page.getByRole("heading", { name: siteName })).toBeVisible();
+  await revealNav(page);
+  await expect(
+    page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Overview" })
+  ).toBeVisible();
   await page.getByRole("link", { name: "Make changes", exact: true }).click();
   await expect(page).toHaveURL(/\/edit$/);
 
@@ -81,7 +83,11 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await expect(page.getByRole("status")).toHaveText("This snapshot is live.");
 
   await page.getByRole("link", { name: siteName }).click();
-  await page.getByRole("link", { name: "Domain", exact: true }).click();
+  await revealNav(page);
+  await page
+    .getByRole("navigation", { name: "Site" })
+    .getByRole("link", { name: "Domain" })
+    .click();
   await expect(page.getByRole("heading", { name: "Domain" })).toBeVisible();
   await page.getByLabel("Hostname").fill(hostname);
   await page.getByRole("button", { name: "Add hostname" }).click();
@@ -91,20 +97,26 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await page.getByRole("button", { name: "Check again" }).click();
   await expect(page.getByText("Not found yet")).toBeVisible();
 
-  await page.getByRole("link", { name: "Forms", exact: true }).click();
+  await revealNav(page);
+  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Forms" }).click();
   await expect(page.getByRole("heading", { name: "No form submissions" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open the site" })).toBeVisible();
 
-  await page.goto("/accounts");
+  await page.goto("/admin/accounts");
   await page.getByRole("link", { name: "Parks" }).click();
-  await expect(page.getByRole("heading", { name: "Sites" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: siteName })).toBeVisible();
+  await revealNav(page);
+  await page
+    .getByRole("navigation", { name: "Account" })
+    .getByRole("link", { name: "People" })
+    .click();
   await expect(page.getByRole("button", { name: "Invite" })).toBeVisible();
   await page.goto("/admin");
   await revealNav(page);
   await expect(page.getByRole("heading", { name: "People" })).toBeVisible();
   await expect(
     page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name: "Accounts" })
-  ).toHaveCount(0);
+  ).toBeVisible();
   await expect(
     page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name: "Usage" })
   ).toBeVisible();
@@ -114,6 +126,6 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
 });
 
 async function revealNav(page: Page) {
-  const menu = page.getByRole("button", { name: "Menu" });
+  const menu = page.getByRole("button", { name: "Menu", exact: true });
   if (await menu.isVisible()) await menu.click();
 }

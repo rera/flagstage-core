@@ -1,25 +1,25 @@
 import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
 
 import { Button, EmptyState, PageHeader } from "@flagstage/ui";
 import { can } from "@flagstage/core";
-import { site, siteSchedule } from "@flagstage/db";
+import { siteSchedule } from "@flagstage/db";
 import { describeSchedule, runDueSchedules, syncScheduleHost } from "@flagstage/publish";
 import { zoneTitle } from "@flagstage/publish/when";
 
-import { cancelScheduleAction } from "../../../../../src/actions";
-import { database, requirePrincipal } from "../../../../../src/guard";
-import { Page } from "../../../../../src/page";
-import { SchedulePanel } from "../../../../../src/schedule-form";
-import { SiteIdentity, SiteNav } from "../../../../../src/site-nav";
+import { cancelScheduleAction } from "../../../../../../../src/actions";
+import { database, requireSite } from "../../../../../../../src/guard";
+import { Page } from "../../../../../../../src/page";
+import { SchedulePanel } from "../../../../../../../src/schedule-form";
+import { SiteIdentity } from "../../../../../../../src/site-nav";
 
-export default async function ScheduledPage({ params }: { params: Promise<{ siteId: string }> }) {
-  const { siteId } = await params;
-  const principal = await requirePrincipal();
+export default async function ScheduledPage({
+  params
+}: {
+  params: Promise<{ accountSlug: string; siteId: string }>;
+}) {
+  const { accountSlug, siteId } = await params;
+  const { principal, site: found } = await requireSite(accountSlug, siteId);
   const db = database();
-  const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
-  const found = rows[0];
-  if (!found || !can(principal, "site.read", { accountId: found.accountId })) notFound();
   const applied = await runDueSchedules(db, new Date()).catch(() => [] as string[]);
   for (const id of applied) await syncScheduleHost(db, id).catch(() => undefined);
   const schedules = (
@@ -30,19 +30,9 @@ export default async function ScheduledPage({ params }: { params: Promise<{ site
   return (
     <Page>
       <div className="space-y-4">
-        <SiteIdentity
-          siteId={found.id}
-          name={found.name}
-          status={found.status}
-          host={`${found.slug}.localhost`}
-        />
-        <SiteNav siteId={found.id} current="scheduled" />
+        <SiteIdentity name={found.name} status={found.status} host={`${found.slug}.localhost`} />
       </div>
-      <PageHeader
-        level={2}
-        title="Scheduled"
-        description={`Times use ${zoneTitle(zone)}.`}
-      />
+      <PageHeader level={2} title="Scheduled" description={`Times use ${zoneTitle(zone)}.`} />
       {schedules.length === 0 ? (
         <EmptyState
           title="Nothing scheduled"

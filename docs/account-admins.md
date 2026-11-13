@@ -14,6 +14,6 @@ flagstage account create "Parks"
 flagstage member add --email parks@example.com --account parks
 ```
 
-`admin add` prints a password once when it creates the person. If the email already exists, it grants admin and leaves the password alone. `member add` grants account admin on that account.
+`admin add` prints a password once when it creates the person. If the email already exists, it grants admin and leaves the password alone. `member add` grants account admin on that account. `flagstage member add --role member` grants read access to that account's sites, people, and usage.
 
 <!-- copy-review: required before announce -->

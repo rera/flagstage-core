@@ -1,35 +1,29 @@
 import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
 
 import { can } from "@flagstage/core";
-import { site, siteDomain } from "@flagstage/db";
+import { siteDomain } from "@flagstage/db";
 import type { DnsRecord } from "@flagstage/domains";
 import { Badge, Button, Field, PageHeader, t } from "@flagstage/ui";
 
-import { addDomainAction, recheckDomainAction } from "../../../../../src/actions";
-import { database, requirePrincipal } from "../../../../../src/guard";
-import { Page } from "../../../../../src/page";
-import { SiteIdentity, SiteNav } from "../../../../../src/site-nav";
+import { addDomainAction, recheckDomainAction } from "../../../../../../../src/actions";
+import { database, requireSite } from "../../../../../../../src/guard";
+import { Page } from "../../../../../../../src/page";
+import { SiteIdentity } from "../../../../../../../src/site-nav";
 
-export default async function DomainPage({ params }: { params: Promise<{ siteId: string }> }) {
-  const { siteId } = await params;
-  const principal = await requirePrincipal();
+export default async function DomainPage({
+  params
+}: {
+  params: Promise<{ accountSlug: string; siteId: string }>;
+}) {
+  const { accountSlug, siteId } = await params;
+  const { principal, site: found } = await requireSite(accountSlug, siteId);
   const db = database();
-  const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
-  const found = rows[0];
-  if (!found || !can(principal, "site.read", { accountId: found.accountId })) notFound();
   const domains = await db.select().from(siteDomain).where(eq(siteDomain.siteId, siteId));
   const canManage = can(principal, "domain.manage", { accountId: found.accountId });
   return (
     <Page>
       <div className="space-y-4">
-        <SiteIdentity
-          siteId={found.id}
-          name={found.name}
-          status={found.status}
-          host={`${found.slug}.localhost`}
-        />
-        <SiteNav siteId={found.id} current="domain" />
+        <SiteIdentity name={found.name} status={found.status} host={`${found.slug}.localhost`} />
       </div>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,32rem)_minmax(16rem,22rem)]">
         <div className="space-y-6">

@@ -27,7 +27,12 @@ import {
 
 async function applyMigrations(client: PGlite) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "../../../packages/db/drizzle");
-  for (const file of ["0000_init.sql", "0001_auth_plugins.sql", "0003_builder.sql", "0004_schedule.sql"]) {
+  for (const file of [
+    "0000_init.sql",
+    "0001_auth_plugins.sql",
+    "0003_builder.sql",
+    "0004_schedule.sql"
+  ]) {
     const sqlText = readFileSync(join(root, file), "utf8");
     for (const statement of sqlText.split("--> statement-breakpoint")) {
       const query = statement.trim();
@@ -78,6 +83,18 @@ describe("flagstage commands", () => {
     expect(
       parseCommand(["member", "add", "--email", "ed@example.com", "--account", "parks"])
     ).toMatchObject({ kind: "member-add", email: "ed@example.com", role: "account_admin" });
+    expect(
+      parseCommand([
+        "member",
+        "add",
+        "--email",
+        "mia@example.com",
+        "--account",
+        "parks",
+        "--role",
+        "member"
+      ])
+    ).toMatchObject({ kind: "member-add", email: "mia@example.com", role: "member" });
     expect(parseCommand(["site", "export", "demo", "--out", "demo.tgz"])).toEqual({
       kind: "site-export",
       site: "demo",

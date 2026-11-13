@@ -24,7 +24,7 @@ const usage = `flagstage commands:
   doctor
   admin add --email <email> [--name <name>]
   account create <name>
-  member add --email <email> --account <slug> [--name <name>]
+  member add --email <email> --account <slug> [--role account_admin|member] [--name <name>]
   user reset-password --email <email>
   import <url> --account <slug> [--name <name>]
   site export <site> --out <file.tgz>

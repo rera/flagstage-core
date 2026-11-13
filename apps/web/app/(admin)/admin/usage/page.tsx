@@ -36,7 +36,7 @@ export default async function UsagePage() {
   return (
     <AdminPage
       title="Usage"
-      description="Estimated model cost for every account. Set a budget on the account page."
+      description="Estimated model cost for every account. Set a budget on the account's Usage page."
       stats={[
         { label: "Edits this month", value: String(monthEdits.length) },
         { label: "Estimated cost", value: spent.text, title: spent.title }
@@ -64,12 +64,12 @@ export default async function UsagePage() {
             <section key={item.id} className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
                 <h2 className="text-base font-semibold">
-                  <a href={`/accounts/${item.id}`} className="hover:underline">
+                  <a href={`/a/${item.slug}/usage`} className="hover:underline">
                     {item.name}
                   </a>
                 </h2>
-                <a href={`/accounts/${item.id}`} className="text-sm font-medium text-primary">
-                  Account
+                <a href={`/a/${item.slug}/usage`} className="text-sm font-medium text-primary">
+                  Usage
                 </a>
               </div>
               {over ? <Alert variant="destructive">{t("usage.over")}</Alert> : null}

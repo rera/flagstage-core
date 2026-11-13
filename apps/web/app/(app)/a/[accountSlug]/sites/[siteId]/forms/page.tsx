@@ -2,21 +2,24 @@ import { eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
 import { can } from "@flagstage/core";
-import { formSubmission, leadForm, site } from "@flagstage/db";
+import { formSubmission, leadForm } from "@flagstage/db";
 import { EmptyState, PageHeader, Table, TableBody, TableCell, TableRow, t } from "@flagstage/ui";
 
-import { database, requirePrincipal } from "../../../../../src/guard";
-import { Page } from "../../../../../src/page";
-import { SiteIdentity, SiteNav } from "../../../../../src/site-nav";
-import { friendlyWhen } from "../../../../../src/time";
+import { database, requireSite } from "../../../../../../../src/guard";
+import { Page } from "../../../../../../../src/page";
+import { SiteIdentity } from "../../../../../../../src/site-nav";
+import { friendlyWhen } from "../../../../../../../src/time";
 
-export default async function FormsPage({ params }: { params: Promise<{ siteId: string }> }) {
-  const { siteId } = await params;
-  const principal = await requirePrincipal();
+export default async function FormsPage({
+  params
+}: {
+  params: Promise<{ accountSlug: string; siteId: string }>;
+}) {
+  const { accountSlug, siteId } = await params;
+  const { principal, site: found } = await requireSite(accountSlug, siteId);
+  if (!can(principal, "form.read", { accountId: found.accountId })) notFound();
   const db = database();
-  const sites = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
-  const found = sites[0];
-  if (!found || !can(principal, "form.read", { accountId: found.accountId })) notFound();
+  const base = "/a/" + accountSlug + "/sites/" + found.id;
   const forms = await db.select().from(leadForm).where(eq(leadForm.siteId, siteId));
   const submissions =
     forms.length === 0
@@ -38,13 +41,7 @@ export default async function FormsPage({ params }: { params: Promise<{ siteId: 
   return (
     <Page>
       <div className="space-y-4">
-        <SiteIdentity
-          siteId={found.id}
-          name={found.name}
-          status={found.status}
-          host={`${found.slug}.localhost`}
-        />
-        <SiteNav siteId={found.id} current="forms" />
+        <SiteIdentity name={found.name} status={found.status} host={`${found.slug}.localhost`} />
       </div>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,36rem)_minmax(16rem,22rem)]">
         <div className="space-y-4">
@@ -58,7 +55,7 @@ export default async function FormsPage({ params }: { params: Promise<{ siteId: 
               title={t("forms.emptyTitle")}
               description={t("forms.emptyBody")}
               action={
-                <a href={`/sites/${siteId}`} className="text-sm font-medium text-primary">
+                <a href={base} className="text-sm font-medium text-primary">
                   {t("forms.emptyAction")}
                 </a>
               }

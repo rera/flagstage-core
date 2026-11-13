@@ -3,11 +3,20 @@
 import { randomUUID } from "node:crypto";
 
 import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { loadConfig } from "@flagstage/config";
 import { setUserPassword } from "@flagstage/auth";
-import { acceptInvitation, can, createAccount, createInvitation, slugify } from "@flagstage/core";
+import {
+  acceptInvitation,
+  can,
+  createAccount,
+  createInvitation,
+  hasAnyAccess,
+  loadGrants,
+  slugify
+} from "@flagstage/core";
 import { importRun, message, site, thread, user } from "@flagstage/db";
 import { sendEmail } from "@flagstage/forms";
 import { approveImport } from "@flagstage/importer";
@@ -42,9 +51,10 @@ import {
   type DnsRecord
 } from "@flagstage/domains";
 
+import { ACCOUNT_COOKIE, SITE_COOKIE } from "./account-cookie";
 import { getAuth } from "./auth";
 import { applyAuthResponse } from "./cookies";
-import { database, requirePrincipal } from "./guard";
+import { database, landingPath, requirePrincipal } from "./guard";
 
 async function deliver(to: string, subject: string, text: string) {
   const config = loadConfig();
@@ -57,6 +67,28 @@ async function deliver(to: string, subject: string, text: string) {
 
 function appUrl() {
   return loadConfig().APP_URL;
+}
+
+async function accountSlugFor(accountId: string) {
+  const rows = await database()
+    .select({ slug: account.slug })
+    .from(account)
+    .where(eq(account.id, accountId))
+    .limit(1);
+  return rows[0]?.slug;
+}
+
+async function siteHref(siteId: string, rest = "") {
+  const rows = await database()
+    .select({ accountId: site.accountId })
+    .from(site)
+    .where(eq(site.id, siteId))
+    .limit(1);
+  const accountId = rows[0]?.accountId;
+  if (!accountId) return "/";
+  const slug = await accountSlugFor(accountId);
+  if (!slug) return "/";
+  return `/a/${slug}/sites/${siteId}${rest}`;
 }
 
 function liveHost(slug: string) {
@@ -98,10 +130,28 @@ export async function signInWithPassword(formData: FormData) {
   );
   await applyAuthResponse(response);
   if (!response.ok) redirect("/sign-in?error=1");
-  redirect("/accounts");
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  const people = await database().select().from(user).where(eq(user.email, email)).limit(1);
+  const person = people[0];
+  if (!person) redirect("/sign-in?error=1");
+  const grants = await loadGrants(database(), person.id);
+  const principal = {
+    id: person.id,
+    orgRole: grants.orgRole,
+    disabled: grants.disabled,
+    memberships: grants.memberships
+  };
+  if (!hasAnyAccess(principal)) redirect("/no-access");
+  redirect(await landingPath(principal));
 }
 
 export async function signOut() {
+  const jar = await cookies();
+  const clear = { path: "/", maxAge: 0, httpOnly: true, sameSite: "lax" as const };
+  jar.set(ACCOUNT_COOKIE, "", clear);
+  jar.set(SITE_COOKIE, "", clear);
   const response = await getAuth().handler(
     new Request(`${appUrl()}/api/auth/sign-out`, {
       method: "POST",
@@ -129,9 +179,9 @@ export async function createAccountAction(formData: FormData) {
   const principal = await requirePrincipal();
   if (!can(principal, "org.manage")) redirect("/no-access");
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) failTo(formData, "/accounts");
+  if (!name) failTo(formData, "/admin/accounts");
   const created = await createAccount(database(), name);
-  redirect(nextPath(formData, `/accounts/${created.id}`));
+  redirect(nextPath(formData, `/a/${created.slug}/sites`));
 }
 
 export async function inviteMember(
@@ -158,13 +208,14 @@ export async function inviteMember(
 
 export async function acceptInviteAction(formData: FormData) {
   const principal = await requirePrincipal();
-  await acceptInvitation(
+  const invite = await acceptInvitation(
     database(),
     String(formData.get("token") ?? ""),
     principal.id,
     principal.email
   );
-  redirect("/accounts");
+  const slug = await accountSlugFor(invite.accountId);
+  redirect(slug ? `/a/${slug}/sites` : await landingPath(principal));
 }
 
 export async function setOrgRoleAction(formData: FormData) {
@@ -192,7 +243,9 @@ export async function importSiteAction(formData: FormData) {
   if (!can(principal, "site.manage", { accountId })) redirect("/no-access");
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
-  if (!sourceUrl || !name) redirect("/sites?error=1");
+  const accountSlug = await accountSlugFor(accountId);
+  const sitesPath = accountSlug ? `/a/${accountSlug}/sites` : "/";
+  if (!sourceUrl || !name) redirect(`${sitesPath}?error=1`);
   const db = database();
   const siteId = randomUUID();
   const runId = randomUUID();
@@ -225,9 +278,9 @@ export async function importSiteAction(formData: FormData) {
       .set({ status: "failed", error: messageText, updatedAt: new Date() })
       .where(eq(importRun.id, runId));
     await db.update(site).set({ status: "failed" }).where(eq(site.id, siteId));
-    redirect("/sites?error=1");
+    redirect(`${sitesPath}?error=1`);
   }
-  redirect(`/sites/${siteId}`);
+  redirect(accountSlug ? `/a/${accountSlug}/sites/${siteId}` : sitesPath);
 }
 
 export async function approveSiteAction(formData: FormData) {
@@ -240,7 +293,7 @@ export async function approveSiteAction(formData: FormData) {
   const config = loadConfig();
   const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
   const found = rows[0];
-  if (!found) redirect("/sites");
+  if (!found) redirect(await landingPath(principal));
   await approveImport({
     db: database(),
     siteId,
@@ -250,7 +303,7 @@ export async function approveSiteAction(formData: FormData) {
     hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`
   });
   await publishHostMap(liveHost(found.slug), snapshotPrefix(siteId, snapshotId));
-  redirect(nextPath(formData, `/sites/${siteId}`));
+  redirect(nextPath(formData, await siteHref(siteId)));
 }
 
 function editor() {
@@ -277,7 +330,7 @@ export async function sendMessageAction(formData: FormData) {
   const canEdit = can(principal, "site.edit", { accountId });
   if (!canComment && !canEdit) redirect("/no-access");
   const body = String(formData.get("body") ?? "").trim();
-  if (!body) redirect(nextPath(formData, `/sites/${siteId}/edit`));
+  if (!body) redirect(nextPath(formData, await siteHref(siteId, "/edit")));
   const db = database();
   const existing = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
   const threadId = existing[0]?.id ?? randomUUID();
@@ -310,10 +363,10 @@ export async function sendMessageAction(formData: FormData) {
         .update(thread)
         .set({ status: "open", updatedAt: new Date() })
         .where(eq(thread.id, threadId));
-      redirect(`${nextPath(formData, `/sites/${siteId}/edit`)}?error=1`);
+      redirect(`${nextPath(formData, await siteHref(siteId, "/edit"))}?error=1`);
     }
   }
-  redirect(nextPath(formData, `/sites/${siteId}/edit`));
+  redirect(nextPath(formData, await siteHref(siteId, "/edit")));
 }
 
 export async function approveChangeAction(formData: FormData) {
@@ -337,7 +390,7 @@ export async function approveChangeAction(formData: FormData) {
   if (published.ok && found) {
     await publishHostMap(liveHost(found.slug), snapshotPrefix(siteId, published.snapshotId));
   }
-  redirect(nextPath(formData, `/sites/${siteId}`));
+  redirect(nextPath(formData, await siteHref(siteId)));
 }
 
 export async function publishDraftAction(formData: FormData) {
@@ -351,10 +404,10 @@ export async function publishDraftAction(formData: FormData) {
   const found = rows[0];
   const snaps = await db.select().from(snapshot).where(eq(snapshot.id, snapshotId)).limit(1);
   if (!found?.currentSnapshotId || !snaps[0] || found.draftSnapshotId !== snapshotId) {
-    redirect(`/sites/${siteId}?error=1`);
+    redirect(`${await siteHref(siteId)}?error=1`);
   }
   const swapped = await swapLive(db, siteId, found.currentSnapshotId, snapshotId);
-  if (!swapped) redirect(`/sites/${siteId}?error=1`);
+  if (!swapped) redirect(`${await siteHref(siteId)}?error=1`);
   await recordPublish({
     db,
     siteId,
@@ -364,7 +417,7 @@ export async function publishDraftAction(formData: FormData) {
     kind: "publish"
   });
   await publishHostMap(liveHost(found.slug), snaps[0].storagePrefix);
-  redirect(nextPath(formData, `/sites/${siteId}`));
+  redirect(nextPath(formData, await siteHref(siteId)));
 }
 
 export async function schedulePublishAction(formData: FormData) {
@@ -378,9 +431,9 @@ export async function schedulePublishAction(formData: FormData) {
   const revertRaw = String(formData.get("revertAt") ?? "");
   const revert = revertRaw ? localInputToUtc(revertRaw, zone) : null;
   const snapshotId = String(formData.get("snapshotId") ?? "");
-  if (!publish || !snapshotId) redirect(`/sites/${siteId}?error=1`);
+  if (!publish || !snapshotId) redirect(`${await siteHref(siteId)}?error=1`);
   if (revert && revert.date.getTime() <= publish.date.getTime()) {
-    redirect(`/sites/${siteId}?error=1`);
+    redirect(`${await siteHref(siteId)}?error=1`);
   }
   await insertSchedule(database(), {
     siteId,
@@ -391,7 +444,7 @@ export async function schedulePublishAction(formData: FormData) {
     summary: "Scheduled from the builder",
     timeZone: zone
   });
-  redirect(`/sites/${siteId}/scheduled`);
+  redirect(await siteHref(siteId, "/scheduled"));
 }
 
 export async function cancelScheduleAction(formData: FormData) {
@@ -406,7 +459,7 @@ export async function cancelScheduleAction(formData: FormData) {
     .update(siteSchedule)
     .set({ status: "cancelled", updatedAt: new Date() })
     .where(eq(siteSchedule.id, id));
-  redirect(`/sites/${siteId}/scheduled`);
+  redirect(await siteHref(siteId, "/scheduled"));
 }
 
 export async function rescheduleAction(formData: FormData) {
@@ -418,7 +471,7 @@ export async function rescheduleAction(formData: FormData) {
   const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
   const zone = rows[0]?.timeZone || "UTC";
   const publish = localInputToUtc(String(formData.get("publishAt") ?? ""), zone);
-  if (!publish) redirect(`/sites/${siteId}/scheduled?error=1`);
+  if (!publish) redirect(`${await siteHref(siteId, "/scheduled")}?error=1`);
   const revertRaw = String(formData.get("revertAt") ?? "");
   const revert = revertRaw ? localInputToUtc(revertRaw, zone) : null;
   await database()
@@ -433,7 +486,7 @@ export async function rescheduleAction(formData: FormData) {
   const { armSchedule } = await import("@flagstage/publish");
   await armSchedule(id, publish.date, "publish").catch(() => undefined);
   if (revert) await armSchedule(id, revert.date, "revert").catch(() => undefined);
-  redirect(`/sites/${siteId}/scheduled`);
+  redirect(await siteHref(siteId, "/scheduled"));
 }
 
 export async function updateSiteTimeZoneAction(formData: FormData) {
@@ -445,10 +498,10 @@ export async function updateSiteTimeZoneAction(formData: FormData) {
   try {
     Intl.DateTimeFormat(undefined, { timeZone: requested });
   } catch {
-    redirect(`/sites/${siteId}/settings?error=1`);
+    redirect(`${await siteHref(siteId, "/settings")}?error=1`);
   }
   await database().update(site).set({ timeZone: requested }).where(eq(site.id, siteId));
-  redirect(`/sites/${siteId}/settings`);
+  redirect(await siteHref(siteId, "/settings"));
 }
 
 export async function rollbackAction(formData: FormData) {
@@ -475,12 +528,12 @@ export async function rollbackAction(formData: FormData) {
     prefix: snaps[0]?.storagePrefix
   });
   await publishHostMap(found ? liveHost(found.slug) : undefined, snaps[0]?.storagePrefix);
-  redirect(`/sites/${siteId}`);
+  redirect(await siteHref(siteId));
 }
 
 export async function setBudgetAction(formData: FormData) {
   const principal = await requirePrincipal();
-  if (!can(principal, "org.manage")) redirect("/accounts");
+  if (!can(principal, "org.manage")) redirect(await landingPath(principal));
   const accountId = String(formData.get("accountId") ?? "");
   const raw = String(formData.get("monthlyBudgetUsd") ?? "").trim();
   const monthlyBudgetUsd = raw === "" ? null : Number(raw);
@@ -497,7 +550,7 @@ export async function undoEditAction(formData: FormData) {
   const accountId = String(formData.get("accountId") ?? "");
   if (!can(principal, "site.edit", { accountId })) redirect("/no-access");
   await undoEdit(database(), siteId);
-  redirect(nextPath(formData, `/sites/${siteId}/edit`));
+  redirect(nextPath(formData, await siteHref(siteId, "/edit")));
 }
 
 export async function addDomainAction(formData: FormData) {
@@ -507,7 +560,7 @@ export async function addDomainAction(formData: FormData) {
   if (!can(principal, "domain.manage", { accountId })) redirect("/no-access");
   const config = loadConfig();
   const hostname = normalizeHostname(String(formData.get("hostname") ?? ""));
-  if (!isValidHostname(hostname)) redirect(`/sites/${siteId}/domain`);
+  if (!isValidHostname(hostname)) redirect(await siteHref(siteId, "/domain"));
   const driver = await selectDomainsDriver(config);
   const existing = await database()
     .select()
@@ -515,7 +568,7 @@ export async function addDomainAction(formData: FormData) {
     .where(eq(siteDomain.hostname, hostname))
     .limit(1);
   const current = existing[0];
-  if (current && current.siteId !== siteId) redirect(`/sites/${siteId}/domain`);
+  if (current && current.siteId !== siteId) redirect(await siteHref(siteId, "/domain"));
   const provisioned = current?.cloudfrontTenantId
     ? await driver.update(current.cloudfrontTenantId, hostname)
     : await driver.provision(hostname);
@@ -539,7 +592,7 @@ export async function addDomainAction(formData: FormData) {
       status: "pending"
     });
   }
-  redirect(`/sites/${siteId}/domain`);
+  redirect(await siteHref(siteId, "/domain"));
 }
 
 export async function recheckDomainAction(formData: FormData) {
@@ -554,7 +607,7 @@ export async function recheckDomainAction(formData: FormData) {
     .where(eq(siteDomain.id, domainId))
     .limit(1);
   const found = rows[0];
-  if (!found) redirect(`/sites/${siteId}/domain`);
+  if (!found) redirect(await siteHref(siteId, "/domain"));
   const config = loadConfig();
   const driver = await selectDomainsDriver(config);
   const refreshed =
@@ -574,5 +627,5 @@ export async function recheckDomainAction(formData: FormData) {
     .update(siteDomain)
     .set({ records, status, lastCheckedAt: new Date() })
     .where(eq(siteDomain.id, domainId));
-  redirect(`/sites/${siteId}/domain`);
+  redirect(await siteHref(siteId, "/domain"));
 }

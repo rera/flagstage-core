@@ -1,15 +1,11 @@
-import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
-
 import { Button, PageHeader, fieldClass } from "@flagstage/ui";
 import { zoneTitle } from "@flagstage/publish/when";
 import { can } from "@flagstage/core";
-import { site } from "@flagstage/db";
 
-import { updateSiteTimeZoneAction } from "../../../../../src/actions";
-import { database, requirePrincipal } from "../../../../../src/guard";
-import { Page } from "../../../../../src/page";
-import { SiteIdentity, SiteNav } from "../../../../../src/site-nav";
+import { updateSiteTimeZoneAction } from "../../../../../../../src/actions";
+import { requireSite } from "../../../../../../../src/guard";
+import { Page } from "../../../../../../../src/page";
+import { SiteIdentity } from "../../../../../../../src/site-nav";
 
 const ZONES = [
   "America/Los_Angeles",
@@ -32,27 +28,18 @@ export default async function SiteSettingsPage({
   params,
   searchParams
 }: {
-  params: Promise<{ siteId: string }>;
+  params: Promise<{ accountSlug: string; siteId: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
-  const { siteId } = await params;
+  const { accountSlug, siteId } = await params;
   const query = await searchParams;
-  const principal = await requirePrincipal();
-  const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
-  const found = rows[0];
-  if (!found || !can(principal, "site.read", { accountId: found.accountId })) notFound();
+  const { principal, site: found } = await requireSite(accountSlug, siteId);
   const zones = ZONES.includes(found.timeZone) ? ZONES : [found.timeZone, ...ZONES];
   const canManage = can(principal, "site.manage", { accountId: found.accountId });
   return (
     <Page>
       <div className="space-y-4">
-        <SiteIdentity
-          siteId={found.id}
-          name={found.name}
-          status={found.status}
-          host={`${found.slug}.localhost`}
-        />
-        <SiteNav siteId={found.id} current="settings" />
+        <SiteIdentity name={found.name} status={found.status} host={`${found.slug}.localhost`} />
       </div>
       <PageHeader
         level={2}

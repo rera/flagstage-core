@@ -23,16 +23,20 @@ export function NewSiteDialog({ accounts }: { accounts: Array<{ id: string; name
           <TimeZoneInput />
           <Field label="Site name" name="name" required />
           <Field label="Site address" name="sourceUrl" type="url" required />
-          <div className="space-y-2">
-            <Label htmlFor="accountId">Account</Label>
-            <select id="accountId" name="accountId" required className={fieldClass}>
-              {accounts.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {accounts.length === 1 ? (
+            <input type="hidden" name="accountId" value={accounts[0]?.id ?? ""} />
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="accountId">Account</Label>
+              <select id="accountId" name="accountId" required className={fieldClass}>
+                {accounts.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => dialog.current?.close()}>
               Cancel

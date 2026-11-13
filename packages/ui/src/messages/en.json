@@ -57,6 +57,7 @@
   "members.linkOnce": "Send this link. It is shown once.",
   "roles.admin": "Admin",
   "roles.accountAdmin": "Account admin",
+  "roles.member": "Member",
   "settings.title": "Settings",
   "settings.description": "Organization sign-in and directory sync.",
   "settings.saved": "Saved.",

@@ -26,8 +26,8 @@ export default async function InvitationPage({ params }: { params: Promise<{ tok
           title="This invitation is not valid"
           description="It may have expired, already been used, or the link is wrong."
           action={
-            <a href="/accounts" className="text-sm font-medium text-primary">
-              Back to accounts
+            <a href="/sites" className="text-sm font-medium text-primary">
+              Back to your sites
             </a>
           }
         />

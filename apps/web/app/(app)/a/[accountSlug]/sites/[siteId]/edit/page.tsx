@@ -11,11 +11,11 @@ import {
   publishDraftAction,
   sendMessageAction,
   undoEditAction
-} from "../../../../../src/actions";
-import { BrowserFrame } from "../../../../../src/browser-frame";
-import { SchedulePanel } from "../../../../../src/schedule-form";
-import { database, requirePrincipal } from "../../../../../src/guard";
-import { chatBody } from "../../../../../src/time";
+} from "../../../../../../../src/actions";
+import { BrowserFrame } from "../../../../../../../src/browser-frame";
+import { SchedulePanel } from "../../../../../../../src/schedule-form";
+import { database, requireSite } from "../../../../../../../src/guard";
+import { chatBody } from "../../../../../../../src/time";
 import { ChatStream } from "../chat-stream";
 
 type Report = {
@@ -70,16 +70,20 @@ export default async function SitePage({
   params,
   searchParams
 }: {
-  params: Promise<{ siteId: string }>;
+  params: Promise<{ accountSlug: string; siteId: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
-  const { siteId } = await params;
+  const { accountSlug, siteId } = await params;
   const query = await searchParams;
-  const principal = await requirePrincipal();
+  const { principal, site: found } = await requireSite(accountSlug, siteId);
+  if (
+    !can(principal, "site.edit", { accountId: found.accountId }) &&
+    !can(principal, "site.comment", { accountId: found.accountId })
+  ) {
+    notFound();
+  }
   const db = database();
-  const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
-  const found = rows[0];
-  if (!found || !can(principal, "site.read", { accountId: found.accountId })) notFound();
+  const base = "/a/" + accountSlug + "/sites/" + found.id;
   const runs = await db.select().from(importRun).where(eq(importRun.siteId, siteId));
   const latest = runs[runs.length - 1];
   const report = (latest?.fidelityReport ?? null) as Report | null;
@@ -119,7 +123,7 @@ export default async function SitePage({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0">
           <h1 className="truncate text-xl font-semibold tracking-tight">
-            <a href={`/sites/${found.id}`} className="hover:underline">
+            <a href={base} className="hover:underline">
               {found.name}
             </a>
           </h1>
@@ -131,7 +135,7 @@ export default async function SitePage({
               {siblings.map((item) => (
                 <a
                   key={item.id}
-                  href={`/sites/${item.id}`}
+                  href={"/a/" + accountSlug + "/sites/" + item.id}
                   className="block rounded-lg px-3 py-2 text-sm hover:bg-[var(--wash)]"
                 >
                   {item.name}
@@ -152,7 +156,7 @@ export default async function SitePage({
               <input type="hidden" name="siteId" value={found.id} />
               <input type="hidden" name="accountId" value={found.accountId} />
               <input type="hidden" name="snapshotId" value={pendingSnapshot.id} />
-              <input type="hidden" name="next" value={`/sites/${found.id}/edit`} />
+              <input type="hidden" name="next" value={`${base}/edit`} />
               <Button type="submit">{t("sites.goLive")}</Button>
             </form>
           ) : null}
@@ -160,7 +164,7 @@ export default async function SitePage({
             <form action={undoEditAction}>
               <input type="hidden" name="siteId" value={found.id} />
               <input type="hidden" name="accountId" value={found.accountId} />
-              <input type="hidden" name="next" value={`/sites/${found.id}/edit`} />
+              <input type="hidden" name="next" value={`${base}/edit`} />
               <Button
                 type="submit"
                 variant="outline"
@@ -189,7 +193,7 @@ export default async function SitePage({
               <form action={readyChange ? approveChangeAction : publishDraftAction}>
                 <input type="hidden" name="siteId" value={found.id} />
                 <input type="hidden" name="accountId" value={found.accountId} />
-                <input type="hidden" name="next" value={`/sites/${found.id}/edit`} />
+                <input type="hidden" name="next" value={`${base}/edit`} />
                 {readyChange ? (
                   <input type="hidden" name="changeRequestId" value={readyChange.id} />
                 ) : (
@@ -313,7 +317,7 @@ export default async function SitePage({
               >
                 <input type="hidden" name="siteId" value={found.id} />
                 <input type="hidden" name="accountId" value={found.accountId} />
-                <input type="hidden" name="next" value={`/sites/${found.id}/edit`} />
+                <input type="hidden" name="next" value={`${base}/edit`} />
                 <label className="sr-only" htmlFor="body">
                   {t("chat.placeholder")}
                 </label>

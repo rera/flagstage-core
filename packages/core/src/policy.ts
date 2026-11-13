@@ -1,4 +1,4 @@
-export const MEMBERSHIP_ROLES = ["account_admin"] as const;
+export const MEMBERSHIP_ROLES = ["account_admin", "member"] as const;
 export type MembershipRole = (typeof MEMBERSHIP_ROLES)[number];
 
 export const ORG_ROLES = ["admin", "none"] as const;
@@ -50,11 +50,17 @@ const ACCOUNT_ADMIN: ReadonlySet<Action> = new Set([
   "form.manage"
 ]);
 
+const MEMBER: ReadonlySet<Action> = new Set(["account.read", "site.read", "form.read"]);
+
+const ROLE_ACTIONS: Record<MembershipRole, ReadonlySet<Action>> = {
+  account_admin: ACCOUNT_ADMIN,
+  member: MEMBER
+};
+
 /**
- * Two roles. An admin can do everything, including promoting another person
- * to admin. An account admin can do everything inside the accounts they
- * belong to, including members and invites. A third membership role is not
- * used: account access is the account-admin grant.
+ * An org admin can do every action, including promoting another admin.
+ * An account admin can do every action inside the accounts they belong to.
+ * A member can read that account's sites, people, and usage.
  */
 export function can(user: Principal, action: Action, resource: Resource = {}): boolean {
   if (user.disabled) return false;
@@ -62,12 +68,14 @@ export function can(user: Principal, action: Action, resource: Resource = {}): b
   if (action === "org.manage") return false;
   if (!resource.accountId) return false;
   const grant = user.memberships.find((membership) => membership.accountId === resource.accountId);
-  if (!grant || grant.role !== "account_admin") return false;
-  return ACCOUNT_ADMIN.has(action);
+  if (!grant) return false;
+  return ROLE_ACTIONS[grant.role]?.has(action) ?? false;
 }
 
 export function hasAnyAccess(user: Principal): boolean {
   if (user.disabled) return false;
   if (user.orgRole === "admin") return true;
-  return user.memberships.some((membership) => membership.role === "account_admin");
+  return user.memberships.some((membership) =>
+    (MEMBERSHIP_ROLES as readonly string[]).includes(membership.role)
+  );
 }

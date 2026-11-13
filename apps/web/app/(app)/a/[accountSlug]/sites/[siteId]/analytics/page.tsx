@@ -1,9 +1,7 @@
 import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
 
 import { pageviewsByDay, topPages, visitsInRange } from "@flagstage/analytics";
-import { can } from "@flagstage/core";
-import { analyticsDaily, analyticsEvent, site } from "@flagstage/db";
+import { analyticsDaily, analyticsEvent } from "@flagstage/db";
 import {
   EmptyState,
   PageHeader,
@@ -15,9 +13,9 @@ import {
   type MessageKey
 } from "@flagstage/ui";
 
-import { database, requirePrincipal } from "../../../../../src/guard";
-import { Page } from "../../../../../src/page";
-import { SiteIdentity, SiteNav } from "../../../../../src/site-nav";
+import { database, requireSite } from "../../../../../../../src/guard";
+import { Page } from "../../../../../../../src/page";
+import { SiteIdentity } from "../../../../../../../src/site-nav";
 
 const RANGES = [7, 30, 90] as const;
 type Range = (typeof RANGES)[number];
@@ -37,17 +35,15 @@ export default async function AnalyticsPage({
   params,
   searchParams
 }: {
-  params: Promise<{ siteId: string }>;
+  params: Promise<{ accountSlug: string; siteId: string }>;
   searchParams: Promise<{ days?: string }>;
 }) {
-  const { siteId } = await params;
+  const { accountSlug, siteId } = await params;
   const query = await searchParams;
   const days = rangeOf(query.days);
-  const principal = await requirePrincipal();
+  const { site: found } = await requireSite(accountSlug, siteId);
   const db = database();
-  const sites = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
-  const found = sites[0];
-  if (!found || !can(principal, "site.read", { accountId: found.accountId })) notFound();
+  const base = "/a/" + accountSlug + "/sites/" + found.id;
   const daily = await db.select().from(analyticsDaily).where(eq(analyticsDaily.siteId, siteId));
   const recent = await db.select().from(analyticsEvent).where(eq(analyticsEvent.siteId, siteId));
   const rows = visitsInRange(
@@ -70,20 +66,18 @@ export default async function AnalyticsPage({
   return (
     <Page>
       <div className="space-y-4">
-        <SiteIdentity
-          siteId={found.id}
-          name={found.name}
-          status={found.status}
-          host={`${found.slug}.localhost`}
-        />
-        <SiteNav siteId={found.id} current="analytics" />
+        <SiteIdentity name={found.name} status={found.status} host={`${found.slug}.localhost`} />
       </div>
-      <PageHeader level={2} title={t("analytics.title")} description="Page views for the selected range." />
+      <PageHeader
+        level={2}
+        title={t("analytics.title")}
+        description="Page views for the selected range."
+      />
       <nav className="flex gap-2" aria-label={t("analytics.range")}>
         {RANGES.map((item) => (
           <a
             key={item}
-            href={`/sites/${siteId}/analytics?days=${item}`}
+            href={`${base}/analytics?days=${item}`}
             aria-current={item === days ? "page" : undefined}
             className={
               item === days
@@ -133,7 +127,7 @@ export default async function AnalyticsPage({
           title={t("analytics.empty")}
           description={t("analytics.emptyBody")}
           action={
-            <a href={`/sites/${siteId}`} className="text-sm font-medium text-primary">
+            <a href={base} className="text-sm font-medium text-primary">
               {t("analytics.openSite")}
             </a>
           }

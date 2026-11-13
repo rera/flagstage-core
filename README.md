@@ -30,6 +30,16 @@ pnpm dev
 
 Open http://localhost:3000 and sign in with the one-time link from the web log. `pnpm dev:sites` serves published files at `http://127.0.0.1:8088` for local viewing. That process is not an app route.
 
+## Roles
+
+| Who            | Sidebar                                                                                      | Can do                                            |
+| -------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Account member | One account. Open site sections, plus All sites, People, Usage                               | Read that account's sites, people, and usage      |
+| Account admin  | The same. New site in the site switcher. Account switcher only with two or more accounts     | Import, invite, and publish inside those accounts |
+| Org admin      | That account, plus Admin: Accounts, Sites, People, Usage, Settings, and the account switcher | Every account, and the install settings           |
+
+The top of the sidebar is Account › Site. One site in the account opens on that site's overview. The desktop sidebar collapses to an icon rail. Addresses look like `/a/harbor/sites`. Opening another account's address shows no access.
+
 ## Architecture
 
 ```mermaid

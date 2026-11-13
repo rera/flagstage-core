@@ -3,7 +3,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { account, invitation, membership, orgSettings, user, type Database } from "@flagstage/db";
 
-import type { MembershipRole, OrgRole } from "./policy";
+import { MEMBERSHIP_ROLES, type MembershipRole, type OrgRole } from "./policy";
 
 export type StoredMembership = {
   accountId: string;
@@ -99,10 +99,12 @@ export async function loadGrants(
     orgRoleSource: found.org_role_source,
     disabled: found.disabledAt != null,
     memberships: grants
-      .filter((grant) => grant.role === "account_admin")
+      .filter((grant): grant is typeof grant & { role: MembershipRole } =>
+        (MEMBERSHIP_ROLES as readonly string[]).includes(grant.role)
+      )
       .map((grant) => ({
         accountId: grant.accountId,
-        role: "account_admin" as const,
+        role: grant.role,
         source: grant.source
       }))
   };

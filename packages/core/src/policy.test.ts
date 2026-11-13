@@ -32,6 +32,23 @@ describe("can()", () => {
     expect(can(user, "member.manage", { accountId: "other" })).toBe(false);
   });
 
+  it("lets a member read one account and nothing else", () => {
+    const user = principal({
+      memberships: [{ accountId: account, role: "member" }]
+    });
+    expect(hasAnyAccess(user)).toBe(true);
+    expect(can(user, "account.read", { accountId: account })).toBe(true);
+    expect(can(user, "site.read", { accountId: account })).toBe(true);
+    expect(can(user, "form.read", { accountId: account })).toBe(true);
+    expect(can(user, "site.edit", { accountId: account })).toBe(false);
+    expect(can(user, "site.manage", { accountId: account })).toBe(false);
+    expect(can(user, "site.publish", { accountId: account })).toBe(false);
+    expect(can(user, "member.manage", { accountId: account })).toBe(false);
+    expect(can(user, "domain.manage", { accountId: account })).toBe(false);
+    expect(can(user, "org.manage", { accountId: account })).toBe(false);
+    expect(can(user, "site.read", { accountId: "other" })).toBe(false);
+  });
+
   it("denies a user with no account", () => {
     const user = principal({});
     expect(hasAnyAccess(user)).toBe(false);

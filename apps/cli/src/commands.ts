@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { and, eq } from "drizzle-orm";
 
-import { createAccount, slugify, type MembershipRole } from "@flagstage/core";
+import { createAccount, MEMBERSHIP_ROLES, slugify, type MembershipRole } from "@flagstage/core";
 import { setUserPassword } from "@flagstage/auth";
 import type { Database } from "@flagstage/db";
 import { account, authAccount, importRun, membership, site, snapshot, user } from "@flagstage/db";
@@ -57,8 +57,10 @@ export function parseCommand(argv: string[]): Parsed {
     const email = flag(rest, "--email");
     const accountSlug = flag(rest, "--account");
     const role = flag(rest, "--role") ?? "account_admin";
-    if (!email || !accountSlug || role !== "account_admin") {
-      throw new Error("flagstage member add --email <email> --account <slug>");
+    if (!email || !accountSlug || !(MEMBERSHIP_ROLES as readonly string[]).includes(role)) {
+      throw new Error(
+        "flagstage member add --email <email> --account <slug> [--role account_admin|member]"
+      );
     }
     return {
       kind: "member-add",

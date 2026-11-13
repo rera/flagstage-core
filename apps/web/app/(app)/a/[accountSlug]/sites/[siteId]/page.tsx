@@ -1,5 +1,4 @@
 import { eq, inArray } from "drizzle-orm";
-import { notFound } from "next/navigation";
 
 import { visitsInRange } from "@flagstage/analytics";
 import { can } from "@flagstage/core";
@@ -9,7 +8,6 @@ import {
   formSubmission,
   leadForm,
   membership,
-  site,
   siteDomain,
   siteSchedule,
   snapshot,
@@ -18,23 +16,21 @@ import {
 import { describeSchedule } from "@flagstage/publish";
 import { Badge, Button, EmptyState } from "@flagstage/ui";
 
-import { approveSiteAction, rollbackAction } from "../../../../src/actions";
-import { database, requirePrincipal } from "../../../../src/guard";
-import { Page } from "../../../../src/page";
-import { SiteIdentity, SiteNav } from "../../../../src/site-nav";
-import { friendlyWhen, versionLabel } from "../../../../src/time";
+import { approveSiteAction, rollbackAction } from "../../../../../../src/actions";
+import { database, requireSite } from "../../../../../../src/guard";
+import { Page } from "../../../../../../src/page";
+import { SiteIdentity } from "../../../../../../src/site-nav";
+import { friendlyWhen, versionLabel } from "../../../../../../src/time";
 
 export default async function SiteOverviewPage({
   params
 }: {
-  params: Promise<{ siteId: string }>;
+  params: Promise<{ accountSlug: string; siteId: string }>;
 }) {
-  const { siteId } = await params;
-  const principal = await requirePrincipal();
+  const { accountSlug, siteId } = await params;
+  const { principal, site: found } = await requireSite(accountSlug, siteId);
   const db = database();
-  const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
-  const found = rows[0];
-  if (!found || !can(principal, "site.read", { accountId: found.accountId })) notFound();
+  const base = `/a/${accountSlug}/sites/${found.id}`;
   const host = `${found.slug}.localhost`;
   const zone = found.timeZone || "UTC";
   const snaps = (await db.select().from(snapshot).where(eq(snapshot.siteId, siteId))).sort(
@@ -100,13 +96,11 @@ export default async function SiteOverviewPage({
     <Page>
       <div className="space-y-4">
         <SiteIdentity
-          siteId={found.id}
           name={found.name}
           status={found.status}
           host={host}
           published={current ? friendlyWhen(current.createdAt, zone) : null}
         />
-        <SiteNav siteId={found.id} current="overview" />
       </div>
       {showGoLive && pending ? (
         <form action={approveSiteAction}>
@@ -163,7 +157,7 @@ export default async function SiteOverviewPage({
         <section className="rounded-xl border border-border bg-card px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">Scheduled</h2>
-            <a href={`/sites/${found.id}/scheduled`} className="text-sm font-medium text-primary">
+            <a href={`${base}/scheduled`} className="text-sm font-medium text-primary">
               All schedules
             </a>
           </div>
@@ -184,7 +178,7 @@ export default async function SiteOverviewPage({
         <section className="rounded-xl border border-border bg-card px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">Domain</h2>
-            <a href={`/sites/${found.id}/domain`} className="text-sm font-medium text-primary">
+            <a href={`${base}/domain`} className="text-sm font-medium text-primary">
               Domain settings
             </a>
           </div>
@@ -194,7 +188,7 @@ export default async function SiteOverviewPage({
                 No custom domain yet. It still answers on {host}.
               </p>
               <a
-                href={`/sites/${found.id}/domain`}
+                href={`${base}/domain`}
                 className="mt-2 inline-block text-sm font-medium text-primary"
               >
                 Add a domain
@@ -216,7 +210,7 @@ export default async function SiteOverviewPage({
         <section className="rounded-xl border border-border bg-card px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">Forms</h2>
-            <a href={`/sites/${found.id}/forms`} className="text-sm font-medium text-primary">
+            <a href={`${base}/forms`} className="text-sm font-medium text-primary">
               View submissions
             </a>
           </div>
@@ -231,7 +225,7 @@ export default async function SiteOverviewPage({
         <section className="rounded-xl border border-border bg-card px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">Analytics</h2>
-            <a href={`/sites/${found.id}/analytics`} className="text-sm font-medium text-primary">
+            <a href={`${base}/analytics`} className="text-sm font-medium text-primary">
               Last 7 days
             </a>
           </div>

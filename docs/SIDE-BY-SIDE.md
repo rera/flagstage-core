@@ -2,6 +2,16 @@
 
 Compared with the commercial account portal (`apps/account`) and admin site and customer pages in the flagstage-ui export, plus the production admin screenshots. Core stays light, self-serve, and without plans, billing, review queues, or agency tools.
 
+## Navigation
+
+| Who            | Sidebar                                                                                      | Can do                                            |
+| -------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Account member | One account. Open site sections, plus All sites, People, Usage                               | Read that account's sites, people, and usage      |
+| Account admin  | The same. New site in the site switcher. Account switcher only with two or more accounts     | Import, invite, and publish inside those accounts |
+| Org admin      | That account, plus Admin: Accounts, Sites, People, Usage, Settings, and the account switcher | Every account, and the install settings           |
+
+The top of the sidebar is Account › Site. A selected site's Overview, Domain, Forms, Analytics, Scheduled, and Settings are the nav, and Make changes is the primary action. All sites, People, and Usage stay in their own group. A person in one account has no account switcher. An org admin's Accounts list lives in the Admin group. One site in an account opens on that overview. The desktop sidebar collapses to an icon rail. Addresses look like `/a/harbor/sites/{site}`.
+
 ## Site
 
 | Commercial             | What it shows                                                            | Core                                                                                                               |
