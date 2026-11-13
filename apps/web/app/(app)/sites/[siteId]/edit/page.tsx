@@ -114,7 +114,7 @@ export default async function SitePage({
   const working = threads[0]?.status === "queued";
   const importing = found.status === "importing";
   return (
-    <div className="flex h-[calc(100dvh-60px)] min-h-0 flex-col">
+    <div className="flex h-dvh min-h-0 flex-col">
       <ChatStream siteId={found.id} />
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0">
@@ -161,8 +161,23 @@ export default async function SitePage({
               <input type="hidden" name="siteId" value={found.id} />
               <input type="hidden" name="accountId" value={found.accountId} />
               <input type="hidden" name="next" value={`/sites/${found.id}/edit`} />
-              <Button type="submit" variant="outline">
-                {t("chat.undo")}
+              <Button
+                type="submit"
+                variant="outline"
+                aria-label={t("chat.undo")}
+                title={t("chat.undo")}
+              >
+                <svg viewBox="0 0 16 16" className="size-4 md:hidden" aria-hidden>
+                  <path
+                    d="M6 3 2 7l4 4M3 7h7.5a3.5 3.5 0 0 1 0 7H8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span className="hidden md:inline">{t("chat.undo")}</span>
               </Button>
             </form>
           ) : null}

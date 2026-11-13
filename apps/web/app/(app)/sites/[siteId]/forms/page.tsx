@@ -46,39 +46,53 @@ export default async function FormsPage({ params }: { params: Promise<{ siteId: 
         />
         <SiteNav siteId={found.id} current="forms" />
       </div>
-      <PageHeader level={2} title={t("forms.title")} description="Submissions from forms on this site." />
-      {submissions.length === 0 ? (
-        <EmptyState
-          title={t("forms.emptyTitle")}
-          description={t("forms.emptyBody")}
-          action={
-            <a href={`/sites/${siteId}`} className="text-sm font-medium text-primary">
-              {t("forms.emptyAction")}
-            </a>
-          }
-        />
-      ) : (
-        <Table>
-          <TableBody>
-            {newest.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell>{names.get(row.leadFormId) ?? row.leadFormId}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {friendlyWhen(row.createdAt, zone)}
-                </TableCell>
-                <TableCell>
-                  <a
-                    className="font-medium text-primary"
-                    href={`/sites/${siteId}/forms/${forms.find((form) => form.id === row.leadFormId)?.formKey ?? ""}`}
-                  >
-                    {t("forms.download")}
-                  </a>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,36rem)_minmax(16rem,22rem)]">
+        <div className="space-y-4">
+          <PageHeader
+            level={2}
+            title={t("forms.title")}
+            description="Submissions from forms on this site."
+          />
+          {submissions.length === 0 ? (
+            <EmptyState
+              title={t("forms.emptyTitle")}
+              description={t("forms.emptyBody")}
+              action={
+                <a href={`/sites/${siteId}`} className="text-sm font-medium text-primary">
+                  {t("forms.emptyAction")}
+                </a>
+              }
+            />
+          ) : (
+            <Table>
+              <TableBody>
+                {newest.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell>{names.get(row.leadFormId) ?? row.leadFormId}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {friendlyWhen(row.createdAt, zone)}
+                    </TableCell>
+                    <TableCell>
+                      <a
+                        className="font-medium text-primary"
+                        href={`/sites/${siteId}/forms/${forms.find((form) => form.id === row.leadFormId)?.formKey ?? ""}`}
+                      >
+                        {t("forms.download")}
+                      </a>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+        <aside className="rounded-xl border border-border bg-card px-4 py-4 text-sm">
+          <h2 className="font-semibold">Where forms come from</h2>
+          <p className="mt-2 text-muted-foreground">
+            An import records each form it finds. New submissions show up here, newest first.
+          </p>
+        </aside>
+      </div>
     </Page>
   );
 }

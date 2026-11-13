@@ -16,6 +16,7 @@ test("schedules a publish a minute out and sees it go live", async ({ page }, te
   await expect(page).toHaveURL(/\/accounts/);
 
   await page.goto("/sites");
+  await page.getByRole("button", { name: "New site" }).click();
   await page.getByLabel("Site name").fill(`Schedule ${stamp}`);
   await page.getByLabel("Site address").fill(fixture);
   await page.getByRole("button", { name: "Import a site" }).click();

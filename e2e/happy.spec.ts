@@ -28,9 +28,17 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await signIn.getByLabel("Password").fill("e2e-password-e2e-password");
   await signIn.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/accounts/);
+  await revealNav(page);
+  await expect(
+    page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Sites" })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Accounts" })
+  ).toBeVisible();
   await expectAccessible(page);
 
   await page.goto("/sites");
+  await page.getByRole("button", { name: "New site" }).click();
   await page.getByLabel("Site name").fill(siteName);
   await page.getByLabel("Site address").fill(fixture);
   await page.getByRole("button", { name: "Import a site" }).click();
@@ -92,10 +100,20 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await expect(page.getByRole("heading", { name: "Sites" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Invite" })).toBeVisible();
   await page.goto("/admin");
+  await revealNav(page);
   await expect(page.getByRole("heading", { name: "People" })).toBeVisible();
   await expect(
     page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name: "Accounts" })
   ).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Usage" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name: "Usage" })
+  ).toBeVisible();
+  await page.goto("/invitations/not-a-real-token");
+  await expect(page.getByRole("heading", { name: "This invitation is not valid" })).toBeVisible();
   await expectAccessible(page);
 });
+
+async function revealNav(page: Page) {
+  const menu = page.getByRole("button", { name: "Menu" });
+  if (await menu.isVisible()) await menu.click();
+}

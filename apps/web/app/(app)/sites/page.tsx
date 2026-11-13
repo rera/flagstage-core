@@ -1,26 +1,19 @@
-import { Alert, Button, EmptyState, Field, Label, PageHeader, fieldClass, t } from "@flagstage/ui";
+import { Alert, EmptyState, PageHeader, t } from "@flagstage/ui";
 import { can } from "@flagstage/core";
-import { account, site } from "@flagstage/db";
+import { account, site, siteDomain, snapshot } from "@flagstage/db";
 import { inArray } from "drizzle-orm";
 
-import { importSiteAction } from "../../../src/actions";
-import { TimeZoneInput } from "../../../src/time-zone-input";
 import { database, requirePrincipal } from "../../../src/guard";
+import { NewSiteDialog } from "../../../src/new-site-dialog";
 import { Page } from "../../../src/page";
+import { friendlyWhen } from "../../../src/time";
 
 function statusLabel(status: string) {
   if (status === "live") return "Live";
   if (status === "importing") return "Importing";
-  if (status === "preview") return "Ready to publish";
+  if (status === "preview") return "Draft";
   if (status === "failed") return "Didn't finish";
   return status;
-}
-
-function dot(status: string) {
-  if (status === "live") return "bg-[var(--done)]";
-  if (status === "failed") return "bg-destructive";
-  if (status === "importing" || status === "preview") return "bg-[var(--prog)]";
-  return "bg-muted-foreground";
 }
 
 export default async function SitesPage({
@@ -47,72 +40,83 @@ export default async function SitesPage({
     accountIds.length === 0
       ? []
       : await db.select().from(site).where(inArray(site.accountId, accountIds));
+  const names = new Map(accounts.map((row) => [row.id, row.name]));
   const manageable = accounts.filter((row) => can(principal, "site.manage", { accountId: row.id }));
+  const currentIds = sites
+    .map((row) => row.currentSnapshotId)
+    .filter((id): id is string => Boolean(id));
+  const published =
+    currentIds.length === 0
+      ? []
+      : await db.select().from(snapshot).where(inArray(snapshot.id, currentIds));
+  const publishedAt = new Map(published.map((row) => [row.id, row.createdAt]));
+  const domains =
+    sites.length === 0
+      ? []
+      : await db
+          .select()
+          .from(siteDomain)
+          .where(
+            inArray(
+              siteDomain.siteId,
+              sites.map((row) => row.id)
+            )
+          );
   return (
     <Page>
       <PageHeader
         title={t("sites.title")}
-        description={sites.length === 0 ? undefined : "Open a site, or import another."}
+        description={sites.length === 0 ? t("sites.lead") : "Open a site, or import another."}
+        actions={manageable.length > 0 ? <NewSiteDialog accounts={manageable} /> : undefined}
       />
       {params.error ? <Alert variant="destructive">{t("sites.failed")}</Alert> : null}
       {sites.length === 0 ? (
         <EmptyState
           title={t("sites.none")}
-          description={t("sites.lead")}
+          description={
+            manageable.length > 0 ? t("sites.lead") : "Create an account before importing a site."
+          }
           action={
-            manageable.length > 0 ? (
-              <a href="#import-site" className="text-sm font-medium text-primary">
-                {t("sites.import")}
-              </a>
-            ) : (
+            manageable.length === 0 ? (
               <a href="/accounts" className="text-sm font-medium text-primary">
                 {t("accounts.create")}
               </a>
-            )
+            ) : undefined
           }
         />
       ) : (
-        <div className="divide-y divide-[var(--line)] overflow-hidden rounded-xl border border-[var(--line)] bg-card">
-          {sites.map((row) => (
-            <a
-              key={row.id}
-              href={`/sites/${row.id}`}
-              className="flex items-center gap-3 px-4 py-4 hover:bg-[var(--wash)]"
-            >
-              <span className="grid size-9 place-items-center rounded-lg bg-[#111620] text-sm font-semibold text-white">
-                {row.name.slice(0, 1).toUpperCase()}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold">{row.name}</span>
-                <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                  <span className={`size-1.5 rounded-full ${dot(row.status)}`} aria-hidden />
-                  {statusLabel(row.status)}
-                  <span className="font-mono">· {row.slug}.localhost</span>
+        <div className="grid gap-3">
+          {sites.map((row) => {
+            const domain =
+              domains.find((item) => item.siteId === row.id)?.hostname ?? `${row.slug}.localhost`;
+            const when = row.currentSnapshotId ? publishedAt.get(row.currentSnapshotId) : undefined;
+            return (
+              <a
+                key={row.id}
+                href={`/sites/${row.id}`}
+                className="grid gap-3 rounded-xl border border-border bg-card px-5 py-4 hover:bg-[var(--wash)] sm:grid-cols-[minmax(0,1.3fr)_7rem_minmax(0,1fr)_minmax(0,1fr)] sm:items-center"
+              >
+                <span>
+                  <span className="block font-semibold">{row.name}</span>
+                  <span className="text-sm text-muted-foreground">{names.get(row.accountId)}</span>
                 </span>
-              </span>
-            </a>
-          ))}
+                <span className="text-sm">
+                  <span className="block font-medium">{statusLabel(row.status)}</span>
+                  {row.draftSnapshotId && row.draftSnapshotId !== row.currentSnapshotId ? (
+                    <span className="text-muted-foreground">Draft waiting</span>
+                  ) : null}
+                </span>
+                <span className="truncate font-mono text-xs text-muted-foreground">{domain}</span>
+                <span className="text-sm text-muted-foreground">
+                  {when
+                    ? `Published ${friendlyWhen(when, row.timeZone || "UTC")}`
+                    : "Not published"}
+                </span>
+              </a>
+            );
+          })}
         </div>
       )}
-      {manageable.length > 0 ? (
-        <form id="import-site" action={importSiteAction} className="max-w-md space-y-4">
-          <h2 className="text-base font-semibold">{t("sites.import")}</h2>
-          <TimeZoneInput />
-          <Field label={t("sites.name")} name="name" required />
-          <Field label={t("sites.url")} name="sourceUrl" type="url" required />
-          <div className="space-y-2">
-            <Label htmlFor="accountId">{t("sites.account")}</Label>
-            <select id="accountId" name="accountId" required className={fieldClass}>
-              {manageable.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button type="submit">{t("sites.import")}</Button>
-        </form>
-      ) : null}
     </Page>
   );
 }

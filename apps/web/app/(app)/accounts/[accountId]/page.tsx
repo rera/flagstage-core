@@ -77,12 +77,11 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
       return monthKey(entry.createdAt, zone) === monthKey(now, zone);
     })
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
-  const spent = formatUsd(
-    monthEdits.reduce((sum, entry) => {
-      const usage = entry.usage as { estimatedUsd?: number } | null;
-      return sum + (usage?.estimatedUsd ?? 0);
-    }, 0)
-  );
+  const spentAmount = monthEdits.reduce((sum, entry) => {
+    const usage = entry.usage as { estimatedUsd?: number } | null;
+    return sum + (usage?.estimatedUsd ?? 0);
+  }, 0);
+  const spent = formatUsd(spentAmount);
   const canInvite = can(principal, "member.manage", { accountId });
   const canBudget = can(principal, "org.manage");
   return (
@@ -96,7 +95,7 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
         </p>
       </header>
       <div className="grid items-start gap-6 lg:grid-cols-2">
-        <section className="space-y-3">
+        <section className="space-y-3 rounded-xl border border-border bg-card px-4 py-4">
           <h2 className="text-base font-semibold">Sites</h2>
           {sites.length === 0 ? (
             <EmptyState
@@ -179,16 +178,51 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
           ) : null}
         </section>
       </div>
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">Usage</h2>
-        <p className="text-sm text-muted-foreground" title={spent.title}>
-          {monthEdits.length} {monthEdits.length === 1 ? "edit" : "edits"} this month · {spent.text}
-        </p>
+      <section className="space-y-4 rounded-xl border border-border bg-card px-4 py-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">This month</h2>
+            <p className="mt-1 text-sm" title={spent.title}>
+              {found.monthlyBudgetUsd == null
+                ? `${spent.text} estimated`
+                : `${spent.text} of $${found.monthlyBudgetUsd} budget`}
+            </p>
+          </div>
+          {canBudget ? (
+            <form action={setBudgetAction} className="flex items-end gap-2">
+              <input type="hidden" name="accountId" value={found.id} />
+              <input type="hidden" name="next" value={`/accounts/${found.id}`} />
+              <Field
+                label="Budget (USD)"
+                name="monthlyBudgetUsd"
+                type="number"
+                min="0"
+                step="1"
+                defaultValue={found.monthlyBudgetUsd ?? ""}
+                className="w-28"
+              />
+              <Button type="submit" variant="outline">
+                Save
+              </Button>
+            </form>
+          ) : null}
+        </div>
+        {found.monthlyBudgetUsd != null && found.monthlyBudgetUsd > 0 ? (
+          <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden>
+            <div
+              className="h-full bg-primary"
+              style={{
+                width: `${Math.max(spentAmount > 0 ? 2 : 0, Math.min(100, (spentAmount / found.monthlyBudgetUsd) * 100))}%`
+              }}
+            />
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No budget yet. Set one to compare this month&apos;s estimate.
+          </p>
+        )}
         {monthEdits.length === 0 ? (
-          <EmptyState
-            title="No edits yet"
-            description="Chat edits show up here with their estimated cost."
-          />
+          <p className="text-sm text-muted-foreground">No edits yet this month.</p>
         ) : (
           <Table>
             <TableHeader>
@@ -215,34 +249,6 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
               })}
             </TableBody>
           </Table>
-        )}
-      </section>
-      <section className="max-w-md space-y-3 rounded-xl border border-border bg-card px-4 py-4">
-        <h2 className="text-base font-semibold">Settings</h2>
-        <p className="text-sm text-muted-foreground">
-          Monthly model budget. When estimated cost for this month reaches it, the account is marked
-          over budget. Edits are not blocked. Each site keeps its own time zone.
-        </p>
-        {canBudget ? (
-          <form action={setBudgetAction} className="space-y-3">
-            <input type="hidden" name="accountId" value={found.id} />
-            <input type="hidden" name="next" value={`/accounts/${found.id}`} />
-            <Field
-              label="Budget (USD)"
-              name="monthlyBudgetUsd"
-              type="number"
-              min="0"
-              step="1"
-              defaultValue={found.monthlyBudgetUsd ?? ""}
-            />
-            <Button type="submit" variant="outline">
-              Save budget
-            </Button>
-          </form>
-        ) : (
-          <p className="text-sm">
-            Budget: {found.monthlyBudgetUsd == null ? "Not set" : `$${found.monthlyBudgetUsd}`}
-          </p>
         )}
       </section>
     </Page>
