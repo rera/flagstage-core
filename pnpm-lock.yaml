@@ -464,8 +464,8 @@ importers:
   packages/storage:
     dependencies:
       '@aws-sdk/client-s3':
-        specifier: ^3.930.0
-        version: 3.1167.0
+        specifier: ^3.1169.0
+        version: 3.1169.0
       '@flagstage/config':
         specifier: workspace:*
         version: link:../config
@@ -532,8 +532,8 @@ packages:
     resolution: {integrity: sha512-yOijmOl/OqKQ2lgdHjXjz9WX9mL6R/ySPp/SCvq2XiYIDro4Hcs/pEOF6BMkITHoKppAvZcClSGbPm1antLI1g==}
     engines: {node: '>=18.0.0'}
 
-  '@aws-sdk/client-s3@3.1167.0':
-    resolution: {integrity: sha512-HMOyvnlf0+7DFjZjMxGYluL3kbaJMFfslmL7KVda7KFJU/gb0KROGuKhrv2s0abQ0Nryd006yGy0dsxz3BpK+w==}
+  '@aws-sdk/client-s3@3.1169.0':
+    resolution: {integrity: sha512-5IjQ2R1TM5lMuUvCvCfGNG9q6g3nxdputC9FY7YQJf1ygVUwsOruEYxQqpjik1nZdl8mNvV57Mhivtp2JbgBtg==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-scheduler@3.940.0':
@@ -3823,7 +3823,7 @@ snapshots:
     transitivePeerDependencies:
       - aws-crt
 
-  '@aws-sdk/client-s3@3.1167.0':
+  '@aws-sdk/client-s3@3.1169.0':
     dependencies:
       '@aws-sdk/checksums': 3.1002.5
       '@aws-sdk/core': 3.981.0
