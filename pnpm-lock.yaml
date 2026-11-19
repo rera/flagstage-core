@@ -392,8 +392,8 @@ importers:
   packages/forms:
     dependencies:
       '@aws-sdk/client-sesv2':
-        specifier: 3.940.0
-        version: 3.940.0
+        specifier: 3.1169.0
+        version: 3.1169.0
       '@flagstage/db':
         specifier: workspace:*
         version: link:../db
@@ -540,9 +540,9 @@ packages:
     resolution: {integrity: sha512-abCIpWQYWB/gzySY/+1JFMm0RFOn8JOwgLlmq1Ln7JT9fT43YNplJ88hrfL9u0hfhM00urM3JossRLvsRuIngw==}
     engines: {node: '>=18.0.0'}
 
-  '@aws-sdk/client-sesv2@3.940.0':
-    resolution: {integrity: sha512-jDQ4x2HwB2/UXBS7CTeSDiIb+sVsYGDyxTeXdrRAtqNdGv8kC54fbwokDiJ/mnMyB2gyXWw57BqeDJNkZuLmsw==}
-    engines: {node: '>=18.0.0'}
+  '@aws-sdk/client-sesv2@3.1169.0':
+    resolution: {integrity: sha512-tSJymaewFqxbewnzqsEZK9EK9WvRvWDMW1NTyIzfyQxNCRczlkX/9BaCy/PUw9HV2Ca8y+BH+yFxC+R5+oMEbg==}
+    engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-sns@3.940.0':
     resolution: {integrity: sha512-TtLmzU8ylChGESzPA21vzsJiN7KTW2uLoAhYb5JAkxK+AsZSqwfqK8ycLsbguOp7xLuM4cqMILoUvF5me5LXdw==}
@@ -3881,50 +3881,17 @@ snapshots:
     transitivePeerDependencies:
       - aws-crt
 
-  '@aws-sdk/client-sesv2@3.940.0':
+  '@aws-sdk/client-sesv2@3.1169.0':
     dependencies:
-      '@aws-crypto/sha256-browser': 5.2.0
-      '@aws-crypto/sha256-js': 5.2.0
-      '@aws-sdk/core': 3.940.0
-      '@aws-sdk/credential-provider-node': 3.940.0
-      '@aws-sdk/middleware-host-header': 3.936.0
-      '@aws-sdk/middleware-logger': 3.936.0
-      '@aws-sdk/middleware-recursion-detection': 3.936.0
-      '@aws-sdk/middleware-user-agent': 3.940.0
-      '@aws-sdk/region-config-resolver': 3.936.0
-      '@aws-sdk/signature-v4-multi-region': 3.940.0
-      '@aws-sdk/types': 3.936.0
-      '@aws-sdk/util-endpoints': 3.936.0
-      '@aws-sdk/util-user-agent-browser': 3.936.0
-      '@aws-sdk/util-user-agent-node': 3.940.0
-      '@smithy/config-resolver': 4.7.2
+      '@aws-sdk/core': 3.981.0
+      '@aws-sdk/credential-provider-node': 3.972.97
+      '@aws-sdk/signature-v4-multi-region': 3.996.52
+      '@aws-sdk/types': 3.975.1
       '@smithy/core': 3.40.0
       '@smithy/fetch-http-handler': 5.8.1
-      '@smithy/hash-node': 4.5.2
-      '@smithy/invalid-dependency': 4.5.2
-      '@smithy/middleware-content-length': 4.5.2
-      '@smithy/middleware-endpoint': 4.7.2
-      '@smithy/middleware-retry': 4.8.2
-      '@smithy/middleware-serde': 4.5.2
-      '@smithy/middleware-stack': 4.5.2
-      '@smithy/node-config-provider': 4.6.2
       '@smithy/node-http-handler': 4.14.2
-      '@smithy/protocol-http': 5.6.2
-      '@smithy/smithy-client': 4.15.2
       '@smithy/types': 4.20.0
-      '@smithy/url-parser': 4.5.2
-      '@smithy/util-base64': 4.6.2
-      '@smithy/util-body-length-browser': 4.5.2
-      '@smithy/util-body-length-node': 4.5.2
-      '@smithy/util-defaults-mode-browser': 4.6.2
-      '@smithy/util-defaults-mode-node': 4.5.2
-      '@smithy/util-endpoints': 3.7.2
-      '@smithy/util-middleware': 4.5.2
-      '@smithy/util-retry': 4.6.2
-      '@smithy/util-utf8': 4.5.2
       tslib: 2.9.1
-    transitivePeerDependencies:
-      - aws-crt
 
   '@aws-sdk/client-sns@3.940.0':
     dependencies:
