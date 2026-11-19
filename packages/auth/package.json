@@ -14,7 +14,7 @@
     "@flagstage/config": "workspace:*",
     "@flagstage/core": "workspace:*",
     "@flagstage/db": "workspace:*",
-    "better-auth": "1.7.21",
+    "better-auth": "1.7.25",
     "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {

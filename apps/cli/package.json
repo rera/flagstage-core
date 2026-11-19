@@ -20,7 +20,7 @@
     "@flagstage/forms": "workspace:*",
     "@flagstage/importer": "workspace:*",
     "@flagstage/storage": "workspace:*",
-    "better-auth": "1.7.21",
+    "better-auth": "1.7.25",
     "drizzle-orm": "^0.45.1",
     "pg": "^8.16.3"
   },
