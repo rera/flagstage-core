@@ -35,6 +35,7 @@ import {
   invalidatePublishedKeys,
   localInputToUtc,
   materializeOutput,
+  notePublishChecks,
   recordPublish,
   rollbackTo,
   swapLive,
@@ -320,6 +321,7 @@ export async function approveSiteAction(formData: FormData) {
     host: liveHost(found.slug),
     hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`
   });
+  if (!published.ok) redirect(await siteHref(siteId, "/edit"));
   await publishHostMap(liveHost(found.slug), published.publicPrefix);
   const target = await db.select().from(snapshot).where(eq(snapshot.id, snapshotId)).limit(1);
   await invalidateLive(before[0]?.storagePrefix, target[0]?.storagePrefix);
@@ -433,11 +435,17 @@ export async function publishDraftAction(formData: FormData) {
     .where(eq(snapshot.id, found.currentSnapshotId))
     .limit(1);
   const config = loadConfig();
-  await materializeOutput({
+  const built = await materializeOutput({
     store: createBlobStore(config),
     storagePrefix: snaps[0].storagePrefix,
-    previousStoragePrefix: previous[0]?.storagePrefix
+    previousStoragePrefix: previous[0]?.storagePrefix,
+    review: "later"
   });
+  await notePublishChecks(
+    db,
+    siteId,
+    built.checks ?? { blocked: false, drift: [], missing: [], ms: 0 }
+  );
   const swapped = await swapLive(db, siteId, found.currentSnapshotId, snapshotId);
   if (!swapped) redirect(`${await siteHref(siteId)}?error=1`);
   await recordPublish({

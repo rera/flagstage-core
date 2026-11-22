@@ -110,7 +110,7 @@ A block is extracted only when the same bytes, after the current-page nav marker
 <!--#include virtual="/_inc/header.html" active="/news" -->
 ```
 
-`active` is the href that had the marker. `@flagstage/sitebuild` puts `class="active" aria-current="page"` back on the first `<a href="/news">` when it builds the page. Other marker spellings are not written back. The check that the build matches the import compares the pages after that normalization.
+`active` is the href that had the marker. `@flagstage/sitebuild` puts `class="active" aria-current="page"` back on the first `<a href="/news">` when it builds the page. Other marker spellings are not written back. The publish check compares visible text, links, and images after splicing those markers out of the tags. It does not parse the page and write it back out.
 
 A copy that is only close, or a cluster of similar copies where no one version is on most pages, stays in the page. `report.uncertain` lists it. A miss is a missed include. The page is still the original bytes outside any span that was replaced.
 
@@ -122,7 +122,9 @@ After extraction, `runImport` groups the pages by structure. Text and class name
 
 Each kept type is written to `_templates/<type>.html`: the includes stay, `active` becomes `{{path}}`, a listing keeps one example item, and the text becomes `{{title}}`, `{{heading}}`, `{{text}}`, or `{{url}}`. A new page of that type starts from the template.
 
-`.flagstage/skills/site/SKILL.md` names the includes, the page types, and the rule that a site-wide change is a script with a dry run. `.flagstage/drift.json` records each include's sha256 and the pages that link it, including the `active` value. A later publish check reads that file. This step only writes it.
+`.flagstage/skills/site/SKILL.md` names the includes, the page types, and the rule that a site-wide change is a script with a dry run. `.flagstage/drift.json` records each include's sha256 and the pages that link it, including the `active` value. `.flagstage/baseline.json` records each original page's text, links, and images, and which crawled listing pages a generated list or a 301 replaces.
+
+On the first Go live, a page that inlines or drops an include is reported as drift. Drift does not stop the publish. Missing text, links, images, or pages do. The site stays in preview, and the edit page lists what is missing. A later publish runs a smaller check against the previous public files (a removed page, a deleted image, or a large loss of text) and still goes live. The same list is kept on the import report, and a chat line is added when the site already has a thread.
 
 ## Listings
 

@@ -2,7 +2,14 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { buildSite, type BuildDiff, type BuildManifest } from "@flagstage/sitebuild";
+import {
+  buildSite,
+  diffManifests,
+  reviewPublish,
+  type BuildDiff,
+  type BuildManifest,
+  type PublishChecks
+} from "@flagstage/sitebuild";
 import {
   contentTypeForKey,
   manifestKey,
@@ -58,7 +65,13 @@ export async function materializeOutput(input: {
   storagePrefix: string;
   /** Snapshot whose manifest and `out/` supply the unchanged-file copies. */
   previousStoragePrefix?: string | null;
-}): Promise<{ manifest: BuildManifest; diff: BuildDiff }> {
+  /**
+   * `import` blocks the caller when the build drops imported content.
+   * `later` reports drift and large losses and still uploads.
+   * Omit it for a preview build.
+   */
+  review?: "import" | "later";
+}): Promise<{ manifest: BuildManifest; diff: BuildDiff; checks: PublishChecks | null }> {
   const storagePrefix = input.storagePrefix.endsWith("/")
     ? input.storagePrefix
     : `${input.storagePrefix}/`;
@@ -80,6 +93,20 @@ export async function materializeOutput(input: {
       outputDir,
       previous: previous ?? undefined
     });
+    let checks: PublishChecks | null = null;
+    if (input.review) {
+      const previousDir =
+        input.review === "later" && previousOutput
+          ? await downloadPreviousHtml(input.store, previousOutput, result.diff, root)
+          : undefined;
+      checks = reviewPublish({
+        sourceDir,
+        outputDir,
+        previousDir,
+        diff: result.diff,
+        mode: input.review
+      });
+    }
     const dest = outputPrefix(storagePrefix);
     for (const key of result.diff.changed) {
       await input.store.put(dest + key, readFileSync(join(outputDir, key)), contentTypeForKey(key));
@@ -104,10 +131,92 @@ export async function materializeOutput(input: {
       new TextEncoder().encode(JSON.stringify(result.manifest)),
       "application/json"
     );
-    return { manifest: result.manifest, diff: result.diff };
+    return { manifest: result.manifest, diff: result.diff, checks };
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+}
+
+/**
+ * Run the publish checks against trees already stored for a snapshot.
+ * Scheduled go-live does not build again, so it reviews the stored files.
+ */
+export async function reviewStoredPublish(input: {
+  store: BlobStore;
+  storagePrefix: string;
+  previousStoragePrefix?: string | null;
+  mode: "import" | "later";
+}): Promise<PublishChecks> {
+  const storagePrefix = input.storagePrefix.endsWith("/")
+    ? input.storagePrefix
+    : `${input.storagePrefix}/`;
+  const root = mkdtempSync(join(tmpdir(), "flagstage-review-"));
+  const sourceDir = join(root, "src");
+  const outputDir = join(root, "out");
+  try {
+    mkdirSync(sourceDir, { recursive: true });
+    await download(input.store, sourcePrefix(storagePrefix), sourceDir);
+    const current = await readManifest(input.store, storagePrefix);
+    const previousManifest = input.previousStoragePrefix
+      ? await readManifest(input.store, input.previousStoragePrefix)
+      : null;
+    const diff = previousManifest && current ? diffManifests(previousManifest, current) : undefined;
+    if (input.mode === "later" && diff) {
+      mkdirSync(outputDir, { recursive: true });
+      const dest = outputPrefix(storagePrefix);
+      for (const key of diff.changed.filter(isHtmlKey)) {
+        const object = await input.store.get(dest + key);
+        if (!object) continue;
+        const abs = join(outputDir, key);
+        mkdirSync(dirname(abs), { recursive: true });
+        writeFileSync(abs, object.body);
+      }
+    } else {
+      await download(input.store, outputPrefix(storagePrefix), outputDir);
+    }
+    const previousDir =
+      input.mode === "later" && input.previousStoragePrefix && diff
+        ? await downloadPreviousHtml(
+            input.store,
+            outputPrefix(input.previousStoragePrefix),
+            diff,
+            root
+          )
+        : undefined;
+    return reviewPublish({
+      sourceDir,
+      outputDir,
+      previousDir,
+      diff,
+      mode: input.mode
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+async function downloadPreviousHtml(
+  store: BlobStore,
+  previousOutput: string,
+  diff: BuildDiff,
+  root: string
+): Promise<string> {
+  const dir = join(root, "prev");
+  mkdirSync(dir, { recursive: true });
+  const keys = [...diff.changed, ...diff.removed].filter(isHtmlKey);
+  for (const key of keys) {
+    const object = await store.get(previousOutput + key);
+    if (!object) continue;
+    const abs = join(dir, key);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, object.body);
+  }
+  return dir;
+}
+
+function isHtmlKey(key: string): boolean {
+  const lower = key.toLowerCase();
+  return lower.endsWith(".html") || lower.endsWith(".htm");
 }
 
 async function download(store: BlobStore, prefix: string, dir: string): Promise<void> {

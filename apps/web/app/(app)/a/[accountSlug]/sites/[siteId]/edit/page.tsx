@@ -23,6 +23,7 @@ type Report = {
   plugins?: Array<{ page: string; kind: string; detail: string }>;
   missingAssets?: string[];
   cssBackgrounds?: string[];
+  publishChecks?: Array<{ page: string; kind: string; detail: string }>;
 };
 
 function Thinking({ label }: { label: string }) {
@@ -90,7 +91,8 @@ export default async function SitePage({
   const notes = [
     ...(report?.forms ?? []).map((item) => `${item.page}: ${item.detail}`),
     ...(report?.plugins ?? []).map((item) => `${item.page}: ${item.detail}`),
-    ...(report?.missingAssets ?? []).map((asset) => `${t("sites.missing")} ${asset}`)
+    ...(report?.missingAssets ?? []).map((asset) => `${t("sites.missing")} ${asset}`),
+    ...(report?.publishChecks ?? []).map((item) => `${item.page}: ${item.detail}`)
   ];
   const threads = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
   const threadId = threads[0]?.id;
