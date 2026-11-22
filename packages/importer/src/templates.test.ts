@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { extractSharedBlocks, type CapturedFile, type ImportResult } from "./index";
 import {
   DRIFT_MANIFEST_PATH,
+  LISTINGS_PATH,
   scaffoldSite,
   SITE_SKILL_PATH,
   type DriftManifest
@@ -71,8 +72,8 @@ function header(active: string): string {
 
 const FOOTER = `<footer class="site-footer">Grove footer for every page.</footer>`;
 
-function shell(title: string, active: string, main: string): string {
-  return `<!doctype html><html lang="en"><head><title>${title}</title></head><body>${header(active)}${main}${FOOTER}</body></html>`;
+function shell(title: string, active: string, main: string, head = ""): string {
+  return `<!doctype html><html lang="en"><head><title>${title}</title>${head}</head><body>${header(active)}${main}${FOOTER}</body></html>`;
 }
 
 function cards(count: number): string {
@@ -116,7 +117,8 @@ function corpus(): Sample[] {
       html: shell(
         `Story ${id}`,
         "/news",
-        `<main><article class="${klass}"><h1>Story ${id}</h1><p>Story ${id} tells one visit to the grove.</p></article></main>`
+        `<main><article class="${klass}"><h1>Story ${id}</h1><p>Story ${id} tells one visit to the grove.</p></article></main>`,
+        `<meta property="og:title" content="Story ${id}"><meta property="article:published_time" content="2020-01-${id}"><meta property="article:section" content="Grove"><meta property="article:tag" content="grove">`
       )
     });
   }
@@ -200,6 +202,11 @@ describe("page types", () => {
     expect(listing).toContain("<h1>{{title}}</h1>");
     expect(listing).toContain("{{url}}");
     expect(listing).toContain("{{heading}}");
+    expect(listing).toContain("<!--#listing item -->");
+    expect(listing).toContain("<!--#listing /item -->");
+    expect(listing).toContain('rel="prev" href="{{prev}}"');
+    expect(listing).toContain('rel="next" href="{{next}}"');
+    expect((listing.match(/<!--#listing item -->/g) ?? []).length).toBe(1);
     expect((listing.match(/<article/g) ?? []).length).toBe(1);
     expect(listing).not.toContain("Card ");
     expect(listing).not.toContain("Read ");
@@ -241,6 +248,19 @@ describe("page types", () => {
       "A site-wide change must be done by writing a script and doing a dry run before applying. The dry run shows the count of matching pages and a sample diff. Apply the script only after that dry run. Never hand-edit many files."
     );
     expect(skill).not.toContain("_inc/nav.html");
+    expect(skill).toContain(".flagstage/listings.json");
+    expect(skill).toContain("Page 1 is the oldest page.");
+    const listings = JSON.parse(files.get(LISTINGS_PATH) ?? "") as {
+      pageSize: number;
+      template: string;
+      groups: Array<{ match: string; output: string; landing: string }>;
+    };
+    expect(listings.pageSize).toBe(24);
+    expect(listings.template).toBe("_templates/listing.html");
+    expect(listings.groups.map((group) => group.match)).toEqual(["all", "section", "tag"]);
+    expect(listings.groups[0]?.output).toBe("/news/page/{n}.html");
+    expect(listings.groups[0]?.landing).toBe("/news/index.html");
+    expect(listings.groups[2]?.output).toBe("/tags/{tag}/page/{n}.html");
 
     const manifest = JSON.parse(files.get(DRIFT_MANIFEST_PATH) ?? "") as DriftManifest;
     expect(manifest.version).toBe(1);
@@ -293,6 +313,21 @@ describe("page types", () => {
     expect(home).not.toContain("{{title}}");
     expect(home).toContain('<a href="/" class="active" aria-current="page">');
     expect(files.get(SITE_SKILL_PATH)).toContain("Never hand-edit many files.");
+    const news = readFileSync(join(out, "news/index.html"), "utf8");
+    expect(news).toBe(readFileSync(join(out, "news/page/1.html"), "utf8"));
+    expect(news).toContain("Grove header");
+    expect(news).toContain("Grove footer");
+    expect(news).toContain('<a href="/news" class="active" aria-current="page">');
+    expect(news).not.toContain("<!--#include");
+    expect(news).not.toContain("{{heading}}");
+    expect(news).not.toContain('rel="prev"');
+    expect(news.indexOf("/stories/08.html")).toBeLessThan(news.indexOf("/stories/01.html"));
+    const tag = readFileSync(join(out, "tags/grove/index.html"), "utf8");
+    expect(tag).toContain("Grove header");
+    expect(tag).toContain("/stories/08.html");
+    expect(tag).not.toContain("<!--#include");
+    expect(readFileSync(join(src, "news/index.html"), "utf8")).toContain("<!--#include");
+    expect(existsSync(join(out, ".flagstage"))).toBe(false);
   });
 
   it("leaves a one-page import without a template", () => {
@@ -312,6 +347,8 @@ describe("page types", () => {
     expect(skill).toContain("No shared include was extracted.");
     expect(skill).toContain("No page type was shared by enough pages to template.");
     expect(skill).toContain("Never hand-edit many files.");
+    expect(skill).not.toContain("listings.json");
+    expect(result.pages.some((file) => file.path === LISTINGS_PATH)).toBe(false);
     const manifest = JSON.parse(
       text(result.pages.find((file) => file.path === DRIFT_MANIFEST_PATH))
     ) as DriftManifest;

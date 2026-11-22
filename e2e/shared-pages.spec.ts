@@ -83,6 +83,7 @@ test("import extracts a shared header and preview and live highlight the current
   expect(skill).toContain("Grove header");
   expect(skill).toContain("Never hand-edit many files.");
   expect(existsSync(join(src, ".flagstage", "drift.json"))).toBe(true);
+  expect(existsSync(join(src, ".flagstage", "listings.json"))).toBe(true);
 
   const home = await page.request.get(`/sites/${siteId}/live`);
   expect(home.ok()).toBe(true);
@@ -108,6 +109,35 @@ test("import extracts a shared header and preview and live highlight the current
   expect(storyHtml).toContain("Story 01 tells one visit to the grove.");
   expect(storyHtml).not.toContain("<!--#include");
 
+  const news = await page.request.get(`/sites/${siteId}/live/news`);
+  expect(news.ok()).toBe(true);
+  const newsHtml = await news.text();
+  expect(newsHtml).toContain('<a href="/news" class="active" aria-current="page">');
+  expectListing(newsHtml, {
+    items: ["/stories/30/", "/stories/29/", "/stories/25/"],
+    absent: "/stories/24/",
+    prev: "/news/page/1.html",
+    next: null
+  });
+  const older = await page.request.get(`/sites/${siteId}/live/news/page/1.html`);
+  expect(older.ok()).toBe(true);
+  expectListing(await older.text(), {
+    items: ["/stories/24/", "/stories/01/"],
+    absent: "/stories/25/",
+    prev: null,
+    next: "/news/page/2.html"
+  });
+  const tag = await page.request.get(`/sites/${siteId}/live/tags/grove`);
+  expect(tag.ok()).toBe(true);
+  const tagHtml = await tag.text();
+  expectListing(tagHtml, {
+    items: ["/stories/30/", "/stories/25/"],
+    absent: "/stories/01/",
+    prev: "/tags/grove/page/1.html",
+    next: null
+  });
+  expect(tagHtml).not.toContain('href="/news" class="active"');
+
   for (const hidden of [
     "_inc/header.html",
     "_templates/article.html",
@@ -131,8 +161,45 @@ test("import extracts a shared header and preview and live highlight the current
     expect(liveVisit.body).toContain('<a href="/visit" class="active" aria-current="page">');
     expect(liveVisit.body).not.toContain('<a href="/" class="active"');
     expect(liveVisit.body).not.toContain("<!--#include");
+    const liveNews = await fetchLive(`${slug}.localhost`, "/news/");
+    expect(liveNews.status).toBe(200);
+    expectListing(liveNews.body, {
+      items: ["/stories/30/", "/stories/25/"],
+      absent: "/stories/01/",
+      prev: "/news/page/1.html",
+      next: null
+    });
+    const liveTag = await fetchLive(`${slug}.localhost`, "/tags/grove/");
+    expect(liveTag.status).toBe(200);
+    expectListing(liveTag.body, {
+      items: ["/stories/30/", "/stories/25/"],
+      absent: "/stories/01/",
+      prev: "/tags/grove/page/1.html",
+      next: null
+    });
   }).toPass();
 });
+
+function expectListing(
+  body: string,
+  expected: { items: string[]; absent: string; prev: string | null; next: string | null }
+) {
+  expect(body).toContain("Grove header");
+  expect(body).toContain("Grove footer");
+  expect(body).not.toContain("<!--#include");
+  expect(body).not.toContain("Card ");
+  let previous = -1;
+  for (const href of expected.items) {
+    const at = body.indexOf(`href="${href}"`);
+    expect(at).toBeGreaterThan(previous);
+    previous = at;
+  }
+  expect(body).not.toContain(`href="${expected.absent}"`);
+  if (expected.prev) expect(body).toContain(`rel="prev" href="${expected.prev}"`);
+  else expect(body).not.toContain('rel="prev"');
+  if (expected.next) expect(body).toContain(`rel="next" href="${expected.next}"`);
+  else expect(body).not.toContain('rel="next"');
+}
 
 async function revealNav(page: Page) {
   const menu = page.getByRole("button", { name: "Menu", exact: true });
