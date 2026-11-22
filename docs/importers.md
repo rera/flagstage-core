@@ -115,3 +115,13 @@ A block is extracted only when the same bytes, after the current-page nav marker
 A copy that is only close, or a cluster of similar copies where no one version is on most pages, stays in the page. `report.uncertain` lists it. A miss is a missed include. The page is still the original bytes outside any span that was replaced.
 
 One page is left unchanged. Files under `_inc/`, `_templates/`, and `.flagstage/` are not scanned. Assets, redirects, forms, and the other report fields are left as the source returned them.
+
+## Page types
+
+After extraction, `runImport` groups the pages by structure. Text and class names are ignored. A repeated row of the same child counts as one shape, so two listings of different lengths can match. A type is kept only when at least two pages share that shape. The names are `article` (one article with a heading), `listing` (a repeated row of links), and `page` (anything else). When two shapes would share a name, only the larger shape is kept.
+
+Each kept type is written to `_templates/<type>.html`: the includes stay, `active` becomes `{{path}}`, a listing keeps one example item, and the text becomes `{{title}}`, `{{heading}}`, `{{text}}`, or `{{url}}`. A new page of that type starts from the template.
+
+`.flagstage/skills/site/SKILL.md` names the includes, the page types, and the rule that a site-wide change is a script with a dry run. `.flagstage/drift.json` records each include's sha256 and the pages that link it, including the `active` value. A later publish check reads that file. This step only writes it.
+
+Preview and the live host do not serve `_inc/`, `_templates/`, or `.flagstage/`.

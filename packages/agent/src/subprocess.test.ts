@@ -55,4 +55,36 @@ describe("subprocess editor", () => {
     expect(args).toContain("<untrusted>\nAdd a note\n</untrusted>");
     expect(result.files.has("opencode.json")).toBe(false);
   });
+
+  it("loads the site skill into the prompt and keeps it in the snapshot", async () => {
+    const skill = '---\nname: site\ndescription: "Use for every edit."\n---\n\nSITE_SKILL_MARKER\n';
+    const result = await runSubprocessEdit({
+      bin: process.execPath,
+      args: [
+        "-e",
+        [
+          "const fs=require('fs');",
+          "const prompt=fs.readFileSync('.flagstage/request.md','utf8');",
+          "const site=fs.readFileSync('.flagstage/skills/site/SKILL.md','utf8');",
+          "if(!site.includes('SITE_SKILL_MARKER')) process.exit(3);",
+          "if(!prompt.includes('SITE_SKILL_MARKER')) process.exit(2);",
+          "if(!fs.existsSync('.flagstage/skills/forms/SKILL.md')) process.exit(4);"
+        ].join("")
+      ],
+      files: new Map([
+        ["index.html", new TextEncoder().encode("<html></html>")],
+        [".flagstage/skills/site/SKILL.md", new TextEncoder().encode(skill)]
+      ]),
+      request: "Add a note",
+      env: { PATH: "/usr/bin:/bin", HOME: tmpdir() },
+      timeoutMs: 10_000,
+      skillsDir: skillsDirectory
+    });
+    expect(result.changed).toBe(false);
+    expect(new TextDecoder().decode(result.files.get(".flagstage/skills/site/SKILL.md"))).toBe(
+      skill
+    );
+    expect(new TextDecoder().decode(result.files.get("index.html"))).toBe("<html></html>");
+    expect(result.files.has(".flagstage/request.md")).toBe(false);
+  });
 });

@@ -53,7 +53,6 @@ export async function runSubprocessEdit(input: {
       writeFileSync(full, body);
     }
     mkdirSync(join(dir, ".flagstage"), { recursive: true });
-    writeFileSync(join(dir, ".flagstage", "request.md"), buildPrompt(input.request));
     const model = input.env.AGENT_MODEL;
     const region = input.env.AWS_REGION ?? input.env.AWS_DEFAULT_REGION;
     if (model && region) {
@@ -73,6 +72,10 @@ export async function runSubprocessEdit(input: {
         writeFileSync(target, readFileSync(join(input.skillsDir, path)));
       }
     }
+    // Import writes this file. Package skills are copied beside it and do not replace it.
+    const siteSkill = readSiteSkill(dir);
+    const prompt = buildPrompt(input.request, siteSkill);
+    writeFileSync(join(dir, ".flagstage", "request.md"), prompt);
     const childEnv = {
       ...input.env,
       OPENCODE_DISABLE_AUTOUPDATE: "1",
@@ -83,7 +86,7 @@ export async function runSubprocessEdit(input: {
       // `run --standalone` is the headless editor. `--auto` approves file
       // edits, because there is no terminal to ask. amazon-bedrock uses the
       // task role. There is no API key.
-      const child = spawn(input.bin, input.args ?? headlessArgs(input.request, model), {
+      const child = spawn(input.bin, input.args ?? headlessArgs(prompt, model), {
         cwd: dir,
         env: childEnv as unknown as NodeJS.ProcessEnv,
         stdio: ["ignore", "pipe", "pipe"],
@@ -116,6 +119,13 @@ export async function runSubprocessEdit(input: {
         continue;
       next.set(path, new Uint8Array(readFileSync(join(dir, path))));
     }
+    // The editor workspace hides .flagstage from the returned snapshot. Put the
+    // site skill and drift manifest back so the next turn still loads them.
+    for (const [path, body] of input.files) {
+      if ((path === ".flagstage" || path.startsWith(`.flagstage${"/"}`)) && !next.has(path)) {
+        next.set(path, body);
+      }
+    }
     let changed = next.size !== input.files.size;
     if (!changed) {
       for (const [path, body] of input.files) {
@@ -132,10 +142,19 @@ export async function runSubprocessEdit(input: {
   }
 }
 
-function headlessArgs(request: string, model: string | undefined): string[] {
+function readSiteSkill(dir: string): string | undefined {
+  try {
+    const text = readFileSync(join(dir, ".flagstage", "skills", "site", "SKILL.md"), "utf8");
+    return text.trim() ? text : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function headlessArgs(prompt: string, model: string | undefined): string[] {
   const args = ["run", "--standalone", "--archived", "--auto", "--format", "json"];
   if (model) args.push("--model", `amazon-bedrock/${model}`);
-  args.push(buildPrompt(request));
+  args.push(prompt);
   return args;
 }
 

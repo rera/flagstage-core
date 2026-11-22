@@ -33,6 +33,12 @@ import type { AgentRunner } from "./subprocess";
 
 const LOCK_MS = 15 * 60 * 1000;
 
+function isPrivateSource(path: string): boolean {
+  return path
+    .split("/")
+    .some((part) => part === "_inc" || part === "_templates" || part === ".flagstage");
+}
+
 function sessionPrefix(siteId: string): string {
   return `sites/${siteId}/session/`;
 }
@@ -90,7 +96,7 @@ function withAnalytics(
 ) {
   const next = new Map(files);
   for (const [path, body] of files) {
-    if (!path.endsWith(".html")) continue;
+    if (!path.endsWith(".html") || isPrivateSource(path)) continue;
     next.set(path, encoder.encode(injectAnalytics(text.decode(body), appOrigin, siteId, enabled)));
   }
   return next;

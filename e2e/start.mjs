@@ -144,6 +144,99 @@ const fixture = createServer((_req, res) => {
 });
 await new Promise((resolve) => fixture.listen(Number(fixturePort), "127.0.0.1", resolve));
 
+const corpusPort = process.env.E2E_CORPUS_PORT ?? "4000";
+const corpusNav = [
+  ["/", "Home"],
+  ["/news", "News"],
+  ["/visit", "Visit"],
+  ["/about", "About"],
+  ["/hours", "Hours"],
+  ["/membership", "Membership"],
+  ["/contact", "Contact"],
+  ["/events", "Events"]
+];
+const corpusStories = Array.from({ length: 12 }, (_item, index) =>
+  String(index + 1).padStart(2, "0")
+);
+
+function corpusHeader(active) {
+  const links = corpusNav
+    .map(([href, label]) =>
+      href === active
+        ? `<a href="${href}" class="active" aria-current="page">${label}</a>`
+        : `<a href="${href}">${label}</a>`
+    )
+    .join("");
+  return `<header class="site-header">Grove header<nav class="site-nav">${links}</nav></header>`;
+}
+
+const corpusFooter = `<footer class="site-footer">Grove footer for every page.</footer>`;
+
+function corpusPage(title, active, main) {
+  return `<!doctype html><html lang="en"><head><title>${title}</title></head><body>${corpusHeader(active)}${main}${corpusFooter}</body></html>`;
+}
+
+function corpusCards() {
+  return corpusStories
+    .map(
+      (id) =>
+        `<article><h2>Card ${id}</h2><a href="/stories/${id}">Read story ${id}</a></article>`
+    )
+    .join("");
+}
+
+const corpusPages = new Map();
+corpusPages.set(
+  "/",
+  corpusPage("Home", "/", `<main><h1>Home</h1>${corpusCards()}</main>`)
+);
+corpusPages.set(
+  "/news",
+  corpusPage("News", "/news", `<main><h1>News</h1>${corpusCards()}</main>`)
+);
+for (const id of corpusStories) {
+  corpusPages.set(
+    `/stories/${id}`,
+    corpusPage(
+      `Story ${id}`,
+      "/news",
+      `<main><article><h1>Story ${id}</h1><p>Story ${id} tells one visit to the grove.</p></article></main>`
+    )
+  );
+}
+for (const name of ["visit", "about", "hours", "membership", "contact"]) {
+  const title = name.charAt(0).toUpperCase() + name.slice(1);
+  corpusPages.set(
+    `/${name}`,
+    corpusPage(
+      title,
+      `/${name}`,
+      `<main><h1>${title}</h1><p>${title} intro for this grove page.</p><p>Second paragraph for ${title}.</p></main>`
+    )
+  );
+}
+corpusPages.set(
+  "/events",
+  corpusPage(
+    "Events",
+    "/events",
+    `<main><table><tr><th>Event</th><th>Day</th></tr><tr><td>Concert on Friday</td><td>Friday</td></tr></table></main>`
+  )
+);
+
+const corpus = createServer((_req, res) => {
+  const path = new URL(_req.url ?? "/", "http://127.0.0.1").pathname.replace(/\/+$/, "") || "/";
+  const body = corpusPages.get(path);
+  if (!body) {
+    res.writeHead(404, { "content-type": "text/plain" });
+    res.end("not found");
+    return;
+  }
+  res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+  res.end(body);
+});
+await new Promise((resolve) => corpus.listen(Number(corpusPort), "127.0.0.1", resolve));
+
 const env = {
   ...process.env,
   PATH: `${join(process.cwd(), "e2e/bin")}${delimiter}${process.env.PATH ?? ""}`,
@@ -179,6 +272,7 @@ function shutdown(code) {
   if (stopping) return;
   stopping = true;
   fixture.close();
+  corpus.close();
   for (const child of children) child.kill("SIGTERM");
   setTimeout(() => process.exit(code), 500);
 }

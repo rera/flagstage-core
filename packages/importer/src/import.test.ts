@@ -501,14 +501,41 @@ describe("site import", () => {
     });
     expect(stored.snapshotId).toBeTruthy();
     const prefix = `snapshots/site-6/${stored.snapshotId}/`;
-    const include = store.files.get(`${prefix}_inc/header.html`);
+    const include = store.files.get(`${prefix}src/_inc/header.html`);
     expect(new TextDecoder().decode(include?.body)).toBe(header);
-    const home = new TextDecoder().decode(store.files.get(`${prefix}index.html`)?.body);
+    const home = new TextDecoder().decode(store.files.get(`${prefix}src/index.html`)?.body);
     expect(home).toContain('<!--#include virtual="/_inc/header.html" active="/news" -->');
     expect(home).toContain("<p>Home page</p>");
     expect(home).not.toContain("aria-current");
-    const tickets = new TextDecoder().decode(store.files.get(`${prefix}tickets/index.html`)?.body);
+    const tickets = new TextDecoder().decode(
+      store.files.get(`${prefix}src/tickets/index.html`)?.body
+    );
     expect(tickets).toContain('<!--#include virtual="/_inc/header.html" active="/tickets" -->');
+    const homeOut = new TextDecoder().decode(store.files.get(`${prefix}out/index.html`)?.body);
+    expect(homeOut).toContain('<a href="/news" class="active" aria-current="page">');
+    expect(homeOut).toContain("<p>Home page</p>");
+    expect(homeOut).not.toContain("<!--#include");
+    const ticketsOut = new TextDecoder().decode(
+      store.files.get(`${prefix}out/tickets/index.html`)?.body
+    );
+    expect(ticketsOut).toContain('<a href="/tickets" class="active" aria-current="page">');
+    expect(ticketsOut).not.toContain('class="current"');
+    expect(ticketsOut).not.toContain("<!--#include");
+    expect(store.files.has(`${prefix}out/_inc/header.html`)).toBe(false);
+    expect(store.files.has(`${prefix}src/_templates/page.html`)).toBe(true);
+    expect(store.files.has(`${prefix}src/.flagstage/skills/site/SKILL.md`)).toBe(true);
+    expect(store.files.has(`${prefix}src/.flagstage/drift.json`)).toBe(true);
+    expect([...store.files.keys()].some((key) => key.startsWith(`${prefix}out/_templates`))).toBe(
+      false
+    );
+    expect([...store.files.keys()].some((key) => key.startsWith(`${prefix}out/.flagstage`))).toBe(
+      false
+    );
+    const skill = new TextDecoder().decode(
+      store.files.get(`${prefix}src/.flagstage/skills/site/SKILL.md`)?.body
+    );
+    expect(skill).toContain("`/_inc/header.html`");
+    expect(skill).toContain("Never hand-edit many files.");
     const run = await db.select().from(importRun).where(eq(importRun.id, "run-6"));
     expect(run[0]?.fidelityReport).toMatchObject({ uncertain: [] });
     await client.close();
