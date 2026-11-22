@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
 
 import type { CapturedFile, ImportResult } from "./types";
+import { analyzeListings, type ListingOptions } from "./listings";
 
 /**
  * After shared blocks are extracted, group pages by structure and write the
- * files an editing agent needs. No model is called.
+ * files an editing agent needs. Listing measurement calls a model only when
+ * the crawled page sizes, selectors, or URL patterns disagree.
  *
  * A page type is a structural skeleton shared by at least two pages. Text,
  * class names, and the current-page marker are ignored, and a repeated list
@@ -119,7 +121,10 @@ interface Edit {
   text: string;
 }
 
-export function scaffoldSite(result: ImportResult): ImportResult {
+export async function scaffoldSite(
+  result: ImportResult,
+  options?: ListingOptions
+): Promise<ImportResult> {
   const decoded: PageInfo[] = [];
   let parsedCount = 0;
   for (const file of result.pages) {
@@ -149,6 +154,22 @@ export function scaffoldSite(result: ImportResult): ImportResult {
     })
     .filter((file): file is CapturedFile => file !== null);
 
+  const plan = await analyzeListings(
+    decoded.map((page) => ({ path: page.path, html: page.html })),
+    options
+  );
+  if (plan.templateHtml) {
+    const listing = captured(
+      "_templates/listing.html",
+      plan.templateHtml,
+      "text/html; charset=utf-8"
+    );
+    const index = templates.findIndex((file) => file.path === listing.path);
+    if (index >= 0) templates[index] = listing;
+    else templates.push(listing);
+  }
+  const remove = new Set(plan.removePaths);
+
   const includes = result.pages
     .filter(
       (file) => file.path.startsWith("_inc/") && !file.path.slice("_inc/".length).includes("/")
@@ -156,19 +177,36 @@ export function scaffoldSite(result: ImportResult): ImportResult {
     .sort((a, b) => a.path.localeCompare(b.path));
   const hasArticles = decoded.some((page) => page.kind === "article");
   const skill = renderSkill(includes, chosen, parsedCount, hasArticles);
-  const manifest = renderManifest(decoded, includes);
+  const manifest = renderManifest(
+    decoded.filter((page) => !remove.has(page.path)),
+    includes
+  );
   const added = [
     captured(DRIFT_MANIFEST_PATH, manifest, "application/json"),
     captured(SITE_SKILL_PATH, skill, "text/markdown; charset=utf-8"),
     ...templates
   ];
-  if (hasArticles) {
+  if (plan.configJson) {
+    added.push(captured(LISTINGS_PATH, plan.configJson, "application/json"));
+  } else if (hasArticles) {
     added.push(captured(LISTINGS_PATH, listingsConfig(), "application/json"));
   }
   added.sort((a, b) => a.path.localeCompare(b.path));
   const managed = new Set(added.map((file) => file.path));
-  const pages = result.pages.filter((file) => !managed.has(file.path));
-  return { ...result, pages: [...pages, ...added] };
+  const pages = result.pages.filter((file) => !managed.has(file.path) && !remove.has(file.path));
+  const seenFrom = new Set(result.redirects.map((redirect) => redirect.fromPath));
+  const redirects = [...result.redirects];
+  for (const redirect of plan.redirects) {
+    if (seenFrom.has(redirect.fromPath)) continue;
+    seenFrom.add(redirect.fromPath);
+    redirects.push(redirect);
+  }
+  return {
+    ...result,
+    pages: [...pages, ...added],
+    redirects,
+    report: { ...result.report, uncertain: [...result.report.uncertain, ...plan.notes] }
+  };
 }
 
 function describePage(path: string, html: string): PageInfo | null {
@@ -510,6 +548,8 @@ function renderSkill(
 Dated articles are listed when the site is built. Dates, titles, sections, and tags come from JSON-LD (\`Article\`, \`NewsArticle\`, \`BlogPosting\`) or from \`og:title\`, \`article:published_time\`, \`article:section\`, and \`article:tag\`. A page with no date is left out.
 
 \`.flagstage/listings.json\` names the groups, the output paths, the page size, and \`_templates/listing.html\`. The build writes those pages into the public output and does not write them into the source. Page 1 is the oldest page. The landing path shows the newest page. On a page, the newest item is first.
+
+Edit \`pageSize\` on a group in \`.flagstage/listings.json\` to change that list. For example, \`"pageSize": 10\` on the news group shows 10 per page.
 
 Keep one \`<!--#listing item -->\` … \`<!--#listing /item -->\` block in the listing template, and optional \`<!--#listing prev -->\` and \`<!--#listing next -->\` blocks for the pager. \`{{title}}\` is the group title. \`{{heading}}\` and \`{{url}}\` are the article. \`{{prev}}\` and \`{{next}}\` are the pager links.
 

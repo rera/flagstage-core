@@ -126,7 +126,15 @@ Each kept type is written to `_templates/<type>.html`: the includes stay, `activ
 
 ## Listings
 
-When the import finds article pages, it writes `.flagstage/listings.json`. That file names the groups (every article, each section, each tag), the output paths (`/news/page/{n}.html`, `/tags/{tag}/page/{n}.html`), the landing path, the page size (24), and `_templates/listing.html`.
+When the import finds article pages, it writes `.flagstage/listings.json` and `_templates/listing.html`.
+
+If the crawl has listing pages (a page that mostly links to dated articles, plus its paginated siblings), the file uses the measured page size for each group and that list's output paths. The template keeps the crawled item card and pager. Header and footer stay includes. A newest-first numbered URL whose articles would move is stored as a 301 to the landing page, and the crawled list is removed from the source. A list that is not covered stays as a normal page and is named in the fidelity report (`uncertain`, kind `listing`).
+
+A list whose measurements disagree is sent to a small model (`decide` in `@flagstage/ai`, Claude Haiku on Bedrock, model id `LISTING_MODEL_ID`). The reply is kept only when the page size and the item selector match the crawl. If the model is unavailable or the reply does not match, the measured guess is used and the report says the decision was low confidence.
+
+If no list can be measured, the starter file uses page size 24 and paths `/news/page/{n}.html`, `/sections/{section}/page/{n}.html`, and `/tags/{tag}/page/{n}.html`.
+
+Edit `pageSize` on a group to change that list. For example, `"pageSize": 10` on the news group shows 10 per page.
 
 The build reads dates from the HTML. JSON-LD `Article`, `NewsArticle`, and `BlogPosting` supply `headline`, `datePublished`, `articleSection`, `keywords`, and `description` or `image` when those are present. Missing fields fall back to `og:title`, `article:published_time`, `article:section`, and `article:tag`. A page with no date is left out.
 

@@ -410,6 +410,9 @@ importers:
 
   packages/importer:
     dependencies:
+      '@flagstage/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@flagstage/db':
         specifier: workspace:*
         version: link:../db

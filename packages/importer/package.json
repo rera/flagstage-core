@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@flagstage/ai": "workspace:*",
     "@flagstage/db": "workspace:*",
     "@flagstage/publish": "workspace:*",
     "@flagstage/storage": "workspace:*",

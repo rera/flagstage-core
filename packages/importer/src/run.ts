@@ -1,5 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 
+import { bedrockListingDecide } from "@flagstage/ai";
 import type { Database } from "@flagstage/db";
 import { importRun, site } from "@flagstage/db";
 import type { BlobStore } from "@flagstage/storage";
@@ -59,7 +60,9 @@ export async function runImport(input: {
         await notify(input.db, input.siteId);
       }
     });
-    const result = scaffoldSite(extractSharedBlocks(imported));
+    const result = await scaffoldSite(extractSharedBlocks(imported), {
+      decide: bedrockListingDecide()
+    });
     const stored = await storeImport({
       db: input.db,
       store: input.store,
