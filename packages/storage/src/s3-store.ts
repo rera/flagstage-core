@@ -1,4 +1,5 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
@@ -67,6 +68,18 @@ export class S3BlobStore implements BlobStore {
   async delete(key: string): Promise<void> {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: assertSafeKey(key) })
+    );
+  }
+
+  async copy(fromKey: string, toKey: string): Promise<void> {
+    const from = assertSafeKey(fromKey);
+    const to = assertSafeKey(toKey);
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: to,
+        CopySource: encodeURI(`${this.bucket}/${from}`)
+      })
     );
   }
 }

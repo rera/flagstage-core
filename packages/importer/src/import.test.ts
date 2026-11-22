@@ -53,6 +53,11 @@ function memoryStore(): BlobStore & { files: Map<string, StoredObject> } {
     },
     async delete(key) {
       files.delete(key);
+    },
+    async copy(from, to) {
+      const object = files.get(from);
+      if (!object) throw new Error(`Missing ${from}`);
+      files.set(to, { body: new Uint8Array(object.body), contentType: object.contentType });
     }
   };
 }
@@ -147,10 +152,16 @@ describe("site import", () => {
         importRunId: "run-1",
         result: crawl
       });
-      const home = [...store.files.keys()].find((key) => key.endsWith("index.html"));
-      expect(home).toBeTruthy();
-      const page = new TextDecoder().decode(store.files.get(home ?? "")?.body);
+      const prefix = `snapshots/site-1/${stored.snapshotId}/`;
+      const source = store.files.get(`${prefix}src/index.html`);
+      const built = store.files.get(`${prefix}out/index.html`);
+      expect(source).toBeTruthy();
+      expect(built).toBeTruthy();
+      const page = new TextDecoder().decode(built?.body);
       expect(page).toContain("http://localhost:3000/f/site-1/cf7-12");
+      expect(
+        Buffer.compare(source?.body ?? new Uint8Array(), built?.body ?? new Uint8Array())
+      ).toBe(0);
       expect(crawl.report.forms.some((item) => item.kind === "contact-form-7")).toBe(true);
       expect([...new Set(crawl.report.plugins.map((item) => item.kind))].sort()).toEqual([
         "calendar",
@@ -185,17 +196,17 @@ describe("site import", () => {
       expect(live[0]?.currentSnapshotId).toBeNull();
       await approveImport({
         db,
+        store,
         siteId: "site-1",
         snapshotId: stored.snapshotId,
         host: "fixture.localhost",
-        prefix: `snapshots/site-1/${stored.snapshotId}/`,
         hostMapPath
       });
       const after = await db.select().from(site).where(eq(site.id, "site-1"));
       expect(after[0]?.currentSnapshotId).toBe(stored.snapshotId);
       expect(after[0]?.status).toBe("live");
       const map = JSON.parse(readFileSync(hostMapPath, "utf8")) as Record<string, string>;
-      expect(map["fixture.localhost"]).toContain(stored.snapshotId);
+      expect(map["fixture.localhost"]).toBe(`snapshots/site-1/${stored.snapshotId}/out/`);
       const run = await db.select().from(importRun);
       expect(run[0]?.status).toBe("preview");
     } finally {
@@ -307,10 +318,11 @@ describe("site import", () => {
       }
     });
     expect(stored.snapshotId).toBeTruthy();
-    const home = [...store.files.keys()].find((key) => key.endsWith("index.html"));
+    const home = [...store.files.keys()].find((key) => key.endsWith("src/index.html"));
     expect(new TextDecoder().decode(store.files.get(home ?? "")?.body)).toContain(
       "from the fixture source"
     );
+    expect([...store.files.keys()].some((key) => key.endsWith("out/index.html"))).toBe(true);
     expect([...store.files.keys()].some((key) => key.endsWith("assets/mark.svg"))).toBe(true);
     const redirects = await db.select().from(siteRedirect);
     expect(

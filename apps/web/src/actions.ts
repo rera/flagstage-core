@@ -21,7 +21,7 @@ import { importRun, message, site, thread, user } from "@flagstage/db";
 import { sendEmail } from "@flagstage/forms";
 import { approveImport } from "@flagstage/importer";
 import { startImport, startTurn } from "./dispatch";
-import { createBlobStore, snapshotPrefix } from "@flagstage/storage";
+import { createBlobStore, outputPrefix, publicPrefixFor } from "@flagstage/storage";
 import {
   approveChange,
   buildAgentEnv,
@@ -32,10 +32,13 @@ import {
 import {
   disarmSchedule,
   insertSchedule,
+  invalidatePublishedKeys,
   localInputToUtc,
+  materializeOutput,
   recordPublish,
   rollbackTo,
-  swapLive
+  swapLive,
+  writeHostMap
 } from "@flagstage/publish";
 import { siteSchedule } from "@flagstage/db";
 import { account, siteDomain, snapshot } from "@flagstage/db";
@@ -102,6 +105,17 @@ async function publishHostMap(host: string | undefined, prefix: string | undefin
   const config = loadConfig();
   if (config.HOSTMAP_DRIVER !== "cloudfront-kvs" || !config.CLOUDFRONT_KVS_ARN) return;
   await writeHostPrefix(cloudfrontKeyValueStore(config.CLOUDFRONT_KVS_ARN), host, prefix);
+}
+
+async function invalidateLive(fromPrefix: string | null | undefined, toPrefix: string | undefined) {
+  if (!toPrefix) return;
+  const config = loadConfig();
+  await invalidatePublishedKeys({
+    store: createBlobStore(config),
+    distributionId: config.CLOUDFRONT_DISTRIBUTION_ID,
+    fromPrefix,
+    toPrefix
+  });
 }
 
 function nextPath(formData: FormData, fallback: string) {
@@ -291,18 +305,24 @@ export async function approveSiteAction(formData: FormData) {
     redirect("/no-access");
   }
   const config = loadConfig();
-  const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
+  const db = database();
+  const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
   const found = rows[0];
   if (!found) redirect(await landingPath(principal));
-  await approveImport({
-    db: database(),
+  const before = found.currentSnapshotId
+    ? await db.select().from(snapshot).where(eq(snapshot.id, found.currentSnapshotId)).limit(1)
+    : [];
+  const published = await approveImport({
+    db,
+    store: createBlobStore(config),
     siteId,
     snapshotId,
     host: liveHost(found.slug),
-    prefix: snapshotPrefix(siteId, snapshotId),
     hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`
   });
-  await publishHostMap(liveHost(found.slug), snapshotPrefix(siteId, snapshotId));
+  await publishHostMap(liveHost(found.slug), published.publicPrefix);
+  const target = await db.select().from(snapshot).where(eq(snapshot.id, snapshotId)).limit(1);
+  await invalidateLive(before[0]?.storagePrefix, target[0]?.storagePrefix);
   redirect(nextPath(formData, await siteHref(siteId)));
 }
 
@@ -388,7 +408,8 @@ export async function approveChangeAction(formData: FormData) {
     appOrigin: config.APP_URL
   });
   if (published.ok && found) {
-    await publishHostMap(liveHost(found.slug), snapshotPrefix(siteId, published.snapshotId));
+    await publishHostMap(liveHost(found.slug), published.publicPrefix);
+    await invalidateLive(published.fromPrefix, published.storagePrefix);
   }
   redirect(nextPath(formData, await siteHref(siteId)));
 }
@@ -406,6 +427,17 @@ export async function publishDraftAction(formData: FormData) {
   if (!found?.currentSnapshotId || !snaps[0] || found.draftSnapshotId !== snapshotId) {
     redirect(`${await siteHref(siteId)}?error=1`);
   }
+  const previous = await db
+    .select()
+    .from(snapshot)
+    .where(eq(snapshot.id, found.currentSnapshotId))
+    .limit(1);
+  const config = loadConfig();
+  await materializeOutput({
+    store: createBlobStore(config),
+    storagePrefix: snaps[0].storagePrefix,
+    previousStoragePrefix: previous[0]?.storagePrefix
+  });
   const swapped = await swapLive(db, siteId, found.currentSnapshotId, snapshotId);
   if (!swapped) redirect(`${await siteHref(siteId)}?error=1`);
   await recordPublish({
@@ -416,7 +448,10 @@ export async function publishDraftAction(formData: FormData) {
     actorUserId: principal.id,
     kind: "publish"
   });
-  await publishHostMap(liveHost(found.slug), snaps[0].storagePrefix);
+  const publicPrefix = outputPrefix(snaps[0].storagePrefix);
+  writeHostMap(`${config.FS_STORAGE_DIR}/hostmap.json`, liveHost(found.slug), publicPrefix);
+  await publishHostMap(liveHost(found.slug), publicPrefix);
+  await invalidateLive(previous[0]?.storagePrefix, snaps[0].storagePrefix);
   redirect(nextPath(formData, await siteHref(siteId)));
 }
 
@@ -511,23 +546,28 @@ export async function rollbackAction(formData: FormData) {
   if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
   const snapshotId = String(formData.get("snapshotId") ?? "");
   const config = loadConfig();
-  const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
+  const db = database();
+  const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
   const found = rows[0];
-  const snaps = await database()
-    .select()
-    .from(snapshot)
-    .where(eq(snapshot.id, snapshotId))
-    .limit(1);
-  await rollbackTo({
-    db: database(),
+  const snaps = await db.select().from(snapshot).where(eq(snapshot.id, snapshotId)).limit(1);
+  const store = createBlobStore(config);
+  const fromRows = found?.currentSnapshotId
+    ? await db.select().from(snapshot).where(eq(snapshot.id, found.currentSnapshotId)).limit(1)
+    : [];
+  const publicPrefix = snaps[0] ? await publicPrefixFor(store, snaps[0].storagePrefix) : undefined;
+  const rolled = await rollbackTo({
+    db,
     siteId,
     toSnapshotId: snapshotId,
     actorUserId: principal.id,
     host: found ? liveHost(found.slug) : undefined,
     hostMapPath: `${config.FS_STORAGE_DIR}/hostmap.json`,
-    prefix: snaps[0]?.storagePrefix
+    prefix: publicPrefix
   });
-  await publishHostMap(found ? liveHost(found.slug) : undefined, snaps[0]?.storagePrefix);
+  if (rolled.ok) {
+    await publishHostMap(found ? liveHost(found.slug) : undefined, publicPrefix);
+    await invalidateLive(fromRows[0]?.storagePrefix, snaps[0]?.storagePrefix);
+  }
   redirect(await siteHref(siteId));
 }
 

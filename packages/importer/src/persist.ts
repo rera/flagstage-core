@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
 
 import { eq } from "drizzle-orm";
 
 import type { Database } from "@flagstage/db";
 import { importRun, leadForm, site, siteRedirect, snapshot } from "@flagstage/db";
-import { snapshotPrefix, type BlobStore } from "@flagstage/storage";
+import { materializeOutput, writeHostMap } from "@flagstage/publish";
+import { outputPrefix, snapshotPrefix, sourcePrefix, type BlobStore } from "@flagstage/storage";
 
 import type { ImportResult } from "./types";
 
@@ -22,9 +21,10 @@ export async function storeImport(input: {
   const files = [...input.result.pages, ...input.result.assets];
   let bytes = 0;
   for (const file of files) {
-    await input.store.put(`${prefix}${file.path}`, file.body, file.contentType);
+    await input.store.put(`${sourcePrefix(prefix)}${file.path}`, file.body, file.contentType);
     bytes += file.body.byteLength;
   }
+  await materializeOutput({ store: input.store, storagePrefix: prefix });
   const now = new Date();
   await input.db.insert(snapshot).values({
     id: snapshotId,
@@ -77,24 +77,34 @@ export async function storeImport(input: {
 
 export async function approveImport(input: {
   db: Database;
+  store: BlobStore;
   siteId: string;
   snapshotId: string;
   host?: string;
-  prefix?: string;
   hostMapPath?: string;
-}): Promise<void> {
+}): Promise<{ publicPrefix: string }> {
+  const snaps = await input.db
+    .select()
+    .from(snapshot)
+    .where(eq(snapshot.id, input.snapshotId))
+    .limit(1);
+  const storagePrefix = snaps[0]?.storagePrefix;
+  if (!storagePrefix) throw new Error("Import snapshot is missing.");
+  const sites = await input.db.select().from(site).where(eq(site.id, input.siteId)).limit(1);
+  const previousId = sites[0]?.currentSnapshotId;
+  const previous = previousId
+    ? await input.db.select().from(snapshot).where(eq(snapshot.id, previousId)).limit(1)
+    : [];
+  await materializeOutput({
+    store: input.store,
+    storagePrefix,
+    previousStoragePrefix: previous[0]?.storagePrefix
+  });
   await input.db
     .update(site)
     .set({ currentSnapshotId: input.snapshotId, status: "live" })
     .where(eq(site.id, input.siteId));
-  if (!input.host || !input.prefix || !input.hostMapPath) return;
-  let current: Record<string, string> = {};
-  try {
-    current = JSON.parse(readFileSync(input.hostMapPath, "utf8")) as Record<string, string>;
-  } catch {
-    current = {};
-  }
-  current[input.host] = input.prefix;
-  mkdirSync(dirname(input.hostMapPath), { recursive: true });
-  writeFileSync(input.hostMapPath, JSON.stringify(current, null, 2));
+  const publicPrefix = outputPrefix(storagePrefix);
+  if (input.host && input.hostMapPath) writeHostMap(input.hostMapPath, input.host, publicPrefix);
+  return { publicPrefix };
 }

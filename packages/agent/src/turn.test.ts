@@ -42,6 +42,11 @@ function memoryStore(): BlobStore & { files: Map<string, StoredObject> } {
     },
     async delete(key) {
       files.delete(key);
+    },
+    async copy(from, to) {
+      const object = files.get(from);
+      if (!object) throw new Error(`Missing ${from}`);
+      files.set(to, { body: new Uint8Array(object.body), contentType: object.contentType });
     }
   };
 }
@@ -64,7 +69,12 @@ const testEditor: AgentRunner = {
 
 async function applyMigrations(client: PGlite) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle");
-  for (const file of ["0000_init.sql", "0001_auth_plugins.sql", "0003_builder.sql", "0004_schedule.sql"]) {
+  for (const file of [
+    "0000_init.sql",
+    "0001_auth_plugins.sql",
+    "0003_builder.sql",
+    "0004_schedule.sql"
+  ]) {
     const sqlText = readFileSync(join(root, file), "utf8");
     for (const statement of sqlText.split("--> statement-breakpoint")) {
       const query = statement.trim();
@@ -199,7 +209,16 @@ describe("chat publish", () => {
       const live = await db.select().from(site).where(eq(site.id, "site-1"));
       expect(live[0]?.currentSnapshotId).not.toBe(liveId);
       const map = JSON.parse(readFileSync(hostMapPath, "utf8")) as Record<string, string>;
-      expect(map["fixture.localhost"]).toContain(live[0]?.currentSnapshotId ?? "missing");
+      const livePrefix = map["fixture.localhost"] ?? "";
+      expect(livePrefix).toContain(live[0]?.currentSnapshotId ?? "missing");
+      expect(livePrefix.endsWith("/out/")).toBe(true);
+      if (published.ok) {
+        const publishedHtml = new TextDecoder().decode(
+          store.files.get(`${livePrefix}index.html`)?.body
+        );
+        expect(publishedHtml).toContain("Can you change the headline?");
+        expect(publishedHtml).not.toContain("<!--#include");
+      }
 
       const otherId = randomUUID();
       await db.insert(snapshot).values({

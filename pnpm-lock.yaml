@@ -413,6 +413,9 @@ importers:
       '@flagstage/db':
         specifier: workspace:*
         version: link:../db
+      '@flagstage/publish':
+        specifier: workspace:*
+        version: link:../publish
       '@flagstage/storage':
         specifier: workspace:*
         version: link:../storage
@@ -435,6 +438,9 @@ importers:
 
   packages/publish:
     dependencies:
+      '@aws-sdk/client-cloudfront':
+        specifier: ^3.940.0
+        version: 3.1167.0
       '@aws-sdk/client-scheduler':
         specifier: 3.940.0
         version: 3.940.0
@@ -447,6 +453,9 @@ importers:
       '@flagstage/domains':
         specifier: workspace:*
         version: link:../domains
+      '@flagstage/sitebuild':
+        specifier: workspace:*
+        version: link:../sitebuild
       '@flagstage/storage':
         specifier: workspace:*
         version: link:../storage

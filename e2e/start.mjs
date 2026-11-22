@@ -13,9 +13,13 @@ const databaseUrl =
   process.env.DATABASE_URL ?? "postgres://flagstage:flagstage@127.0.0.1:54329/flagstage";
 const storageDir = process.env.FS_STORAGE_DIR ?? "/tmp/flagstage-e2e-storage";
 
+const header = "<header>Park header</header>\n";
+// The preload exists so the crawler stores the include fragment next to the page.
 const html = `<!doctype html><html><head><title>Parks</title></head><body>
+<!--#include virtual="/_inc/header.html" -->
 <h1>Parks</h1>
 <p>Welcome to the parks.</p>
+<link rel="preload" href="/_inc/header.html" as="fetch">
 </body></html>`;
 
 function sleep(ms) {
@@ -125,6 +129,11 @@ mkdirSync(storageDir, { recursive: true });
 
 const fixture = createServer((_req, res) => {
   const path = new URL(_req.url ?? "/", "http://127.0.0.1").pathname;
+  if (path === "/_inc/header.html") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(header);
+    return;
+  }
   if (path !== "/") {
     res.writeHead(404, { "content-type": "text/plain" });
     res.end("not found");
@@ -144,6 +153,7 @@ const env = {
   STORAGE_DRIVER: "fs",
   FS_STORAGE_DIR: storageDir,
   HOSTMAP_DRIVER: "fs",
+  DEV_SITES_PORT: "8088",
   DOMAINS_DRIVER: "none",
   EMAIL_PASSWORD_ENABLED: "1",
   E2E_EMAIL: "e2e@example.com",
@@ -183,6 +193,7 @@ const prepared = spawnSync(
 );
 if (prepared.status !== 0) process.exit(prepared.status ?? 1);
 
+start("node", ["script/dev-sites.mjs"]);
 start("pnpm", [
   "--filter",
   "@flagstage/web",

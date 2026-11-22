@@ -22,7 +22,7 @@ For the filesystem driver, copy `FS_STORAGE_DIR`.
 
 ## One site
 
-`flagstage site export <slug> --out site.tgz` writes the current published snapshot. The archive holds `content.json` (site, snapshot, and the file list) and `files/` with the static bytes. The site must already be published.
+`flagstage site export <slug> --out site.tgz` writes the current published snapshot. The archive holds `content.json` (site, snapshot, and the file list) and `files/` with the public bytes visitors receive. Editor source stays in the snapshot store. The site must already be published.
 
 ## Operator reminder
 

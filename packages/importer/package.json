@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@flagstage/db": "workspace:*",
+    "@flagstage/publish": "workspace:*",
     "@flagstage/storage": "workspace:*",
     "drizzle-orm": "^0.45.1"
   },

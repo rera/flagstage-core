@@ -28,7 +28,7 @@ secret is not in that file. The stack creates it in Secrets Manager.
 | `FS_STORAGE_DIR` | no | `.data/storage` | Directory used when STORAGE_DRIVER=fs. |
 | `HOSTMAP_DRIVER` | no | `fs` | How the live hostname map is stored. fs writes a JSON file. cloudfront-kvs writes a CloudFront KeyValueStore. |
 | `CLOUDFRONT_KVS_ARN` | no | `` | KeyValueStore ARN. Required when HOSTMAP_DRIVER=cloudfront-kvs. |
-| `CLOUDFRONT_DISTRIBUTION_ID` | no | `` | Multi-tenant distribution id. Required when DOMAINS_DRIVER=cloudfront-tenants. |
+| `CLOUDFRONT_DISTRIBUTION_ID` | no | `` | Distribution id. When set, publish invalidates changed keys on this distribution. Required when DOMAINS_DRIVER=cloudfront-tenants. |
 | `CLOUDFRONT_CONNECTION_GROUP_ENDPOINT` | no | `` | Connection group endpoint operators CNAME to. Shown on the DNS checklist. Required when domains use CloudFront. |
 | `CLOUDFRONT_CONNECTION_GROUP_ID` | no | `` | Connection group id for new distribution tenants. Required when DOMAINS_DRIVER=cloudfront-tenants. |
 | `DOMAINS_DRIVER` | no | `none` | none records DNS targets only. cloudfront-tenants also creates a distribution tenant per site. |

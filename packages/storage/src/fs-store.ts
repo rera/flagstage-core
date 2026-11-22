@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
 import { contentTypeForKey } from "./content-type";
@@ -85,6 +85,16 @@ export class FsBlobStore implements BlobStore {
     await rm(this.pathFor(key), { force: true });
     const meta = await this.readMeta();
     delete meta[key];
+    await this.writeMeta(meta);
+  }
+
+  async copy(fromKey: string, toKey: string): Promise<void> {
+    const from = this.pathFor(fromKey);
+    const to = this.pathFor(toKey);
+    await mkdir(dirname(to), { recursive: true });
+    await copyFile(from, to);
+    const meta = await this.readMeta();
+    meta[toKey] = meta[fromKey] ?? contentTypeForKey(toKey);
     await this.writeMeta(meta);
   }
 }

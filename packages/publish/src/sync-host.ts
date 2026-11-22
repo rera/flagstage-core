@@ -4,7 +4,9 @@ import { loadConfig } from "@flagstage/config";
 import type { Database } from "@flagstage/db";
 import { site, siteSchedule, snapshot } from "@flagstage/db";
 import { cloudfrontKeyValueStore, writeHostPrefix } from "@flagstage/domains";
+import { createBlobStore, publicPrefixFor } from "@flagstage/storage";
 
+import { invalidatePublishedKeys } from "./invalidate";
 import { writeHostMap } from "./publish";
 
 export async function syncScheduleHost(db: Database, scheduleId: string) {
@@ -19,9 +21,11 @@ export async function syncScheduleHost(db: Database, scheduleId: string) {
     .from(snapshot)
     .where(eq(snapshot.id, current.currentSnapshotId))
     .limit(1);
-  const prefix = snaps[0]?.storagePrefix;
-  if (!prefix) return;
+  const storagePrefix = snaps[0]?.storagePrefix;
+  if (!storagePrefix) return;
   const config = loadConfig();
+  const store = createBlobStore(config);
+  const prefix = await publicPrefixFor(store, storagePrefix);
   const host =
     config.NODE_ENV === "production" && config.product?.domain
       ? `${current.slug}.${config.product.domain}`
@@ -30,4 +34,15 @@ export async function syncScheduleHost(db: Database, scheduleId: string) {
   if (config.HOSTMAP_DRIVER === "cloudfront-kvs" && config.CLOUDFRONT_KVS_ARN) {
     await writeHostPrefix(cloudfrontKeyValueStore(config.CLOUDFRONT_KVS_ARN), host, prefix);
   }
+  const fromId = row.status === "reverted" ? row.snapshotId : row.revertToSnapshotId;
+  const fromRows =
+    fromId && fromId !== current.currentSnapshotId
+      ? await db.select().from(snapshot).where(eq(snapshot.id, fromId)).limit(1)
+      : [];
+  await invalidatePublishedKeys({
+    store,
+    distributionId: config.CLOUDFRONT_DISTRIBUTION_ID,
+    fromPrefix: fromRows[0]?.storagePrefix,
+    toPrefix: storagePrefix
+  });
 }

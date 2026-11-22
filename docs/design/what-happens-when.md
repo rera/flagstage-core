@@ -12,7 +12,7 @@ A site holds one draft lock. The lock is the person who started the turn, and it
 
 ## Undoing one edit, and undoing a publish
 
-Each edit writes a new snapshot and points the draft at it. Undo this edit points the draft at that snapshot's parent. The published site does not move. Undo a publish moves the live snapshot back to an earlier published snapshot. The draft can still be the newer edit.
+Each edit writes a new snapshot and points the draft at it. The snapshot keeps the source the editor changed and a stitched copy for preview. Undo this edit points the draft at that snapshot's parent. The published site does not move. Publish uploads files that changed, copies unchanged files from the previous snapshot, and points the hostname at the new public files. Undo a publish moves that pointer back. It does not rebuild or re-upload. The draft can still be the newer edit.
 
 ## A fresh Lambda restoring the session
 

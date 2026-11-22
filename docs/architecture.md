@@ -24,7 +24,7 @@ Chat is one container-image Lambda. Each turn loads the draft and the OpenCode s
 
 Imports are one-off Fargate tasks from the same web image, started with `RunTask` and the command `import`. The task writes pages found, pages done, and skipped pages onto the import row. Locally, with no cluster set, the web process runs that same function in the background.
 
-Published HTML is read from object storage by CloudFront. The app is not on that path. Previews of the current draft are auth-gated at `/sites/<id>/live`.
+Each snapshot keeps editor source under `src/` and stitched public files under `out/`. Include directives stay in the source. CloudFront reads `out/` for the snapshot the hostname points at. The app is not on that path. Previews of the current draft are auth-gated at `/sites/<id>/live` and read the same `out/` tree. A snapshot from before this layout, with files at the prefix root, keeps being served from that root until it is published again.
 
 ## Agent isolation
 

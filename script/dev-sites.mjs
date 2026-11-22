@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Dev-only static server for published sites. Reads hostmap.json and serves
-// the snapshot files. AWS serves those files from S3 through CloudFront.
+// that prefix. New snapshots point the map at out/. AWS serves the same prefix
+// from S3 through CloudFront.
 // The app does not serve live HTML.
 
 import { createServer } from "node:http";

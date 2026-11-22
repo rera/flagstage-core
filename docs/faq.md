@@ -8,7 +8,7 @@ No. There is no telemetry and no update check.
 
 ## Where do visitors' requests go?
 
-To CloudFront, then to the current snapshot in object storage. The app serves auth-gated previews at `/preview/<token>`. It does not serve a published site.
+To CloudFront, then to the published files in the current snapshot. Shared includes are stitched before that, so visitors do not see include directives. The app serves auth-gated previews of those same published files. It does not serve the live site.
 
 ## How do people sign in?
 
