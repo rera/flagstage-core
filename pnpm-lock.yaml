@@ -426,6 +426,9 @@ importers:
       '@electric-sql/pglite':
         specifier: ^0.3.14
         version: 0.3.16
+      '@flagstage/sitebuild':
+        specifier: workspace:*
+        version: link:../sitebuild
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

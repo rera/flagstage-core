@@ -23,6 +23,12 @@ export type FidelityReport = {
   plugins: FidelityItem[];
   missingAssets: string[];
   cssBackgrounds: string[];
+  /**
+   * Shared-looking blocks left inline. `drift` is close to a block that was
+   * extracted. `near-duplicate` is a cluster with no single exact copy on
+   * most pages. A miss here is a missed include; the page bytes stay.
+   */
+  uncertain: FidelityItem[];
 };
 
 export type MappedForm = {
