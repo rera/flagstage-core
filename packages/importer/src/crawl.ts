@@ -273,7 +273,7 @@ export async function crawlSite(input: ImportOptions): Promise<ImportResult> {
     pages,
     assets,
     redirects,
-    report: { forms, plugins, missingAssets, cssBackgrounds },
+    report: { forms, plugins, missingAssets, cssBackgrounds, uncertain: [] },
     forms: mapped,
     stats: {
       pages: seenPages.size,

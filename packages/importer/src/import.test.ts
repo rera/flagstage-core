@@ -263,7 +263,8 @@ describe("site import", () => {
         forms: [{ page: "/", kind: "hello", detail: "Mapped from the fixture source." }],
         plugins: [],
         missingAssets: [],
-        cssBackgrounds: []
+        cssBackgrounds: [],
+        uncertain: []
       },
       stats: { pages: 1, assets: 1, pagesFound: 1, pagesDone: 1, skipped: [] }
     };
@@ -416,6 +417,88 @@ describe("site import", () => {
     expect(run[0]?.error).toContain("no-such-source");
     const sites = await db.select().from(site).where(eq(site.id, "site-5"));
     expect(sites[0]?.status).toBe("failed");
+    await client.close();
+  });
+
+  it("extracts a shared header after the named source returns its pages", async () => {
+    const header =
+      '<header class="site-header"><a href="/news">News</a><a href="/tickets">Tickets</a><a href="/shop">Shop</a></header>';
+    const marked = header.replace(
+      '<a href="/news">',
+      '<a href="/news" class="active" aria-current="page">'
+    );
+    const page = (main: string, block: string) =>
+      `<!doctype html><html><head><title>${main}</title></head><body>${block}<main><p>${main}</p></main></body></html>`;
+    registerImporter({
+      name: "shared-blocks",
+      async run() {
+        return {
+          pages: [
+            {
+              path: "index.html",
+              body: new TextEncoder().encode(page("Home page", marked)),
+              contentType: "text/html; charset=utf-8"
+            },
+            {
+              path: "tickets/index.html",
+              body: new TextEncoder().encode(
+                page(
+                  "Ticket page",
+                  header.replace('<a href="/tickets">', '<a href="/tickets" class="current">')
+                )
+              ),
+              contentType: "text/html; charset=utf-8"
+            }
+          ],
+          assets: [],
+          redirects: [],
+          forms: [],
+          report: { forms: [], plugins: [], missingAssets: [], cssBackgrounds: [], uncertain: [] },
+          stats: { pages: 2, assets: 0, pagesFound: 2, pagesDone: 2, skipped: [] }
+        };
+      }
+    });
+    const client = new PGlite();
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+    await db.insert(account).values({ id: "acct-6", name: "Shared", slug: "shared" });
+    await db.insert(site).values({
+      id: "site-6",
+      accountId: "acct-6",
+      name: "Shared blocks",
+      slug: "shared-blocks",
+      sourceUrl: "https://example.test",
+      status: "importing"
+    });
+    await db.insert(importRun).values({
+      id: "run-6",
+      siteId: "site-6",
+      sourceUrl: "https://example.test",
+      status: "queued"
+    });
+    const store = memoryStore();
+    const stored = await runImport({
+      db,
+      store,
+      siteId: "site-6",
+      importRunId: "run-6",
+      sourceUrl: "https://example.test",
+      appOrigin: "http://localhost:3000",
+      caps: { maxPages: 5, maxDepth: 1, maxAssets: 5 },
+      source: "shared-blocks"
+    });
+    expect(stored.snapshotId).toBeTruthy();
+    const prefix = `snapshots/site-6/${stored.snapshotId}/`;
+    const include = store.files.get(`${prefix}_inc/header.html`);
+    expect(new TextDecoder().decode(include?.body)).toBe(header);
+    const home = new TextDecoder().decode(store.files.get(`${prefix}index.html`)?.body);
+    expect(home).toContain('<!--#include virtual="/_inc/header.html" active="/news" -->');
+    expect(home).toContain("<p>Home page</p>");
+    expect(home).not.toContain("aria-current");
+    const tickets = new TextDecoder().decode(store.files.get(`${prefix}tickets/index.html`)?.body);
+    expect(tickets).toContain('<!--#include virtual="/_inc/header.html" active="/tickets" -->');
+    const run = await db.select().from(importRun).where(eq(importRun.id, "run-6"));
+    expect(run[0]?.fidelityReport).toMatchObject({ uncertain: [] });
     await client.close();
   });
 });

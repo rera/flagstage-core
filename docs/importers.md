@@ -26,7 +26,7 @@ export const acme: Importer = {
       assets: [],
       redirects: [],
       forms: [],
-      report: { forms: [], plugins: [], missingAssets: [], cssBackgrounds: [] },
+      report: { forms: [], plugins: [], missingAssets: [], cssBackgrounds: [], uncertain: [] },
       stats: { pages: 1, assets: 0, pagesFound: 1, pagesDone: 1, skipped: [] }
     };
     await options.onProgress?.({ pagesFound: 1, pagesDone: 1, skipped: [] });
@@ -68,12 +68,15 @@ await runImport({
 
 `report` is the fidelity report.
 
-| Field            | What it holds                                      |
-| ---------------- | -------------------------------------------------- |
-| `forms`          | `{ page, kind, detail }` for a form that was found |
-| `plugins`        | `{ page, kind, detail }` for something left behind |
-| `missingAssets`  | Paths that did not answer                          |
-| `cssBackgrounds` | Missing files that were referenced from CSS        |
+| Field            | What it holds                                           |
+| ---------------- | ------------------------------------------------------- |
+| `forms`          | `{ page, kind, detail }` for a form that was found      |
+| `plugins`        | `{ page, kind, detail }` for something left behind      |
+| `missingAssets`  | Paths that did not answer                               |
+| `cssBackgrounds` | Missing files that were referenced from CSS             |
+| `uncertain`      | `{ page, kind, detail }` for a shared block left inline |
+
+Return the pages as imported. `runImport` extracts shared blocks after `run` returns. See [Shared blocks](#shared-blocks). Set `uncertain` to `[]` unless the source already knows about a block it left inline.
 
 `stats.pages` and `stats.assets` are the totals stored on the import row when the run finishes. Also set `pagesFound`, `pagesDone`, and `skipped` (`{ path, reason }`). The site page reads those three fields from the row while the import runs and after it finishes.
 
@@ -96,3 +99,19 @@ A thrown error fails the run. The message is stored on the import row, and the s
 After each page it calls `onProgress` with pages found, pages done, and any skipped path. An origin that does not answer throws `The site did not answer.`
 
 `stats.pages` on this crawler counts pages visited, including a page that was skipped. `stats.assets` counts files saved as assets. `pages.length` is the HTML that was kept.
+
+## Shared blocks
+
+After `run` returns, `runImport` looks for blocks that repeat across the HTML pages: header, nav, footer, alert bar, newsletter, cookie banner, sidebar, and head tags that are the same on every page. It does not call a model.
+
+A block is extracted only when the same bytes, after the current-page nav marker is removed, occur on more than half of the pages. The marker is `active`, `current`, `selected`, `is-active`, `is-current`, or `open` on a class, or an `aria-current` attribute. The block is written to `_inc/`, and the page span is replaced with:
+
+```html
+<!--#include virtual="/_inc/header.html" active="/news" -->
+```
+
+`active` is the href that had the marker. `@flagstage/sitebuild` puts `class="active" aria-current="page"` back on the first `<a href="/news">` when it builds the page. Other marker spellings are not written back. The check that the build matches the import compares the pages after that normalization.
+
+A copy that is only close, or a cluster of similar copies where no one version is on most pages, stays in the page. `report.uncertain` lists it. A miss is a missed include. The page is still the original bytes outside any span that was replaced.
+
+One page is left unchanged. Files under `_inc/`, `_templates/`, and `.flagstage/` are not scanned. Assets, redirects, forms, and the other report fields are left as the source returned them.

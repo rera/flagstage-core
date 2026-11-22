@@ -4,6 +4,7 @@ import type { Database } from "@flagstage/db";
 import { importRun, site } from "@flagstage/db";
 import type { BlobStore } from "@flagstage/storage";
 
+import { extractSharedBlocks } from "./extract";
 import { storeImport } from "./persist";
 import { getImporter, PUBLIC_SITE_SOURCE } from "./registry";
 import type { ImportCaps, PageFetch } from "./types";
@@ -43,7 +44,7 @@ export async function runImport(input: {
     .where(eq(importRun.id, input.importRunId));
   try {
     const importer = getImporter(input.source?.trim() || PUBLIC_SITE_SOURCE);
-    const result = await importer.run({
+    const imported = await importer.run({
       fetchPage: input.fetchPage ?? defaultFetch,
       sourceUrl: input.sourceUrl,
       appOrigin: input.appOrigin,
@@ -57,6 +58,7 @@ export async function runImport(input: {
         await notify(input.db, input.siteId);
       }
     });
+    const result = extractSharedBlocks(imported);
     const stored = await storeImport({
       db: input.db,
       store: input.store,

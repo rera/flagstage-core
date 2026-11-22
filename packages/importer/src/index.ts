@@ -1,4 +1,5 @@
 export { crawlSite, PUBLIC_SITE_SOURCE, publicSiteImporter } from "./crawl";
+export { extractSharedBlocks } from "./extract";
 export type { ImportOptions, ImportProgress, Importer } from "./interface";
 export { approveImport, storeImport } from "./persist";
 export { getImporter, listImporters, registerImporter } from "./registry";
