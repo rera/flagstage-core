@@ -165,11 +165,11 @@ function byPath(files: CapturedFile[]): Map<string, string> {
 }
 
 describe("page types", () => {
-  it("writes one template per detected type, a site skill, and a drift manifest", () => {
+  it("writes one template per detected type, a site skill, and a drift manifest", async () => {
     const samples = corpus();
     const source = imported(samples.map((page) => pageFile(page.path, page.html)));
-    const once = scaffoldSite(extractSharedBlocks(source));
-    const twice = scaffoldSite(extractSharedBlocks(source));
+    const once = await scaffoldSite(extractSharedBlocks(source));
+    const twice = await scaffoldSite(extractSharedBlocks(source));
     expect(twice.pages.map((file) => [file.path, text(file)])).toEqual(
       once.pages.map((file) => [file.path, text(file)])
     );
@@ -250,6 +250,7 @@ describe("page types", () => {
     expect(skill).not.toContain("_inc/nav.html");
     expect(skill).toContain(".flagstage/listings.json");
     expect(skill).toContain("Page 1 is the oldest page.");
+    expect(skill).toContain('`"pageSize": 10` on the news group shows 10 per page.');
     const listings = JSON.parse(files.get(LISTINGS_PATH) ?? "") as {
       pageSize: number;
       template: string;
@@ -330,8 +331,8 @@ describe("page types", () => {
     expect(existsSync(join(out, ".flagstage"))).toBe(false);
   });
 
-  it("leaves a one-page import without a template", () => {
-    const result = scaffoldSite(
+  it("leaves a one-page import without a template", async () => {
+    const result = await scaffoldSite(
       extractSharedBlocks(
         imported([
           pageFile(
