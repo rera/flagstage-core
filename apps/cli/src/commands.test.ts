@@ -57,6 +57,11 @@ function memoryStore(): BlobStore {
     },
     async delete(key) {
       files.delete(key);
+    },
+    async copy(from, to) {
+      const object = files.get(from);
+      if (!object) throw new Error(`Missing ${from}`);
+      files.set(to, { body: new Uint8Array(object.body), contentType: object.contentType });
     }
   };
 }

@@ -56,6 +56,10 @@ export function writeHostMap(hostMapPath: string, host: string, prefix: string) 
   writeFileSync(hostMapPath, JSON.stringify(current));
 }
 
+/**
+ * Point the live site at an existing snapshot. Does not rebuild or upload.
+ * The snapshot's `out/` (or the legacy root) is already stored.
+ */
 export async function rollbackTo(input: {
   db: Database;
   siteId: string;

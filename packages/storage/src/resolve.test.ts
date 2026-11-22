@@ -36,5 +36,9 @@ describe("FsBlobStore", () => {
     expect(got?.contentType).toContain("text/html");
     const listed = await store.list("snapshots/");
     expect(listed).toHaveLength(1);
+    await store.copy("snapshots/a/index.html", "snapshots/a/out/index.html");
+    const copied = await store.get("snapshots/a/out/index.html");
+    expect(new TextDecoder().decode(copied?.body)).toBe("<h1>Hi</h1>");
+    expect(copied?.contentType).toContain("text/html");
   });
 });

@@ -36,7 +36,7 @@ Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstag
 | `packages/agent`       | OpenCode subprocess runner and skills                                                   |
 | `packages/ai`          | Intent, trust judge, and reply calls                                                    |
 | `packages/sitebuild`   | SSI include stitch and a content-hash manifest for publish                              |
-| `packages/publish`     | Preview, promote, rollback                                                              |
+| `packages/publish`     | Stitch a snapshot, publish the diff, and roll back                                      |
 | `packages/domains`     | DNS checklist and CloudFront tenants                                                    |
 | `packages/forms`       | Lead forms                                                                              |
 | `packages/analytics`   | Beacon, collect, rollups                                                                |

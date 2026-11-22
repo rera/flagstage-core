@@ -8,7 +8,7 @@ import { setUserPassword } from "@flagstage/auth";
 import type { Database } from "@flagstage/db";
 import { account, authAccount, importRun, membership, site, snapshot, user } from "@flagstage/db";
 import { runImport } from "@flagstage/importer";
-import type { BlobStore } from "@flagstage/storage";
+import { publicPrefixFor, type BlobStore } from "@flagstage/storage";
 
 import { packTarGz } from "./archive";
 
@@ -290,11 +290,12 @@ export async function exportSiteArchive(input: {
     .limit(1);
   const current = snaps[0];
   if (!current) throw new Error("The published snapshot is missing.");
-  const listed = await input.store.list(current.storagePrefix);
+  const prefix = await publicPrefixFor(input.store, current.storagePrefix);
+  const listed = await input.store.list(prefix);
   const files: Array<{ name: string; body: Uint8Array }> = [];
   const paths: string[] = [];
   for (const item of listed) {
-    const relative = item.key.slice(current.storagePrefix.length).replace(/^\/+/, "");
+    const relative = item.key.slice(prefix.length).replace(/^\/+/, "");
     if (!relative || relative.endsWith("/")) continue;
     const object = await input.store.get(item.key);
     if (!object) continue;

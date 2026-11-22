@@ -12,6 +12,25 @@ export function importPrefix(importId: string): string {
   return `imports/${importId}/`;
 }
 
+function prefixDir(storagePrefix: string): string {
+  return storagePrefix.endsWith("/") ? storagePrefix : `${storagePrefix}/`;
+}
+
+/** Source files the editor changes, including include directives. */
+export function sourcePrefix(storagePrefix: string): string {
+  return `${prefixDir(storagePrefix)}src/`;
+}
+
+/** Public files. Preview, the live host, and CloudFront read this tree. */
+export function outputPrefix(storagePrefix: string): string {
+  return `${prefixDir(storagePrefix)}out/`;
+}
+
+/** Build manifest for one snapshot. Not part of the public tree. */
+export function manifestKey(storagePrefix: string): string {
+  return `${prefixDir(storagePrefix)}.flagstage/manifest.json`;
+}
+
 export function assertSafeKey(key: string): string {
   if (
     key.startsWith("/") ||

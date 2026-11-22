@@ -4,7 +4,7 @@ import { previewForToken } from "@flagstage/agent";
 import { loadConfig } from "@flagstage/config";
 import { can, loadGrants } from "@flagstage/core";
 import { site, snapshot } from "@flagstage/db";
-import { createBlobStore, resolveRequestPath } from "@flagstage/storage";
+import { createBlobStore, publicPrefixFor, resolveRequestPath } from "@flagstage/storage";
 
 import { currentSession } from "../../../../src/auth";
 import { database } from "../../../../src/guard";
@@ -42,12 +42,14 @@ export async function GET(
     .from(snapshot)
     .where(eq(snapshot.id, session.snapshotId))
     .limit(1);
-  const prefix = snaps[0]?.storagePrefix;
-  if (!prefix) return new Response("Not found", { status: 404 });
+  const storagePrefix = snaps[0]?.storagePrefix;
+  if (!storagePrefix) return new Response("Not found", { status: 404 });
+  const store = createBlobStore(loadConfig());
+  const prefix = await publicPrefixFor(store, storagePrefix);
   const requestPath = path && path.length > 0 ? `/${path.join("/")}` : "/";
   const resolved = resolveRequestPath(prefix, requestPath);
   if (!resolved.ok) return new Response("Not found", { status: 404 });
-  const object = await createBlobStore(loadConfig()).get(resolved.key);
+  const object = await store.get(resolved.key);
   if (!object) return new Response("Not found", { status: 404 });
   return new Response(Buffer.from(object.body), {
     headers: { "content-type": object.contentType }

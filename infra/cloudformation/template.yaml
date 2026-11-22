@@ -557,6 +557,10 @@ Resources:
                   - cloudfront-keyvaluestore:PutKey
                   - cloudfront-keyvaluestore:UpdateKeys
                 Resource: !GetAtt HostMap.Arn
+              - Sid: Invalidate
+                Effect: Allow
+                Action: cloudfront:CreateInvalidation
+                Resource: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${SitesDistribution}"
               - Sid: Bedrock
                 Effect: Allow
                 # InvokeModel authorizes the Converse API. The task role has no model API key.
@@ -662,6 +666,8 @@ Resources:
               Value: cloudfront-kvs
             - Name: CLOUDFRONT_KVS_ARN
               Value: !GetAtt HostMap.Arn
+            - Name: CLOUDFRONT_DISTRIBUTION_ID
+              Value: !Ref SitesDistribution
             - Name: DOMAINS_DRIVER
               Value: none
             - Name: AI_PROVIDER

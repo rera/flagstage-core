@@ -12,10 +12,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudfront": "^3.940.0",
     "@aws-sdk/client-scheduler": "3.940.0",
     "@flagstage/config": "workspace:*",
     "@flagstage/db": "workspace:*",
     "@flagstage/domains": "workspace:*",
+    "@flagstage/sitebuild": "workspace:*",
     "@flagstage/storage": "workspace:*",
     "drizzle-orm": "^0.45.1"
   },

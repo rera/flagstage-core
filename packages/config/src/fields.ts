@@ -100,7 +100,8 @@ export const ENV_FIELDS = [
   },
   {
     name: "CLOUDFRONT_DISTRIBUTION_ID",
-    description: "Multi-tenant distribution id. Required when DOMAINS_DRIVER=cloudfront-tenants.",
+    description:
+      "Distribution id. When set, publish invalidates changed keys on this distribution. Required when DOMAINS_DRIVER=cloudfront-tenants.",
     requirement: "optional",
     secret: false,
     example: ""
@@ -132,7 +133,8 @@ export const ENV_FIELDS = [
   },
   {
     name: "AI_MODEL_SMALL",
-    description: "Bedrock model id for short replies. The editor uses the model in flagstage.config.json.",
+    description:
+      "Bedrock model id for short replies. The editor uses the model in flagstage.config.json.",
     requirement: "optional",
     secret: false,
     example: "amazon.nova-micro-v1:0",

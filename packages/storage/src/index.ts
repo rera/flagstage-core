@@ -1,7 +1,14 @@
 export { cacheControlForKey, contentTypeForKey } from "./content-type";
 export { FsBlobStore } from "./fs-store";
-export { importPrefix, mediaPrefix, snapshotPrefix } from "./paths";
-export { resolveRequestPath } from "./resolve";
+export {
+  importPrefix,
+  manifestKey,
+  mediaPrefix,
+  outputPrefix,
+  snapshotPrefix,
+  sourcePrefix
+} from "./paths";
+export { publicPrefixFor, resolveRequestPath } from "./resolve";
 export type { ResolveResult } from "./resolve";
 export { S3BlobStore } from "./s3-store";
 export type { BlobStore, StorageDriver, StoredObject } from "./types";

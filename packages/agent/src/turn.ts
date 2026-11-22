@@ -15,13 +15,15 @@ import {
 import {
   armSchedule,
   confirmSchedule,
+  ensureSourceLayout,
   insertSchedule,
+  materializeOutput,
   parseSchedulePhrase,
   recordPublish,
   swapLive,
   writeHostMap
 } from "@flagstage/publish";
-import { snapshotPrefix, type BlobStore } from "@flagstage/storage";
+import { outputPrefix, snapshotPrefix, sourcePrefix, type BlobStore } from "@flagstage/storage";
 
 import { injectAnalytics } from "@flagstage/analytics";
 
@@ -102,12 +104,19 @@ async function notify(db: Database, threadId: string) {
   }
 }
 
-async function readSnapshot(store: BlobStore, prefix: string): Promise<Map<string, Uint8Array>> {
+async function readSnapshot(
+  store: BlobStore,
+  storagePrefix: string
+): Promise<Map<string, Uint8Array>> {
+  await ensureSourceLayout(store, storagePrefix);
+  const prefix = sourcePrefix(storagePrefix);
   const files = new Map<string, Uint8Array>();
   for (const item of await store.list(prefix)) {
+    const relative = item.key.slice(prefix.length);
+    if (!relative || relative.endsWith("/")) continue;
     const object = await store.get(item.key);
     if (!object) continue;
-    files.set(item.key.slice(prefix.length), object.body);
+    files.set(relative, object.body);
   }
   return files;
 }
@@ -124,9 +133,19 @@ async function writeSnapshot(input: {
   let bytes = 0;
   for (const [path, body] of input.files) {
     const type = path.endsWith(".html") ? "text/html; charset=utf-8" : "application/octet-stream";
-    await input.store.put(`${prefix}${path}`, body, type);
+    await input.store.put(`${sourcePrefix(prefix)}${path}`, body, type);
     bytes += body.byteLength;
   }
+  const parents = await input.db
+    .select()
+    .from(snapshot)
+    .where(eq(snapshot.id, input.parentSnapshotId))
+    .limit(1);
+  await materializeOutput({
+    store: input.store,
+    storagePrefix: prefix,
+    previousStoragePrefix: parents[0]?.storagePrefix
+  });
   await input.db.insert(snapshot).values({
     id: snapshotId,
     siteId: input.siteId,
@@ -394,7 +413,16 @@ export async function approveChange(input: {
   hostMapPath?: string;
   runner?: AgentRunner;
   appOrigin?: string;
-}): Promise<{ ok: true; snapshotId: string } | { ok: false; reason: string }> {
+}): Promise<
+  | {
+      ok: true;
+      snapshotId: string;
+      publicPrefix: string;
+      storagePrefix: string;
+      fromPrefix: string | null;
+    }
+  | { ok: false; reason: string }
+> {
   const requests = await input.db
     .select()
     .from(changeRequest)
@@ -433,7 +461,20 @@ export async function approveChange(input: {
         : edited.files
     });
   }
+  const nextRows = await input.db.select().from(snapshot).where(eq(snapshot.id, nextId)).limit(1);
+  const storagePrefix = nextRows[0]?.storagePrefix;
+  if (!storagePrefix) return { ok: false, reason: "Draft snapshot is missing." };
+  const liveRows = live
+    ? await input.db.select().from(snapshot).where(eq(snapshot.id, live)).limit(1)
+    : [];
+  const fromPrefix = liveRows[0]?.storagePrefix ?? null;
+  await materializeOutput({
+    store: input.store,
+    storagePrefix,
+    previousStoragePrefix: fromPrefix
+  });
   const expected = live;
+  const publicPrefix = outputPrefix(storagePrefix);
   const swapped = await swapLive(input.db, request.siteId, expected, nextId);
   if (!swapped)
     return { ok: false, reason: "The live site changed again. Refresh and try once more." };
@@ -454,9 +495,9 @@ export async function approveChange(input: {
     .set({ status: "expired" })
     .where(eq(previewSession.changeRequestId, request.id));
   if (input.host && input.hostMapPath) {
-    writeHostMap(input.hostMapPath, input.host, snapshotPrefix(request.siteId, nextId));
+    writeHostMap(input.hostMapPath, input.host, publicPrefix);
   }
-  return { ok: true, snapshotId: nextId };
+  return { ok: true, snapshotId: nextId, publicPrefix, storagePrefix, fromPrefix };
 }
 
 export function htmlOf(files: Map<string, Uint8Array>, suffix = "index.html"): string {
