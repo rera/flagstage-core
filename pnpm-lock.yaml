@@ -328,6 +328,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@flagstage/config':
+        specifier: workspace:*
+        version: link:../config
       '@flagstage/db':
         specifier: workspace:*
         version: link:../db
@@ -335,6 +338,9 @@ importers:
         specifier: ^0.45.1
         version: 0.45.4(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1)
     devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.3.14
+        version: 0.3.16
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -413,6 +419,12 @@ importers:
       '@flagstage/ai':
         specifier: workspace:*
         version: link:../ai
+      '@flagstage/config':
+        specifier: workspace:*
+        version: link:../config
+      '@flagstage/core':
+        specifier: workspace:*
+        version: link:../core
       '@flagstage/db':
         specifier: workspace:*
         version: link:../db

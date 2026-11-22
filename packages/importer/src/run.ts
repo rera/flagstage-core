@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 
 import { bedrockListingDecide } from "@flagstage/ai";
+import { getImporterSettings } from "@flagstage/core";
 import type { Database } from "@flagstage/db";
 import { importRun, site } from "@flagstage/db";
 import type { BlobStore } from "@flagstage/storage";
@@ -38,6 +39,8 @@ export async function runImport(input: {
   caps: ImportCaps;
   source?: string;
   fetchPage?: PageFetch;
+  /** Bedrock region for the decision model. The model id is not read from the environment. */
+  region?: string;
 }): Promise<{ snapshotId?: string }> {
   const now = new Date();
   await input.db
@@ -60,8 +63,13 @@ export async function runImport(input: {
         await notify(input.db, input.siteId);
       }
     });
+    const settings = await getImporterSettings(input.db);
     const result = await scaffoldSite(extractSharedBlocks(imported), {
-      decide: bedrockListingDecide()
+      decide: bedrockListingDecide({
+        region: input.region ?? "",
+        settings
+      }),
+      confidenceThreshold: settings.decisionConfidenceThreshold
     });
     const stored = await storeImport({
       db: input.db,

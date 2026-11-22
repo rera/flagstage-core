@@ -52,6 +52,12 @@ export async function startImport(job: { siteId: string; runId: string; sourceUr
     return;
   }
   const config = loadConfig();
+  const region =
+    process.env.AWS_REGION ??
+    process.env.AWS_DEFAULT_REGION ??
+    config.product?.region ??
+    config.S3_REGION ??
+    "";
   void runImport({
     db: getDb(config.DATABASE_URL),
     store: createBlobStore(config),
@@ -59,6 +65,7 @@ export async function startImport(job: { siteId: string; runId: string; sourceUr
     importRunId: job.runId,
     sourceUrl: job.sourceUrl,
     appOrigin: config.APP_URL,
+    region,
     caps: {
       maxPages: config.IMPORT_MAX_PAGES,
       maxDepth: config.IMPORT_MAX_DEPTH,

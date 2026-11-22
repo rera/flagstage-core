@@ -143,6 +143,7 @@ export async function importAccountSite(input: {
   name?: string;
   appOrigin: string;
   caps: { maxPages: number; maxDepth: number; maxAssets: number };
+  region?: string;
 }) {
   const rows = await input.db
     .select()
@@ -175,6 +176,7 @@ export async function importAccountSite(input: {
     importRunId: runId,
     sourceUrl: input.url,
     appOrigin: input.appOrigin,
+    region: input.region,
     caps: input.caps
   });
   if (!stored.snapshotId) throw new Error("Import failed.");

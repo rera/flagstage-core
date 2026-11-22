@@ -11,10 +11,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@flagstage/config": "workspace:*",
     "@flagstage/db": "workspace:*",
     "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.3.14",
     "typescript": "^5.9.3"
   }
 }

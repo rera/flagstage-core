@@ -42,32 +42,63 @@ describe("listing decide", () => {
     );
   });
 
-  it("calls the injected sender and does not call AWS", async () => {
-    let seen = "";
-    const decide = bedrockListingDecide({
-      region: "us-east-1",
-      modelId: "anthropic.claude-3-haiku-test",
-      send: async (region, modelId, prompt) => {
-        seen = `${region} ${modelId} ${prompt}`;
-        return JSON.stringify(GOOD);
-      }
-    });
-    const decision = await decide(SUMMARY);
-    expect(decision.pageSize).toBe(10);
-    expect(seen).toContain("us-east-1 anthropic.claude-3-haiku-test");
-    expect(seen).toContain("li.post");
-    expect(seen).toContain("<untrusted>");
+  it("calls the injected sender with the settings model id and does not call AWS", async () => {
+    const previous = process.env.LISTING_MODEL_ID;
+    process.env.LISTING_MODEL_ID = "env-should-not-win";
+    try {
+      let seen = "";
+      const decide = bedrockListingDecide({
+        region: "us-east-1",
+        settings: {
+          decisionEnabled: true,
+          decisionModel: { provider: "bedrock", modelId: "anthropic.claude-3-haiku-test" }
+        },
+        send: async (region, modelId, prompt) => {
+          seen = `${region} ${modelId} ${prompt}`;
+          return JSON.stringify(GOOD);
+        }
+      });
+      const decision = await decide(SUMMARY);
+      expect(decision?.pageSize).toBe(10);
+      expect(seen).toContain("us-east-1 anthropic.claude-3-haiku-test");
+      expect(seen).not.toContain("env-should-not-win");
+      expect(seen).toContain("li.post");
+      expect(seen).toContain("<untrusted>");
+    } finally {
+      if (previous === undefined) delete process.env.LISTING_MODEL_ID;
+      else process.env.LISTING_MODEL_ID = previous;
+    }
 
     let called = false;
     const missing = bedrockListingDecide({
       region: "",
-      modelId: "anthropic.claude-3-haiku-test",
+      settings: {
+        decisionEnabled: true,
+        decisionModel: { provider: "bedrock", modelId: "anthropic.claude-3-haiku-test" }
+      },
       send: async () => {
         called = true;
         return JSON.stringify(GOOD);
       }
     });
     await expect(missing(SUMMARY)).rejects.toThrow(/region/);
+    expect(called).toBe(false);
+  });
+
+  it("skips the model when the decision is turned off", async () => {
+    let called = false;
+    const decide = bedrockListingDecide({
+      region: "",
+      settings: {
+        decisionEnabled: false,
+        decisionModel: { provider: "bedrock", modelId: "stored-model" }
+      },
+      send: async () => {
+        called = true;
+        return JSON.stringify(GOOD);
+      }
+    });
+    await expect(decide(SUMMARY)).resolves.toBeNull();
     expect(called).toBe(false);
   });
 });

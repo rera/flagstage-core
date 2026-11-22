@@ -1,6 +1,8 @@
+import type { DecisionModel } from "@flagstage/config";
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  doublePrecision,
   integer,
   jsonb,
   pgTable,
@@ -22,6 +24,22 @@ export const orgSettings = pgTable("org_settings", {
   retentionDays: integer("retention_days").notNull().default(365),
   configuredAt: ts("configured_at"),
   updatedAt: ts("updated_at").notNull().defaultNow()
+});
+
+/**
+ * One platform row for importer behavior. A missing row means the typed
+ * defaults. Later knobs (fallback page size, redirect policy) are columns
+ * on this table, not environment variables.
+ */
+export const importerSettings = pgTable("importer_settings", {
+  id: text("id").primaryKey(),
+  decisionModel: jsonb("decision_model").$type<DecisionModel>().notNull(),
+  decisionEnabled: boolean("decision_enabled").notNull().default(true),
+  decisionConfidenceThreshold: doublePrecision("decision_confidence_threshold")
+    .notNull()
+    .default(0.6),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  updatedBy: text("updated_by")
 });
 
 /**

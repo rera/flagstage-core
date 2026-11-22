@@ -124,6 +124,12 @@ try {
       url: parsed.url,
       name: parsed.name,
       appOrigin: config.APP_URL,
+      region:
+        process.env.AWS_REGION ??
+        process.env.AWS_DEFAULT_REGION ??
+        config.product?.region ??
+        config.S3_REGION ??
+        "",
       caps: {
         maxPages: config.IMPORT_MAX_PAGES,
         maxDepth: config.IMPORT_MAX_DEPTH,

@@ -24,6 +24,9 @@ the SES from-address, and the brand live in \`flagstage.config.json\` at the
 repository root. \`flagstage.config.schema.json\` is the schema. The auth
 secret is not in that file. The stack creates it in Secrets Manager.
 
+The importer decision model is a platform setting in the database, not an
+environment variable. The default is Claude Haiku 4.5 on Bedrock.
+
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
 ${rows}

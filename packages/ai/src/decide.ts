@@ -23,10 +23,17 @@ export interface ListingDecision {
   reason: string;
 }
 
-/** Swappable model. One function, no SDK types in the caller. */
-export type ListingDecide = (summary: ListingSummary) => Promise<ListingDecision>;
+/**
+ * Swappable model. One function, no SDK types in the caller.
+ * `null` means the model was not asked and the measured guess stands.
+ */
+export type ListingDecide = (summary: ListingSummary) => Promise<ListingDecision | null>;
 
-const DEFAULT_MODEL = "anthropic.claude-3-5-haiku-20241022-v1:0";
+/** Model id and on/off switch from platform importer settings. */
+export interface ListingDecisionSettings {
+  decisionEnabled: boolean;
+  decisionModel: { provider: string; modelId: string };
+}
 
 const PROMPT = `Choose the listing pagination. Reply with one JSON object and no markdown.
 Fields:
@@ -117,19 +124,26 @@ async function converse(region: string, modelId: string, prompt: string): Promis
 }
 
 /**
- * Claude Haiku on Bedrock. `LISTING_MODEL_ID` overrides the model id.
- * Pass `send` in tests. The importer treats a throw as "model unavailable".
+ * Claude Haiku on Bedrock. The model id comes from importer settings.
+ * Pass `send` in tests. A turned-off model returns null so the importer
+ * keeps the measured guess. A throw means the model was unavailable.
  */
-export function bedrockListingDecide(options?: {
-  region?: string;
-  modelId?: string;
+export function bedrockListingDecide(options: {
+  region: string;
+  settings: ListingDecisionSettings;
   send?: (region: string, modelId: string, prompt: string) => Promise<string>;
 }): ListingDecide {
-  const region = options?.region ?? process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "";
-  const modelId = options?.modelId || process.env.LISTING_MODEL_ID || DEFAULT_MODEL;
-  const send = options?.send ?? converse;
+  const region = options.region;
+  const { decisionEnabled, decisionModel } = options.settings;
+  const send = options.send ?? converse;
   return async (summary) => {
-    if (!region || !modelId) throw new Error("Listing model region and model id are required.");
-    return parseListingDecision(await send(region, modelId, promptFor(summary)));
+    if (!decisionEnabled) return null;
+    if (decisionModel.provider !== "bedrock") {
+      throw new Error("Listing decision provider is not bedrock.");
+    }
+    if (!region || !decisionModel.modelId) {
+      throw new Error("Listing model region and model id are required.");
+    }
+    return parseListingDecision(await send(region, decisionModel.modelId, promptFor(summary)));
   };
 }
