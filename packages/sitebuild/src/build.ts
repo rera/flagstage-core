@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,6 +12,7 @@ import {
 import { basename, dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 
 import { SiteBuildError } from "./errors";
+import { renderListings } from "./listings";
 import { diffManifests, manifestFrom, sha256 } from "./manifest";
 import { createStitcher } from "./stitch";
 import type { BuildDiff, BuildResult, BuildSiteOptions } from "./types";
@@ -26,8 +28,9 @@ const INCLUDE_MARK = Buffer.from("<!--#include");
  *
  * Publish and preview should call this on the snapshot source tree, then upload
  * or serve the output. Includes are resolved here and never on the request path.
- * Listing pages and drift checks are not part of this build, and nothing here
- * talks to object storage.
+ * When `.flagstage/listings.json` is present, listing pages are written into
+ * the output after the stitch. They are not written back to the source. Drift
+ * checks are not part of this build, and nothing here talks to object storage.
  *
  * Source pages pull in shared chrome with directives:
  *
@@ -66,16 +69,36 @@ export function buildSite(options: BuildSiteOptions): BuildResult {
   try {
     const stitcher = createStitcher(source);
     const hashes = new Map<string, string>();
-    let stitched = 0;
+    const stitchedKeys = new Set<string>();
+    const wantsListings = existsSync(join(source, ".flagstage", "listings.json"));
+    const pages = wantsListings ? new Map<string, string>() : null;
     for (const rel of listFiles(source)) {
       const body = readSource(source, rel);
       let outputBody = body;
       if (body.includes(INCLUDE_MARK)) {
-        outputBody = Buffer.from(stitcher.stitch(body.toString("utf8"), rel), "utf8");
-        stitched += 1;
+        const text = stitcher.stitch(body.toString("utf8"), rel);
+        outputBody = Buffer.from(text, "utf8");
+        stitchedKeys.add(rel);
+        if (pages && isHtml(rel)) pages.set(rel, text);
+      } else if (pages && isHtml(rel)) {
+        pages.set(rel, body.toString("utf8"));
       }
       writeOutput(temp, rel, outputBody, made);
       hashes.set(rel, sha256(outputBody));
+    }
+    if (pages) {
+      for (const file of renderListings(source, pages)) {
+        let text = file.html;
+        if (text.includes("<!--#include")) {
+          text = stitcher.stitch(text, file.rel);
+          stitchedKeys.add(file.rel);
+        } else {
+          stitchedKeys.delete(file.rel);
+        }
+        const outputBody = Buffer.from(text, "utf8");
+        writeOutput(temp, file.rel, outputBody, made);
+        hashes.set(file.rel, sha256(outputBody));
+      }
     }
     const manifest = manifestFrom(hashes);
     const diff: BuildDiff = options.previous
@@ -83,7 +106,7 @@ export function buildSite(options: BuildSiteOptions): BuildResult {
       : { changed: Object.keys(manifest.files).sort(), removed: [], unchanged: [] };
     rmSync(output, { recursive: true, force: true });
     renameSync(temp, output);
-    return { manifest, diff, files: hashes.size, stitched };
+    return { manifest, diff, files: hashes.size, stitched: stitchedKeys.size };
   } catch (error) {
     rmSync(temp, { recursive: true, force: true });
     throw error;
@@ -177,4 +200,9 @@ function writeOutput(root: string, rel: string, body: Buffer, made: Set<string>)
 
 function toPosix(rel: string): string {
   return sep === "/" ? rel : rel.split(sep).join("/");
+}
+
+function isHtml(rel: string): boolean {
+  const lower = rel.toLowerCase();
+  return lower.endsWith(".html") || lower.endsWith(".htm");
 }

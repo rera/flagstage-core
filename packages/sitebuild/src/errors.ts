@@ -1,4 +1,5 @@
-export type SiteBuildErrorCode = "missing-include" | "include-cycle" | "bad-include" | "bad-path";
+export type SiteBuildErrorCode =
+  "missing-include" | "include-cycle" | "bad-include" | "bad-path" | "bad-listings";
 
 /** A source tree could not be built. `message` names the file and the include. */
 export class SiteBuildError extends Error {

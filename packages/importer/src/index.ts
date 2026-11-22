@@ -2,6 +2,7 @@ export { crawlSite, PUBLIC_SITE_SOURCE, publicSiteImporter } from "./crawl";
 export { extractSharedBlocks } from "./extract";
 export {
   DRIFT_MANIFEST_PATH,
+  LISTINGS_PATH,
   SITE_SKILL_PATH,
   scaffoldSite,
   type DriftInclude,

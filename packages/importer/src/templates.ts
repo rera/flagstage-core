@@ -14,8 +14,10 @@ import type { CapturedFile, ImportResult } from "./types";
  *
  * `_templates/<type>.html` is one example of that type: include directives
  * stay, the current-page marker becomes `{{path}}`, repeated listing items
- * collapse to one, and the remaining text becomes placeholders. The site skill
- * and the drift manifest live under `.flagstage/`. Publish omits all three.
+ * collapse to one, and the remaining text becomes placeholders. A listing
+ * template also keeps `<!--#listing item -->` around that item and a pager.
+ * The site skill, the drift manifest, and (when the import has articles)
+ * `.flagstage/listings.json` live under `.flagstage/`. Publish omits them.
  *
  * The drift manifest records each include's bytes and the pages that link it.
  * A later publish check compares that record. This step only writes it.
@@ -25,6 +27,7 @@ const MIN_CLUSTER = 2;
 
 export const SITE_SKILL_PATH = ".flagstage/skills/site/SKILL.md";
 export const DRIFT_MANIFEST_PATH = ".flagstage/drift.json";
+export const LISTINGS_PATH = ".flagstage/listings.json";
 
 export interface DriftPlacement {
   page: string;
@@ -151,13 +154,18 @@ export function scaffoldSite(result: ImportResult): ImportResult {
       (file) => file.path.startsWith("_inc/") && !file.path.slice("_inc/".length).includes("/")
     )
     .sort((a, b) => a.path.localeCompare(b.path));
-  const skill = renderSkill(includes, chosen, parsedCount);
+  const hasArticles = decoded.some((page) => page.kind === "article");
+  const skill = renderSkill(includes, chosen, parsedCount, hasArticles);
   const manifest = renderManifest(decoded, includes);
   const added = [
     captured(DRIFT_MANIFEST_PATH, manifest, "application/json"),
     captured(SITE_SKILL_PATH, skill, "text/markdown; charset=utf-8"),
     ...templates
-  ].sort((a, b) => a.path.localeCompare(b.path));
+  ];
+  if (hasArticles) {
+    added.push(captured(LISTINGS_PATH, listingsConfig(), "application/json"));
+  }
+  added.sort((a, b) => a.path.localeCompare(b.path));
   const managed = new Set(added.map((file) => file.path));
   const pages = result.pages.filter((file) => !managed.has(file.path));
   return { ...result, pages: [...pages, ...added] };
@@ -286,7 +294,63 @@ function signature(node: Node): string {
 function templateFrom(html: string, kind: PageInfo["kind"]): string {
   const neutralized = neutralizeActive(html);
   const collapsed = kind === "listing" ? collapseRuns(neutralized) : neutralized;
-  return placeholder(collapsed);
+  const tokens = placeholder(collapsed);
+  return kind === "listing" ? addPager(tokens) : tokens;
+}
+
+const LISTING_PAGER = [
+  '<nav class="pager">',
+  "<!--#listing prev -->",
+  '<a rel="prev" href="{{prev}}">Previous</a>',
+  "<!--#listing /prev -->",
+  "<!--#listing next -->",
+  '<a rel="next" href="{{next}}">Next</a>',
+  "<!--#listing /next -->",
+  "</nav>"
+].join("\n");
+
+function addPager(html: string): string {
+  const lower = html.toLowerCase();
+  const main = lower.lastIndexOf("</main>");
+  if (main >= 0) return `${html.slice(0, main)}${LISTING_PAGER}\n${html.slice(main)}`;
+  const body = lower.lastIndexOf("</body>");
+  if (body >= 0) return `${html.slice(0, body)}${LISTING_PAGER}\n${html.slice(body)}`;
+  return `${html}\n${LISTING_PAGER}\n`;
+}
+
+function listingsConfig(): string {
+  return `${JSON.stringify(
+    {
+      pageSize: 24,
+      template: "_templates/listing.html",
+      groups: [
+        {
+          id: "all",
+          match: "all",
+          title: "News",
+          output: "/news/page/{n}.html",
+          landing: "/news/index.html",
+          active: "/news"
+        },
+        {
+          id: "section",
+          match: "section",
+          title: "{section}",
+          output: "/sections/{section}/page/{n}.html",
+          landing: "/sections/{section}/index.html"
+        },
+        {
+          id: "tag",
+          match: "tag",
+          title: "{tag}",
+          output: "/tags/{tag}/page/{n}.html",
+          landing: "/tags/{tag}/index.html"
+        }
+      ]
+    },
+    null,
+    2
+  )}\n`;
 }
 
 function neutralizeActive(html: string): string {
@@ -306,21 +370,22 @@ function sameSignature(node: Node | undefined, sig: string): boolean {
 function collapseRuns(html: string): string {
   const root = parseDocument(html);
   const content = contentRoot(findFirst(root, "body") ?? root);
-  const ranges: Span[] = [];
-  collectCollapse(content, false, ranges);
-  if (ranges.length === 0) return html;
-  ranges.sort((a, b) => b.start - a.start);
+  const edits: Edit[] = [];
+  collectCollapse(content, false, false, edits);
+  if (edits.length === 0) return html;
+  edits.sort((a, b) => b.start - a.start || b.end - a.end);
   let out = html;
-  for (const range of ranges) {
-    if (range.start < 0 || range.end > out.length || range.start > range.end) continue;
-    out = out.slice(0, range.start) + out.slice(range.end);
+  for (const edit of edits) {
+    if (edit.start < 0 || edit.end > out.length || edit.start > edit.end) continue;
+    out = out.slice(0, edit.start) + edit.text + out.slice(edit.end);
   }
   return out;
 }
 
-function collectCollapse(node: Node, inArticle: boolean, ranges: Span[]): void {
+function collectCollapse(node: Node, inArticle: boolean, insideItem: boolean, edits: Edit[]): void {
   if (CHROME.has(node.tag)) return;
   const skip = new Set<Node>();
+  const wrapped = new Set<Node>();
   if (!inArticle) {
     let index = 0;
     while (index < node.children.length) {
@@ -340,7 +405,13 @@ function collectCollapse(node: Node, inArticle: boolean, ranges: Span[]): void {
         last.end > child.end &&
         run.every((item) => containsAnchor(item))
       ) {
-        ranges.push({ start: child.end, end: last.end });
+        if (insideItem) {
+          edits.push({ start: child.end, end: last.end, text: "" });
+        } else {
+          edits.push({ start: child.start, end: child.start, text: "<!--#listing item -->" });
+          edits.push({ start: child.end, end: last.end, text: "<!--#listing /item -->" });
+          wrapped.add(child);
+        }
         for (const item of run.slice(1)) skip.add(item);
       }
       index = next;
@@ -349,7 +420,7 @@ function collectCollapse(node: Node, inArticle: boolean, ranges: Span[]): void {
   const deeper = inArticle || node.tag === "article";
   for (const child of node.children) {
     if (skip.has(child)) continue;
-    collectCollapse(child, deeper, ranges);
+    collectCollapse(child, deeper, insideItem || wrapped.has(child), edits);
   }
 }
 
@@ -404,7 +475,8 @@ function pushText(edits: Edit[], html: string, span: Span, token: string): void 
 function renderSkill(
   includes: CapturedFile[],
   chosen: Map<PageInfo["kind"], PageInfo[]>,
-  parsedCount: number
+  parsedCount: number,
+  hasArticles: boolean
 ): string {
   const includeLines =
     includes.length === 0
@@ -431,9 +503,22 @@ function renderSkill(
     typeLines.length > 0 && left > 0
       ? `\n${left} pages did not match these templates. Leave them as they are.\n`
       : "";
+  const listings = hasArticles
+    ? `
+## Listings
+
+Dated articles are listed when the site is built. Dates, titles, sections, and tags come from JSON-LD (\`Article\`, \`NewsArticle\`, \`BlogPosting\`) or from \`og:title\`, \`article:published_time\`, \`article:section\`, and \`article:tag\`. A page with no date is left out.
+
+\`.flagstage/listings.json\` names the groups, the output paths, the page size, and \`_templates/listing.html\`. The build writes those pages into the public output and does not write them into the source. Page 1 is the oldest page. The landing path shows the newest page. On a page, the newest item is first.
+
+Keep one \`<!--#listing item -->\` … \`<!--#listing /item -->\` block in the listing template, and optional \`<!--#listing prev -->\` and \`<!--#listing next -->\` blocks for the pager. \`{{title}}\` is the group title. \`{{heading}}\` and \`{{url}}\` are the article. \`{{prev}}\` and \`{{next}}\` are the pager links.
+
+Edit the article to change a list. Do not hand-write the generated pages.
+`
+    : "";
   return `---
 name: site
-description: "Use for every edit on this site. It lists includes, page types, and the rule for site-wide changes."
+description: "Use for every edit on this site. It lists includes, page types, listings, and the rule for site-wide changes."
 ---
 
 # Site
@@ -449,7 +534,7 @@ ${includeLines}
 
 A new page of a type starts from that type's template. Replace \`{{title}}\`, \`{{heading}}\`, \`{{text}}\`, and \`{{url}}\`. Set \`active="{{path}}"\` to the new page's path.
 
-${types}${remainder}
+${types}${remainder}${listings}
 ## Site-wide changes
 
 A site-wide change must be done by writing a script and doing a dry run before applying. The dry run shows the count of matching pages and a sample diff. Apply the script only after that dry run. Never hand-edit many files.

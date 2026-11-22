@@ -37,7 +37,7 @@ export interface BuildSiteOptions {
 export interface BuildResult {
   manifest: BuildManifest;
   diff: BuildDiff;
-  /** Public files written to `outputDir`. */
+  /** Public files written to `outputDir`, including generated listing pages. */
   files: number;
   /** Output files that contained include directives. */
   stitched: number;

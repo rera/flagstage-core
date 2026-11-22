@@ -124,4 +124,14 @@ Each kept type is written to `_templates/<type>.html`: the includes stay, `activ
 
 `.flagstage/skills/site/SKILL.md` names the includes, the page types, and the rule that a site-wide change is a script with a dry run. `.flagstage/drift.json` records each include's sha256 and the pages that link it, including the `active` value. A later publish check reads that file. This step only writes it.
 
+## Listings
+
+When the import finds article pages, it writes `.flagstage/listings.json`. That file names the groups (every article, each section, each tag), the output paths (`/news/page/{n}.html`, `/tags/{tag}/page/{n}.html`), the landing path, the page size (24), and `_templates/listing.html`.
+
+The build reads dates from the HTML. JSON-LD `Article`, `NewsArticle`, and `BlogPosting` supply `headline`, `datePublished`, `articleSection`, `keywords`, and `description` or `image` when those are present. Missing fields fall back to `og:title`, `article:published_time`, `article:section`, and `article:tag`. A page with no date is left out.
+
+Articles sort oldest first by date, then url. Page 1 is the oldest page. The highest page is the newest partial page, and the landing path (for example `/news/index.html`) shows that page. Within a page the newest item is first. Publishing one new article rewrites the newest page and the landing, not every page.
+
+The listing template repeats one item inside `<!--#listing item -->` … `<!--#listing /item -->`. Optional `<!--#listing prev -->` and `<!--#listing next -->` blocks are the pager. `{{title}}` is the group title, `{{heading}}` and `{{url}}` are the article, and `{{prev}}` and `{{next}}` are the links. Values are escaped. The include directives stay, so the header and footer are the shared files. Generated pages are written only under the build output.
+
 Preview and the live host do not serve `_inc/`, `_templates/`, or `.flagstage/`.

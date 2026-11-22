@@ -155,9 +155,13 @@ const corpusNav = [
   ["/contact", "Contact"],
   ["/events", "Events"]
 ];
-const corpusStories = Array.from({ length: 12 }, (_item, index) =>
+const corpusStories = Array.from({ length: 30 }, (_item, index) =>
   String(index + 1).padStart(2, "0")
 );
+
+function storyDate(day) {
+  return new Date(Date.UTC(2020, 0, day)).toISOString().slice(0, 10);
+}
 
 function corpusHeader(active) {
   const links = corpusNav
@@ -172,8 +176,8 @@ function corpusHeader(active) {
 
 const corpusFooter = `<footer class="site-footer">Grove footer for every page.</footer>`;
 
-function corpusPage(title, active, main) {
-  return `<!doctype html><html lang="en"><head><title>${title}</title></head><body>${corpusHeader(active)}${main}${corpusFooter}</body></html>`;
+function corpusPage(title, active, main, head = "") {
+  return `<!doctype html><html lang="en"><head><title>${title}</title>${head}</head><body>${corpusHeader(active)}${main}${corpusFooter}</body></html>`;
 }
 
 function corpusCards() {
@@ -195,12 +199,22 @@ corpusPages.set(
   corpusPage("News", "/news", `<main><h1>News</h1>${corpusCards()}</main>`)
 );
 for (const id of corpusStories) {
+  const data = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline: `Story ${id}`,
+    datePublished: storyDate(Number(id)),
+    articleSection: "Stories",
+    keywords: ["grove"],
+    description: `Story ${id} tells one visit to the grove.`
+  });
   corpusPages.set(
     `/stories/${id}`,
     corpusPage(
       `Story ${id}`,
       "/news",
-      `<main><article><h1>Story ${id}</h1><p>Story ${id} tells one visit to the grove.</p></article></main>`
+      `<main><article><h1>Story ${id}</h1><p>Story ${id} tells one visit to the grove.</p></article></main>`,
+      `<script type="application/ld+json">${data}</script>`
     )
   );
 }
