@@ -5,6 +5,7 @@ import { syncOrganization } from "@flagstage/core";
 import { rollupStored } from "@flagstage/analytics";
 import { publicDnsLookup, recheckDueDomains, selectDomainsDriver } from "@flagstage/domains";
 import { runDueSchedules, syncScheduleHost } from "@flagstage/publish";
+import { createBlobStore } from "@flagstage/storage";
 
 let started = false;
 
@@ -36,7 +37,9 @@ export async function boot(): Promise<void> {
   const tickSchedules = async () => {
     const current = loadConfig();
     const db = getDb(current.DATABASE_URL);
-    const applied = await runDueSchedules(db, new Date()).catch(() => [] as string[]);
+    const applied = await runDueSchedules(db, new Date(), createBlobStore(current)).catch(
+      () => [] as string[]
+    );
     for (const id of applied) await syncScheduleHost(db, id).catch(() => undefined);
   };
   setInterval(() => void tickSchedules(), 5_000);

@@ -4,7 +4,8 @@ import { eq } from "drizzle-orm";
 
 import type { Database } from "@flagstage/db";
 import { importRun, leadForm, site, siteRedirect, snapshot } from "@flagstage/db";
-import { materializeOutput, writeHostMap } from "@flagstage/publish";
+import { materializeOutput, notePublishChecks, writeHostMap } from "@flagstage/publish";
+import type { PublishChecks } from "@flagstage/sitebuild";
 import { outputPrefix, snapshotPrefix, sourcePrefix, type BlobStore } from "@flagstage/storage";
 
 import type { ImportResult } from "./types";
@@ -82,7 +83,7 @@ export async function approveImport(input: {
   snapshotId: string;
   host?: string;
   hostMapPath?: string;
-}): Promise<{ publicPrefix: string }> {
+}): Promise<{ ok: boolean; publicPrefix: string; checks: PublishChecks }> {
   const snaps = await input.db
     .select()
     .from(snapshot)
@@ -95,16 +96,23 @@ export async function approveImport(input: {
   const previous = previousId
     ? await input.db.select().from(snapshot).where(eq(snapshot.id, previousId)).limit(1)
     : [];
-  await materializeOutput({
+  const built = await materializeOutput({
     store: input.store,
     storagePrefix,
-    previousStoragePrefix: previous[0]?.storagePrefix
+    previousStoragePrefix: previous[0]?.storagePrefix,
+    review: previousId ? "later" : "import"
   });
+  const checks = built.checks ?? { blocked: false, drift: [], missing: [], ms: 0 };
+  const publicPrefix = outputPrefix(storagePrefix);
+  if (checks.blocked) {
+    await notePublishChecks(input.db, input.siteId, checks);
+    return { ok: false, publicPrefix, checks };
+  }
   await input.db
     .update(site)
     .set({ currentSnapshotId: input.snapshotId, status: "live" })
     .where(eq(site.id, input.siteId));
-  const publicPrefix = outputPrefix(storagePrefix);
   if (input.host && input.hostMapPath) writeHostMap(input.hostMapPath, input.host, publicPrefix);
-  return { publicPrefix };
+  await notePublishChecks(input.db, input.siteId, checks);
+  return { ok: true, publicPrefix, checks };
 }

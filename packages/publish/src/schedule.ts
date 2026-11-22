@@ -4,9 +4,11 @@ import { and, eq, lte } from "drizzle-orm";
 
 import type { Database } from "@flagstage/db";
 import { changeRequest, site, siteSchedule, snapshot, thread } from "@flagstage/db";
+import type { BlobStore } from "@flagstage/storage";
 
 import { armSchedule } from "./arm";
-import { recordPublish, swapLive } from "./publish";
+import { reviewStoredPublish } from "./materialize";
+import { notePublishChecks, recordPublish, swapLive } from "./publish";
 import { describeInstant } from "./when";
 
 export type ScheduleRow = typeof siteSchedule.$inferSelect;
@@ -45,7 +47,8 @@ async function claim(db: Database, id: string, from: string, to: string): Promis
 export async function publishScheduled(
   db: Database,
   id: string,
-  now = new Date()
+  now = new Date(),
+  store?: BlobStore
 ): Promise<"published" | "skipped" | "noop"> {
   const rows = await db.select().from(siteSchedule).where(eq(siteSchedule.id, id)).limit(1);
   const row = rows[0];
@@ -71,6 +74,22 @@ export async function publishScheduled(
     return "skipped";
   }
   const previous = current.currentSnapshotId;
+  if (store) {
+    try {
+      const previousRows = previous
+        ? await db.select().from(snapshot).where(eq(snapshot.id, previous)).limit(1)
+        : [];
+      const checks = await reviewStoredPublish({
+        store,
+        storagePrefix: target.storagePrefix,
+        previousStoragePrefix: previousRows[0]?.storagePrefix,
+        mode: "later"
+      });
+      await notePublishChecks(db, current.id, checks);
+    } catch {
+      // A check that cannot be read does not stop a scheduled go-live.
+    }
+  }
   const swapped = await swapLive(db, current.id, previous, target.id);
   if (!swapped) {
     await db
@@ -156,14 +175,18 @@ export async function revertScheduled(
   return "reverted";
 }
 
-export async function runDueSchedules(db: Database, now = new Date()): Promise<string[]> {
+export async function runDueSchedules(
+  db: Database,
+  now = new Date(),
+  store?: BlobStore
+): Promise<string[]> {
   const applied: string[] = [];
   const duePublish = await db
     .select({ id: siteSchedule.id })
     .from(siteSchedule)
     .where(and(eq(siteSchedule.status, "scheduled"), lte(siteSchedule.publishAt, now)));
   for (const row of duePublish) {
-    const result = await publishScheduled(db, row.id, now);
+    const result = await publishScheduled(db, row.id, now, store);
     if (result === "published") applied.push(row.id);
   }
   const dueRevert = await db

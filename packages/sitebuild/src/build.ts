@@ -30,7 +30,8 @@ const INCLUDE_MARK = Buffer.from("<!--#include");
  * or serve the output. Includes are resolved here and never on the request path.
  * When `.flagstage/listings.json` is present, listing pages are written into
  * the output after the stitch. They are not written back to the source. Drift
- * checks are not part of this build, and nothing here talks to object storage.
+ * and lost-content checks run beside this build, on publish, and nothing here
+ * talks to object storage.
  *
  * Source pages pull in shared chrome with directives:
  *

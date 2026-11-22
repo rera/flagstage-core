@@ -6,6 +6,7 @@ import type { Database } from "@flagstage/db";
 import { importRun, site } from "@flagstage/db";
 import type { BlobStore } from "@flagstage/storage";
 
+import { withImportBaseline } from "./baseline";
 import { extractSharedBlocks } from "./extract";
 import { scaffoldSite } from "./templates";
 import { storeImport } from "./persist";
@@ -64,13 +65,16 @@ export async function runImport(input: {
       }
     });
     const settings = await getImporterSettings(input.db);
-    const result = await scaffoldSite(extractSharedBlocks(imported), {
-      decide: bedrockListingDecide({
-        region: input.region ?? "",
-        settings
+    const result = withImportBaseline(
+      await scaffoldSite(extractSharedBlocks(imported), {
+        decide: bedrockListingDecide({
+          region: input.region ?? "",
+          settings
+        }),
+        confidenceThreshold: settings.decisionConfidenceThreshold
       }),
-      confidenceThreshold: settings.decisionConfidenceThreshold
-    });
+      imported.pages
+    );
     const stored = await storeImport({
       db: input.db,
       store: input.store,

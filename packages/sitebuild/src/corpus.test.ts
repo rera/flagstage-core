@@ -1,10 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { performance } from "node:perf_hooks";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { buildSite } from "./index";
+import { buildSite, reviewPublish } from "./index";
+import { BASELINE_PATH, coverBaseline, inventoryPages, serializeBaseline } from "./content";
 
 const PAGE_COUNT = 5_000;
 /** The reference stitch of this size finished in a fraction of a second. */
@@ -93,6 +94,46 @@ describe("generated corpus", () => {
     );
     expect(leaked).toEqual([]);
 
+    const htmlPages = [...pages, "about/plain.html"];
+    const baseline = coverBaseline(
+      inventoryPages(
+        htmlPages.map((rel) => ({ path: rel, html: readFileSync(join(out, rel), "utf8") }))
+      ),
+      [],
+      []
+    );
+    write(src, BASELINE_PATH, serializeBaseline(baseline));
+    write(
+      src,
+      ".flagstage/drift.json",
+      JSON.stringify({
+        version: 1,
+        includes: [
+          {
+            virtual: "/_inc/header.html",
+            sha256: "",
+            placementSha256: "",
+            placements: pages.map((page) => ({ page, active: "/news" }))
+          },
+          {
+            virtual: "/_inc/footer.html",
+            sha256: "",
+            placementSha256: "",
+            placements: pages.map((page) => ({ page }))
+          }
+        ]
+      })
+    );
+    const reviewStarted = performance.now();
+    const reviewed = reviewPublish({ sourceDir: src, outputDir: out, mode: "import" });
+    const reviewMs = performance.now() - reviewStarted;
+    expect(reviewed.blocked).toBe(false);
+    expect(reviewed.missing).toEqual([]);
+    expect(reviewed.drift).toEqual([]);
+    expect(reviewMs, `import review took ${reviewMs.toFixed(0)}ms`).toBeLessThan(2_000);
+    const previousOut = join(root, "prev");
+    cpSync(out, previousOut, { recursive: true });
+
     const headerPath = join(src, "_inc/header.html");
     writeFileSync(headerPath, readFileSync(headerPath, "utf8").replace("nav-rev-1", "nav-rev-2"));
     const secondStarted = performance.now();
@@ -105,6 +146,22 @@ describe("generated corpus", () => {
     expect(second.diff.changed).toEqual(pages);
     expect(second.diff.unchanged).toEqual(["about/plain.html", "css/site.css", "img/logo.svg"]);
     expect(second.diff.removed).toEqual([]);
+    const laterStarted = performance.now();
+    const later = reviewPublish({
+      sourceDir: src,
+      outputDir: out,
+      previousDir: previousOut,
+      diff: second.diff,
+      mode: "later"
+    });
+    const laterMs = performance.now() - laterStarted;
+    expect(later.blocked).toBe(false);
+    expect(later.missing).toEqual([]);
+    expect(later.drift).toEqual([]);
+    console.log(
+      `publish checks ${PAGE_COUNT} pages: import ${reviewMs.toFixed(0)}ms, later ${laterMs.toFixed(0)}ms`
+    );
+    expect(laterMs, `later review took ${laterMs.toFixed(0)}ms`).toBeLessThan(2_000);
 
     const checkedAt = performance.now();
     let missed = 0;
@@ -145,7 +202,7 @@ describe("generated corpus", () => {
     expect(readFileSync(join(out, target), "utf8")).not.toContain("<!--#include");
 
     console.log(
-      `sitebuild ${PAGE_COUNT} pages: generate ${generateMs.toFixed(0)}ms, stitch ${first.ms.toFixed(0)}ms, header edit ${secondMs.toFixed(0)}ms, one page ${thirdMs.toFixed(0)}ms, verify ${checkMs.toFixed(0)}ms`
+      `sitebuild ${PAGE_COUNT} pages: generate ${generateMs.toFixed(0)}ms, stitch ${first.ms.toFixed(0)}ms, header edit ${secondMs.toFixed(0)}ms, one page ${thirdMs.toFixed(0)}ms, verify ${checkMs.toFixed(0)}ms, import review ${reviewMs.toFixed(0)}ms, later review ${laterMs.toFixed(0)}ms`
     );
     expect(first.ms, `full stitch took ${first.ms.toFixed(0)}ms`).toBeLessThan(STITCH_BUDGET_MS);
     expect(secondMs, `header restitch took ${secondMs.toFixed(0)}ms`).toBeLessThan(

@@ -18,10 +18,12 @@ import {
   ensureSourceLayout,
   insertSchedule,
   materializeOutput,
+  notePublishChecks,
   parseSchedulePhrase,
   recordPublish,
   swapLive,
-  writeHostMap
+  writeHostMap,
+  type PublishChecks
 } from "@flagstage/publish";
 import { outputPrefix, snapshotPrefix, sourcePrefix, type BlobStore } from "@flagstage/storage";
 
@@ -426,6 +428,7 @@ export async function approveChange(input: {
       publicPrefix: string;
       storagePrefix: string;
       fromPrefix: string | null;
+      checks: PublishChecks;
     }
   | { ok: false; reason: string }
 > {
@@ -474,11 +477,14 @@ export async function approveChange(input: {
     ? await input.db.select().from(snapshot).where(eq(snapshot.id, live)).limit(1)
     : [];
   const fromPrefix = liveRows[0]?.storagePrefix ?? null;
-  await materializeOutput({
+  const built = await materializeOutput({
     store: input.store,
     storagePrefix,
-    previousStoragePrefix: fromPrefix
+    previousStoragePrefix: fromPrefix,
+    review: "later"
   });
+  const checks = built.checks ?? { blocked: false, drift: [], missing: [], ms: 0 };
+  await notePublishChecks(input.db, request.siteId, checks);
   const expected = live;
   const publicPrefix = outputPrefix(storagePrefix);
   const swapped = await swapLive(input.db, request.siteId, expected, nextId);
@@ -503,7 +509,7 @@ export async function approveChange(input: {
   if (input.host && input.hostMapPath) {
     writeHostMap(input.hostMapPath, input.host, publicPrefix);
   }
-  return { ok: true, snapshotId: nextId, publicPrefix, storagePrefix, fromPrefix };
+  return { ok: true, snapshotId: nextId, publicPrefix, storagePrefix, fromPrefix, checks };
 }
 
 export function htmlOf(files: Map<string, Uint8Array>, suffix = "index.html"): string {

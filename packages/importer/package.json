@@ -17,12 +17,12 @@
     "@flagstage/core": "workspace:*",
     "@flagstage/db": "workspace:*",
     "@flagstage/publish": "workspace:*",
+    "@flagstage/sitebuild": "workspace:*",
     "@flagstage/storage": "workspace:*",
     "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.14",
-    "@flagstage/sitebuild": "workspace:*",
     "typescript": "^5.9.3"
   }
 }

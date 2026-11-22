@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { bedrockListingDecide, type ListingDecide, type ListingDecision } from "@flagstage/ai";
-import { buildSite } from "@flagstage/sitebuild";
+import { buildSite, reviewPublish } from "@flagstage/sitebuild";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { addBaseline } from "./baseline";
 import { extractSharedBlocks, type CapturedFile, type ImportResult } from "./index";
 import { LISTINGS_PATH, scaffoldSite } from "./templates";
 
@@ -207,6 +208,19 @@ describe("measured listings", () => {
         (item) => item.page === "notes/index.html" && item.kind === "listing"
       )
     ).toBe(true);
+
+    const checked = addBaseline(
+      result,
+      pages.map((file) => ({ path: file.path, html: text(file) }))
+    );
+    const reviewed = build(checked);
+    const checks = reviewPublish({
+      sourceDir: reviewed.src,
+      outputDir: reviewed.out,
+      mode: "import"
+    });
+    expect(checks.blocked).toBe(false);
+    expect(checks.missing).toEqual([]);
 
     const { out } = build(result);
     const news = readFileSync(join(out, "news/index.html"), "utf8");
