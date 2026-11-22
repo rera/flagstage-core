@@ -36,6 +36,13 @@
       "when": 1762950000000,
       "tag": "0004_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1762960000000,
+      "tag": "0005_importer_settings",
+      "breakpoints": true
     }
   ]
 }

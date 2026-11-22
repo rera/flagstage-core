@@ -1,4 +1,5 @@
 import type { ListingDecide, ListingDecision, ListingSummary } from "@flagstage/ai";
+import { DEFAULT_DECISION_CONFIDENCE_THRESHOLD } from "@flagstage/config";
 
 import type { FidelityItem, RedirectRule } from "./types";
 
@@ -17,7 +18,6 @@ import type { FidelityItem, RedirectRule } from "./types";
  * deterministic guess is used. Low-confidence results are returned as notes.
  */
 
-const LOW_CONFIDENCE = 0.6;
 const ARTICLE_TYPES = new Set(["Article", "NewsArticle", "BlogPosting"]);
 const CHROME = new Set(["header", "nav", "footer"]);
 const VOID = new Set([
@@ -56,6 +56,8 @@ export interface ListingSourcePage {
 
 export interface ListingOptions {
   decide?: ListingDecide;
+  /** A kept reply below this is still a low-confidence note. */
+  confidenceThreshold?: number;
 }
 
 export interface ListingPlan {
@@ -195,7 +197,7 @@ export async function analyzeListings(
   const families = cluster(parsed);
   const measured: Measured[] = [];
   for (const family of families) {
-    const result = await measure(family, articles.list, options.decide);
+    const result = await measure(family, articles.list, options);
     if (result) measured.push(result);
   }
   if (measured.length === 0) {
@@ -380,7 +382,7 @@ function pathsFor(pattern: Pattern, order: Order): { output: string; landing: st
 async function measure(
   pages: FamilyPage[],
   articles: Article[],
-  decide: ListingDecide | undefined
+  options: ListingOptions
 ): Promise<Measured | null> {
   if (pages.length < 2) return null;
   assignNumbers(pages);
@@ -401,6 +403,8 @@ async function measure(
     !selectorsCompete(candidates) &&
     patterns.length <= 1 &&
     group.clear;
+  const decide = options.decide;
+  const threshold = options.confidenceThreshold ?? DEFAULT_DECISION_CONFIDENCE_THRESHOLD;
   const guess: Measured = {
     pages,
     pattern,
@@ -424,6 +428,7 @@ async function measure(
   };
   try {
     const decision = await decide(summary);
+    if (!decision) return guess;
     if (!accepts(decision, guess, pages)) {
       guess.reason = "The listing model reply did not match the measurements.";
       return guess;
@@ -434,7 +439,7 @@ async function measure(
     if (!guess.group.clear) {
       guess.group = { group: decision.group, label: guess.group.label, clear: false };
     }
-    guess.low = decision.confidence < LOW_CONFIDENCE;
+    guess.low = decision.confidence < threshold;
     guess.reason = decision.reason;
     return guess;
   } catch {

@@ -11,6 +11,12 @@ if (!siteId || !runId || !sourceUrl) {
 }
 
 const config = loadConfig();
+const region =
+  process.env.AWS_REGION ??
+  process.env.AWS_DEFAULT_REGION ??
+  config.product?.region ??
+  config.S3_REGION ??
+  "";
 await runImport({
   db: getDb(config.DATABASE_URL),
   store: createBlobStore(config),
@@ -18,6 +24,7 @@ await runImport({
   importRunId: runId,
   sourceUrl,
   appOrigin: config.APP_URL,
+  region,
   caps: {
     maxPages: config.IMPORT_MAX_PAGES,
     maxDepth: config.IMPORT_MAX_DEPTH,

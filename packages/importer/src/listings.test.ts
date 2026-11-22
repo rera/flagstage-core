@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import type { ListingDecision, ListingSummary } from "@flagstage/ai";
+import { bedrockListingDecide, type ListingDecide, type ListingDecision } from "@flagstage/ai";
 import { buildSite } from "@flagstage/sitebuild";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -92,13 +92,10 @@ function pager(prev: string | null, next: string | null, extra = ""): string {
   return `<nav class="page-nav">${older}${newer}${extra}</nav>`;
 }
 
-async function run(
-  pages: CapturedFile[],
-  decide?: (summary: ListingSummary) => Promise<ListingDecision>
-) {
+async function run(pages: CapturedFile[], decide?: ListingDecide) {
   let calls = 0;
-  const wrapped = decide
-    ? async (summary: ListingSummary) => {
+  const wrapped: ListingDecide = decide
+    ? async (summary) => {
         calls += 1;
         return decide(summary);
       }
@@ -339,6 +336,55 @@ describe("measured listings", () => {
     expect(listingsOf(thrown.result).pageSize).toBe(10);
     expect(thrown.result.report.uncertain.some((item) => item.detail.includes("unavailable"))).toBe(
       true
+    );
+  });
+
+  it("uses the measured guess when the decision model is off", async () => {
+    let sent = false;
+    const decide = bedrockListingDecide({
+      region: "us-east-1",
+      settings: {
+        decisionEnabled: false,
+        decisionModel: { provider: "bedrock", modelId: "should-not-run" }
+      },
+      send: async () => {
+        sent = true;
+        return "{}";
+      }
+    });
+    const { result, calls } = await run(mixedPages(), decide);
+    expect(calls).toBe(1);
+    expect(sent).toBe(false);
+    expect(listingsOf(result).groups[0]?.pageSize).toBe(10);
+    expect(
+      result.report.uncertain.some((item) => item.detail.includes("Measurements disagreed"))
+    ).toBe(true);
+    expect(result.report.uncertain.some((item) => item.detail.includes("unavailable"))).toBe(false);
+  });
+
+  it("treats a reply as low confidence only below the stored threshold", async () => {
+    const pages = mixedPages();
+    const decision: ListingDecision = {
+      pageSize: 12,
+      itemSelector: "li.post",
+      urlPattern: "/mixed/page/{n}/",
+      order: "newest-first",
+      group: "all",
+      confidence: 0.4,
+      reason: "sizes disagree"
+    };
+    const flagged = await run(pages, async () => decision);
+    expect(
+      flagged.result.report.uncertain.some((item) => item.detail.includes("Low-confidence"))
+    ).toBe(true);
+
+    const kept = await scaffoldSite(extractSharedBlocks(imported(pages)), {
+      decide: async () => decision,
+      confidenceThreshold: 0.3
+    });
+    expect(listingsOf(kept).groups[0]?.pageSize).toBe(12);
+    expect(kept.report.uncertain.some((item) => item.detail.includes("Low-confidence"))).toBe(
+      false
     );
   });
 
