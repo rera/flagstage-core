@@ -15,7 +15,14 @@ import { account, importRun, leadForm, site, siteRedirect, type Database } from 
 import * as fullSchema from "@flagstage/db";
 import type { BlobStore, StoredObject } from "@flagstage/storage";
 
-import { approveImport, crawlSite, runImport, storeCrawl } from "./index";
+import {
+  approveImport,
+  crawlSite,
+  registerImporter,
+  runImport,
+  storeImport,
+  type ImportResult
+} from "./index";
 
 const html = `<!doctype html><html><head>
 <style>.hero{background:url(/wp-content/uploads/bg.png)}</style>
@@ -52,7 +59,12 @@ function memoryStore(): BlobStore & { files: Map<string, StoredObject> } {
 
 async function applyMigrations(client: PGlite) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle");
-  for (const file of ["0000_init.sql", "0001_auth_plugins.sql", "0003_builder.sql", "0004_schedule.sql"]) {
+  for (const file of [
+    "0000_init.sql",
+    "0001_auth_plugins.sql",
+    "0003_builder.sql",
+    "0004_schedule.sql"
+  ]) {
     const sqlText = readFileSync(join(root, file), "utf8");
     for (const statement of sqlText.split("--> statement-breakpoint")) {
       const query = statement.trim();
@@ -128,7 +140,13 @@ describe("site import", () => {
       });
       const store = memoryStore();
       const hostMapPath = join(mkdtempSync(join(tmpdir(), "hostmap-")), "hostmap.json");
-      const stored = await storeCrawl({ db, store, siteId: "site-1", importRunId: "run-1", crawl });
+      const stored = await storeImport({
+        db,
+        store,
+        siteId: "site-1",
+        importRunId: "run-1",
+        result: crawl
+      });
       const home = [...store.files.keys()].find((key) => key.endsWith("index.html"));
       expect(home).toBeTruthy();
       const page = new TextDecoder().decode(store.files.get(home ?? "")?.body);
@@ -141,7 +159,21 @@ describe("site import", () => {
         "search"
       ]);
       expect(crawl.report.cssBackgrounds).toContain("/wp-content/uploads/bg.png");
-      expect(crawl.wordpress).toBe(true);
+      expect(crawl.pages.map((file) => file.path).sort()).toEqual([
+        "about/index.html",
+        "hello/index.html",
+        "index.html"
+      ]);
+      expect(crawl.assets.map((file) => file.path)).toEqual(["wp-content/uploads/a.png"]);
+      expect(crawl.stats).toMatchObject({ pages: 3, assets: 1 });
+      expect(
+        crawl.redirects.some(
+          (row) => row.fromPath === "/?p=7" && row.toPath === "/hello" && row.source === "wordpress"
+        )
+      ).toBe(true);
+      expect([...store.files.keys()].some((key) => key.endsWith("wp-content/uploads/a.png"))).toBe(
+        true
+      );
       const redirects = await db.select().from(siteRedirect);
       expect(redirects.some((row) => row.fromPath === "/?p=7" && row.toPath === "/hello")).toBe(
         true
@@ -205,6 +237,184 @@ describe("site import", () => {
     const rows = await db.select().from(importRun).where(eq(importRun.id, "run-2"));
     expect(rows[0]?.status).toBe("failed");
     const sites = await db.select().from(site).where(eq(site.id, "site-2"));
+    expect(sites[0]?.status).toBe("failed");
+    await client.close();
+  });
+
+  it("stores the result of the source named on the run", async () => {
+    const result: ImportResult = {
+      pages: [
+        {
+          path: "index.html",
+          body: new TextEncoder().encode("<p>from the fixture source</p>"),
+          contentType: "text/html; charset=utf-8"
+        }
+      ],
+      assets: [
+        {
+          path: "assets/mark.svg",
+          body: new TextEncoder().encode("<svg></svg>"),
+          contentType: "image/svg+xml"
+        }
+      ],
+      redirects: [{ fromPath: "/old", toPath: "/", source: "fixture-source" }],
+      forms: [{ formKey: "hello", name: "Hello", page: "/" }],
+      report: {
+        forms: [{ page: "/", kind: "hello", detail: "Mapped from the fixture source." }],
+        plugins: [],
+        missingAssets: [],
+        cssBackgrounds: []
+      },
+      stats: { pages: 1, assets: 1, pagesFound: 1, pagesDone: 1, skipped: [] }
+    };
+    registerImporter({
+      name: "fixture-source",
+      async run(options) {
+        await options.onProgress?.({ pagesFound: 1, pagesDone: 0, skipped: [] });
+        return result;
+      }
+    });
+    const client = new PGlite();
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+    await db.insert(account).values({ id: "acct-3", name: "Events", slug: "events" });
+    await db.insert(site).values({
+      id: "site-3",
+      accountId: "acct-3",
+      name: "Fixture source",
+      slug: "fixture-source",
+      sourceUrl: "https://example.test",
+      status: "importing"
+    });
+    await db.insert(importRun).values({
+      id: "run-3",
+      siteId: "site-3",
+      sourceUrl: "https://example.test",
+      status: "queued"
+    });
+    const store = memoryStore();
+    const stored = await runImport({
+      db,
+      store,
+      siteId: "site-3",
+      importRunId: "run-3",
+      sourceUrl: "https://example.test",
+      appOrigin: "http://localhost:3000",
+      caps: { maxPages: 5, maxDepth: 1, maxAssets: 5 },
+      source: "fixture-source",
+      fetchPage: async () => {
+        throw new Error("The named source should not fetch.");
+      }
+    });
+    expect(stored.snapshotId).toBeTruthy();
+    const home = [...store.files.keys()].find((key) => key.endsWith("index.html"));
+    expect(new TextDecoder().decode(store.files.get(home ?? "")?.body)).toContain(
+      "from the fixture source"
+    );
+    expect([...store.files.keys()].some((key) => key.endsWith("assets/mark.svg"))).toBe(true);
+    const redirects = await db.select().from(siteRedirect);
+    expect(
+      redirects.some((row) => row.fromPath === "/old" && row.source === "fixture-source")
+    ).toBe(true);
+    const forms = await db.select().from(leadForm);
+    expect(forms.map((row) => row.formKey)).toContain("hello");
+    const run = await db.select().from(importRun).where(eq(importRun.id, "run-3"));
+    expect(run[0]?.status).toBe("preview");
+    expect(run[0]?.fidelityReport).toMatchObject({
+      forms: [{ page: "/", kind: "hello" }]
+    });
+    const sites = await db.select().from(site).where(eq(site.id, "site-3"));
+    expect(sites[0]?.status).toBe("preview");
+    expect(sites[0]?.draftSnapshotId).toBe(stored.snapshotId);
+    await client.close();
+  });
+
+  it("records progress from the source, then fails the run when that source throws", async () => {
+    registerImporter({
+      name: "progress-source",
+      async run(options) {
+        await options.onProgress?.({
+          pagesFound: 4,
+          pagesDone: 2,
+          skipped: [{ path: "/gone", reason: "HTTP 404" }]
+        });
+        throw new Error("stopped after progress");
+      }
+    });
+    const client = new PGlite();
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+    await db.insert(account).values({ id: "acct-4", name: "News", slug: "news" });
+    await db.insert(site).values({
+      id: "site-4",
+      accountId: "acct-4",
+      name: "Progress",
+      slug: "progress",
+      sourceUrl: "https://example.test",
+      status: "importing"
+    });
+    await db.insert(importRun).values({
+      id: "run-4",
+      siteId: "site-4",
+      sourceUrl: "https://example.test",
+      status: "queued"
+    });
+    const stored = await runImport({
+      db,
+      store: memoryStore(),
+      siteId: "site-4",
+      importRunId: "run-4",
+      sourceUrl: "https://example.test",
+      appOrigin: "http://localhost:3000",
+      caps: { maxPages: 5, maxDepth: 1, maxAssets: 5 },
+      source: "progress-source"
+    });
+    expect(stored.snapshotId).toBeUndefined();
+    const run = await db.select().from(importRun).where(eq(importRun.id, "run-4"));
+    expect(run[0]?.status).toBe("failed");
+    expect(run[0]?.error).toBe("stopped after progress");
+    expect(run[0]?.stats).toEqual({
+      pagesFound: 4,
+      pagesDone: 2,
+      skipped: [{ path: "/gone", reason: "HTTP 404" }]
+    });
+    await client.close();
+  });
+
+  it("fails the run when the source name is not registered", async () => {
+    const client = new PGlite();
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+    await db.insert(account).values({ id: "acct-5", name: "Tours", slug: "tours" });
+    await db.insert(site).values({
+      id: "site-5",
+      accountId: "acct-5",
+      name: "Missing source",
+      slug: "missing-source",
+      sourceUrl: "https://example.test",
+      status: "importing"
+    });
+    await db.insert(importRun).values({
+      id: "run-5",
+      siteId: "site-5",
+      sourceUrl: "https://example.test",
+      status: "queued"
+    });
+    const stored = await runImport({
+      db,
+      store: memoryStore(),
+      siteId: "site-5",
+      importRunId: "run-5",
+      sourceUrl: "https://example.test",
+      appOrigin: "http://localhost:3000",
+      caps: { maxPages: 5, maxDepth: 1, maxAssets: 5 },
+      source: "no-such-source"
+    });
+    expect(stored.snapshotId).toBeUndefined();
+    const run = await db.select().from(importRun).where(eq(importRun.id, "run-5"));
+    expect(run[0]?.status).toBe("failed");
+    expect(run[0]?.error).toContain("no-such-source");
+    const sites = await db.select().from(site).where(eq(site.id, "site-5"));
     expect(sites[0]?.status).toBe("failed");
     await client.close();
   });

@@ -32,7 +32,7 @@ Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstag
 | `packages/auth`        | Better Auth email and password                                                          |
 | `packages/core`        | Accounts, memberships, `can()`                                                          |
 | `packages/storage`     | `BlobStore` (`fs` and `s3`)                                                             |
-| `packages/importer`    | Crawl of a public site                                                                  |
+| `packages/importer`    | Importer registry. The public-site crawler is the built-in source.                      |
 | `packages/agent`       | OpenCode subprocess runner and skills                                                   |
 | `packages/ai`          | Intent, trust judge, and reply calls                                                    |
 | `packages/publish`     | Preview, promote, rollback                                                              |

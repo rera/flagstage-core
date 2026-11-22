@@ -1,8 +1,8 @@
+import type { Importer, ImportOptions } from "./interface";
 import type {
   CapturedFile,
-  CrawlResult,
   FidelityItem,
-  ImportCaps,
+  ImportResult,
   MappedForm,
   PageFetch,
   RedirectRule
@@ -118,24 +118,17 @@ async function getText(fetchPage: PageFetch, url: string): Promise<string | null
   return TEXT.decode(response.body);
 }
 
-export async function crawlSite(input: {
-  onProgress?: (progress: {
-    pagesFound: number;
-    pagesDone: number;
-    skipped: Array<{ path: string; reason: string }>;
-  }) => Promise<void>;
-  fetchPage: PageFetch;
-  sourceUrl: string;
-  appOrigin: string;
-  siteId: string;
-  caps: ImportCaps;
-}): Promise<CrawlResult> {
+export const PUBLIC_SITE_SOURCE = "public-site";
+
+export async function crawlSite(input: ImportOptions): Promise<ImportResult> {
+  if (!input.fetchPage) throw new Error("The public-site importer needs a page fetch.");
+  const fetchPage = input.fetchPage;
   const origin = originOf(input.sourceUrl);
-  const home = await input.fetchPage(origin.origin);
+  const home = await fetchPage(origin.origin);
   if (!home || home.status >= 400) {
     throw new Error("The site did not answer.");
   }
-  const wpJson = await getText(input.fetchPage, new URL("/wp-json", origin).toString());
+  const wpJson = await getText(fetchPage, new URL("/wp-json", origin).toString());
   const wordpress = wpJson != null && wpJson.includes("{");
   // Extra sitemap, content, and form-plugin work stays in this import job.
   const seeds = new Set<string>(["/"]);
@@ -146,7 +139,7 @@ export async function crawlSite(input: {
   ];
   if (wordpress) {
     for (const sitemapPath of ["/wp-sitemap.xml", "/sitemap_index.xml"]) {
-      const xml = await getText(input.fetchPage, new URL(sitemapPath, origin).toString());
+      const xml = await getText(fetchPage, new URL(sitemapPath, origin).toString());
       if (!xml) continue;
       for (const loc of locs(xml)) {
         const path = sameOriginPath(loc, origin);
@@ -155,7 +148,7 @@ export async function crawlSite(input: {
     }
     for (const collection of ["pages", "posts"]) {
       const json = await getText(
-        input.fetchPage,
+        fetchPage,
         new URL(
           `/wp-json/wp/v2/${collection}?per_page=100&_fields=id,link,modified`,
           origin
@@ -185,7 +178,8 @@ export async function crawlSite(input: {
   const queue = [...seeds].map((path) => ({ path, depth: 0 }));
   const seenPages = new Set<string>();
   const seenAssets = new Set<string>();
-  const files: CapturedFile[] = [];
+  const pages: CapturedFile[] = [];
+  const assets: CapturedFile[] = [];
   const forms: FidelityItem[] = [];
   const plugins: FidelityItem[] = [];
   const mapped: MappedForm[] = [];
@@ -197,7 +191,7 @@ export async function crawlSite(input: {
     const current = queue.shift();
     if (!current || seenPages.has(current.path) || current.depth > input.caps.maxDepth) continue;
     seenPages.add(current.path);
-    const response = await input.fetchPage(new URL(current.path, origin).toString());
+    const response = await fetchPage(new URL(current.path, origin).toString());
     if (!response || response.status >= 400) {
       missingAssets.push(current.path);
       skipped.push({
@@ -215,7 +209,7 @@ export async function crawlSite(input: {
     if (!contentType.includes("html")) {
       if (seenAssets.size < input.caps.maxAssets) {
         seenAssets.add(current.path);
-        files.push({
+        assets.push({
           path: storagePath(current.path),
           body: response.body,
           contentType: response.contentType
@@ -229,7 +223,7 @@ export async function crawlSite(input: {
     plugins.push(...notes.plugins);
     mapped.push(...notes.formsMapped);
     const rewritten = rewriteHtml(html, origin, input.appOrigin, input.siteId, notes.formsMapped);
-    files.push({
+    pages.push({
       path: storagePath(current.path),
       body: new TextEncoder().encode(rewritten),
       contentType: "text/html; charset=utf-8"
@@ -248,7 +242,7 @@ export async function crawlSite(input: {
       const isAsset = pathname.split("/").pop()?.includes(".") === true;
       if (isAsset) {
         if (seenAssets.has(pathname) || seenAssets.size >= input.caps.maxAssets) continue;
-        const asset = await input.fetchPage(new URL(pathname, origin).toString());
+        const asset = await fetchPage(new URL(pathname, origin).toString());
         if (!asset || asset.status >= 400) {
           missingAssets.push(pathname);
           if (
@@ -259,7 +253,7 @@ export async function crawlSite(input: {
           continue;
         }
         seenAssets.add(pathname);
-        files.push({
+        assets.push({
           path: storagePath(pathname),
           body: asset.body,
           contentType: asset.contentType || "application/octet-stream"
@@ -276,8 +270,8 @@ export async function crawlSite(input: {
   }
 
   return {
-    wordpress,
-    files,
+    pages,
+    assets,
     redirects,
     report: { forms, plugins, missingAssets, cssBackgrounds },
     forms: mapped,
@@ -290,3 +284,8 @@ export async function crawlSite(input: {
     }
   };
 }
+
+export const publicSiteImporter: Importer = {
+  name: PUBLIC_SITE_SOURCE,
+  run: crawlSite
+};

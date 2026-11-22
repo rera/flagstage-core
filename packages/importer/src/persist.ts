@@ -8,21 +8,20 @@ import type { Database } from "@flagstage/db";
 import { importRun, leadForm, site, siteRedirect, snapshot } from "@flagstage/db";
 import { snapshotPrefix, type BlobStore } from "@flagstage/storage";
 
-import type { CrawlResult } from "./types";
+import type { ImportResult } from "./types";
 
-export async function storeCrawl(input: {
+export async function storeImport(input: {
   db: Database;
   store: BlobStore;
   siteId: string;
   importRunId: string;
-  crawl: CrawlResult;
-  hostMapPath?: string;
-  host?: string;
+  result: ImportResult;
 }): Promise<{ snapshotId: string }> {
   const snapshotId = randomUUID();
   const prefix = snapshotPrefix(input.siteId, snapshotId);
+  const files = [...input.result.pages, ...input.result.assets];
   let bytes = 0;
-  for (const file of input.crawl.files) {
+  for (const file of files) {
     await input.store.put(`${prefix}${file.path}`, file.body, file.contentType);
     bytes += file.body.byteLength;
   }
@@ -32,11 +31,11 @@ export async function storeCrawl(input: {
     siteId: input.siteId,
     kind: "import",
     storagePrefix: prefix,
-    fileCount: input.crawl.files.length,
+    fileCount: files.length,
     bytes,
     createdAt: now
   });
-  for (const redirect of input.crawl.redirects) {
+  for (const redirect of input.result.redirects) {
     await input.db
       .insert(siteRedirect)
       .values({
@@ -49,7 +48,7 @@ export async function storeCrawl(input: {
       })
       .onConflictDoNothing();
   }
-  for (const form of input.crawl.forms) {
+  for (const form of input.result.forms) {
     await input.db
       .insert(leadForm)
       .values({
@@ -64,8 +63,8 @@ export async function storeCrawl(input: {
     .update(importRun)
     .set({
       status: "preview",
-      stats: input.crawl.stats,
-      fidelityReport: input.crawl.report,
+      stats: input.result.stats,
+      fidelityReport: input.result.report,
       updatedAt: now
     })
     .where(eq(importRun.id, input.importRunId));

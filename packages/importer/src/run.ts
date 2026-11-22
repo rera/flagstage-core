@@ -4,8 +4,8 @@ import type { Database } from "@flagstage/db";
 import { importRun, site } from "@flagstage/db";
 import type { BlobStore } from "@flagstage/storage";
 
-import { crawlSite } from "./crawl";
-import { storeCrawl } from "./persist";
+import { storeImport } from "./persist";
+import { getImporter, PUBLIC_SITE_SOURCE } from "./registry";
 import type { ImportCaps, PageFetch } from "./types";
 
 async function defaultFetch(url: string) {
@@ -33,6 +33,7 @@ export async function runImport(input: {
   sourceUrl: string;
   appOrigin: string;
   caps: ImportCaps;
+  source?: string;
   fetchPage?: PageFetch;
 }): Promise<{ snapshotId?: string }> {
   const now = new Date();
@@ -41,7 +42,8 @@ export async function runImport(input: {
     .set({ status: "running", updatedAt: now })
     .where(eq(importRun.id, input.importRunId));
   try {
-    const crawl = await crawlSite({
+    const importer = getImporter(input.source?.trim() || PUBLIC_SITE_SOURCE);
+    const result = await importer.run({
       fetchPage: input.fetchPage ?? defaultFetch,
       sourceUrl: input.sourceUrl,
       appOrigin: input.appOrigin,
@@ -55,12 +57,12 @@ export async function runImport(input: {
         await notify(input.db, input.siteId);
       }
     });
-    const stored = await storeCrawl({
+    const stored = await storeImport({
       db: input.db,
       store: input.store,
       siteId: input.siteId,
       importRunId: input.importRunId,
-      crawl
+      result
     });
     await notify(input.db, input.siteId);
     return { snapshotId: stored.snapshotId };

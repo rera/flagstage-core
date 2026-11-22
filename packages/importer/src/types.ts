@@ -43,17 +43,24 @@ export type CapturedFile = {
   contentType: string;
 };
 
-export type CrawlResult = {
-  wordpress: boolean;
-  files: CapturedFile[];
+export type SkippedPage = {
+  path: string;
+  reason: string;
+};
+
+export type ImportStats = {
+  pages: number;
+  assets: number;
+  pagesFound?: number;
+  pagesDone?: number;
+  skipped?: SkippedPage[];
+};
+
+export type ImportResult = {
+  pages: CapturedFile[];
+  assets: CapturedFile[];
   redirects: RedirectRule[];
-  report: FidelityReport;
   forms: MappedForm[];
-  stats: {
-    pages: number;
-    assets: number;
-    pagesFound?: number;
-    pagesDone?: number;
-    skipped?: Array<{ path: string; reason: string }>;
-  };
+  report: FidelityReport;
+  stats: ImportStats;
 };
