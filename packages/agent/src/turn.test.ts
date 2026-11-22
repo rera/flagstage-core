@@ -147,6 +147,11 @@ describe("chat publish", () => {
       await db.update(site).set({ currentSnapshotId: liveId }).where(eq(site.id, "site-1"));
       const html = new TextEncoder().encode("<html><body><h1>Hello</h1></body></html>");
       await store.put(`${snapshotPrefix("site-1", liveId)}index.html`, html, "text/html");
+      await store.put(
+        `${snapshotPrefix("site-1", liveId)}_inc/header.html`,
+        new TextEncoder().encode("<header>Kept header</header>"),
+        "text/html"
+      );
 
       const asked = await postMessage({
         db,
@@ -158,6 +163,13 @@ describe("chat publish", () => {
         runner: testEditor
       });
       expect(asked.previewUrl).toContain("/preview/");
+      const kept = [...store.files.entries()].filter(([key]) =>
+        key.endsWith("src/_inc/header.html")
+      );
+      expect(kept.length).toBeGreaterThan(0);
+      for (const [, object] of kept) {
+        expect(new TextDecoder().decode(object.body)).toBe("<header>Kept header</header>");
+      }
 
       const same = await postMessage({
         db,

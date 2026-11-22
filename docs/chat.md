@@ -2,7 +2,7 @@
 
 Every chat starts on a site. The web app stores the message and starts the chat Lambda. Locally, with no function name set, the same turn function runs in the web process.
 
-- OpenCode edits the draft. The preview on the right reloads when the draft snapshot changes.
+- OpenCode edits the draft. The preview on the right reloads when the draft snapshot changes. The prompt includes `.flagstage/skills/site/SKILL.md` when the snapshot has that site skill.
 - An edit that does not touch a file is reported as already satisfied.
 - Publish moves the live snapshot to the draft. Undo this edit moves only the draft. Undo a publish moves the live snapshot.
 - One person holds the draft lock. A second person is told someone else is editing.
