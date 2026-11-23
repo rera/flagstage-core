@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { and, eq, sql } from "drizzle-orm";
 
+import { getEditSettings } from "@flagstage/core";
 import type { Database } from "@flagstage/db";
 import {
   changeRequest,
@@ -31,6 +32,7 @@ import { injectAnalytics } from "@flagstage/analytics";
 
 import { maybeAlertBudget } from "./budget";
 import { checkTrust } from "./runner";
+import { handEditRefusal } from "./site-tools/guard";
 import type { AgentRunner } from "./subprocess";
 
 const LOCK_MS = 15 * 60 * 1000;
@@ -313,7 +315,7 @@ export async function postMessage(input: {
       return { ...(await finish("queued", reply)), continue: true };
     }
     if (!input.runner) throw new Error("No editor is configured.");
-    let edited: { changed: boolean; files: Map<string, Uint8Array> };
+    let edited: Awaited<ReturnType<AgentRunner["edit"]>>;
     try {
       edited = await input.runner.edit(files, request);
     } catch (error) {
@@ -334,6 +336,19 @@ export async function postMessage(input: {
         .insert(message)
         .values({ id: randomUUID(), threadId, author: "system", body: reply });
       return finish("open", reply);
+    }
+    const editSettings = await getEditSettings(db);
+    const refusal = handEditRefusal(
+      files,
+      edited.files,
+      edited.toolLog,
+      editSettings.handEditPageLimit
+    );
+    if (refusal) {
+      await db
+        .insert(message)
+        .values({ id: randomUUID(), threadId, author: "system", body: refusal });
+      return finish("open", refusal);
     }
     const resultId = await writeSnapshot({
       db,
@@ -362,7 +377,8 @@ export async function postMessage(input: {
       sourceSnapshotId: baseId,
       resultSnapshotId: resultId,
       summary: input.body,
-      usage: estimateUsage(input.body, edited.files)
+      usage: estimateUsage(input.body, edited.files),
+      toolLog: edited.toolLog ?? []
     });
     const token = randomBytes(18).toString("base64url");
     await db.insert(previewSession).values({
@@ -444,17 +460,25 @@ export async function approveChange(input: {
   const sites = await input.db.select().from(site).where(eq(site.id, request.siteId)).limit(1);
   const live = sites[0]?.currentSnapshotId ?? null;
   let nextId = request.resultSnapshotId;
+  let rebuiltLog: unknown;
   if (live !== request.sourceSnapshotId) {
     if (!live) return { ok: false, reason: "There is no live snapshot to rebuild from." };
     const snaps = await input.db.select().from(snapshot).where(eq(snapshot.id, live)).limit(1);
     const prefix = snaps[0]?.storagePrefix;
     if (!prefix) return { ok: false, reason: "Live snapshot is missing." };
     if (!input.runner) return { ok: false, reason: "No editor is configured." };
-    const edited = await input.runner.edit(
-      await readSnapshot(input.store, prefix),
-      request.summary
-    );
+    const sourceFiles = await readSnapshot(input.store, prefix);
+    const edited = await input.runner.edit(sourceFiles, request.summary);
     if (!edited.changed) return { ok: false, reason: "Nothing needed changing." };
+    const editSettings = await getEditSettings(input.db);
+    const refusal = handEditRefusal(
+      sourceFiles,
+      edited.files,
+      edited.toolLog,
+      editSettings.handEditPageLimit
+    );
+    if (refusal) return { ok: false, reason: refusal };
+    rebuiltLog = edited.toolLog ?? [];
     nextId = await writeSnapshot({
       db: input.db,
       store: input.store,
@@ -500,7 +524,12 @@ export async function approveChange(input: {
   });
   await input.db
     .update(changeRequest)
-    .set({ status: "published", resultSnapshotId: nextId, updatedAt: new Date() })
+    .set({
+      status: "published",
+      resultSnapshotId: nextId,
+      ...(rebuiltLog !== undefined ? { toolLog: rebuiltLog } : {}),
+      updatedAt: new Date()
+    })
     .where(eq(changeRequest.id, request.id));
   await input.db
     .update(previewSession)

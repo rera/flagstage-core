@@ -27,6 +27,10 @@ secret is not in that file. The stack creates it in Secrets Manager.
 The importer decision model is a platform setting in the database, not an
 environment variable. The default is Claude Haiku 4.5 on Bedrock.
 
+How many page files one change may edit by hand is also a platform setting
+in the database, not an environment variable. The default is 8. Pages
+written by the site-edit tools do not count toward it.
+
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
 ${rows}

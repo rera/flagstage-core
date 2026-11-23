@@ -536,7 +536,8 @@ describe("site import", () => {
       store.files.get(`${prefix}src/.flagstage/skills/site/SKILL.md`)?.body
     );
     expect(skill).toContain("`/_inc/header.html`");
-    expect(skill).toContain("Never hand-edit many files.");
+    expect(skill).toContain("Prefer an include when the same block is on many pages.");
+    expect(skill).toContain("edit_include");
     const run = await db.select().from(importRun).where(eq(importRun.id, "run-6"));
     expect(run[0]?.fidelityReport).toMatchObject({ uncertain: [] });
     await client.close();

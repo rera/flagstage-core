@@ -43,6 +43,13 @@
       "when": 1762960000000,
       "tag": "0005_importer_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1762970000000,
+      "tag": "0006_edit_settings",
+      "breakpoints": true
     }
   ]
 }

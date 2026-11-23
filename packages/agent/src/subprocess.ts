@@ -15,13 +15,16 @@ import { fileURLToPath } from "node:url";
 import { frameUntrusted } from "@flagstage/ai";
 
 import { buildPrompt } from "./prompt";
+import { SITE_EDIT_PLUGIN_SOURCE } from "./site-tools/plugin";
+import { startSiteToolServer } from "./site-tools/server";
+import type { ToolCallRecord } from "./site-tools/run";
 
 export interface AgentRunner {
   readonly name: "subprocess";
   edit(
     files: Map<string, Uint8Array>,
     request: string
-  ): Promise<{ changed: boolean; files: Map<string, Uint8Array> }>;
+  ): Promise<{ changed: boolean; files: Map<string, Uint8Array>; toolLog?: ToolCallRecord[] }>;
 }
 
 export const skillsDirectory = join(dirname(fileURLToPath(import.meta.url)), "..", "skills");
@@ -44,8 +47,9 @@ export async function runSubprocessEdit(input: {
   env: Record<string, string>;
   timeoutMs: number;
   skillsDir?: string;
-}): Promise<{ changed: boolean; files: Map<string, Uint8Array> }> {
+}): Promise<{ changed: boolean; files: Map<string, Uint8Array>; toolLog: ToolCallRecord[] }> {
   const dir = mkdtempSync(join(tmpdir(), "flagstage-turn-"));
+  let tools: Awaited<ReturnType<typeof startSiteToolServer>> | undefined;
   try {
     for (const [path, body] of input.files) {
       const full = join(dir, path);
@@ -76,6 +80,14 @@ export async function runSubprocessEdit(input: {
     const siteSkill = readSiteSkill(dir);
     const prompt = buildPrompt(input.request, siteSkill);
     writeFileSync(join(dir, ".flagstage", "request.md"), prompt);
+    tools = await startSiteToolServer(dir);
+    writeFileSync(
+      join(dir, ".flagstage", "tool-server.json"),
+      JSON.stringify({ port: tools.port, token: tools.token })
+    );
+    const pluginPath = join(dir, ".opencode", "plugins", "site-edit.js");
+    mkdirSync(dirname(pluginPath), { recursive: true });
+    writeFileSync(pluginPath, SITE_EDIT_PLUGIN_SOURCE);
     const childEnv = {
       ...input.env,
       OPENCODE_DISABLE_AUTOUPDATE: "1",
@@ -115,8 +127,15 @@ export async function runSubprocessEdit(input: {
     }
     const next = new Map<string, Uint8Array>();
     for (const path of walk(dir)) {
-      if (path === "opencode.json" || path === ".flagstage" || path.startsWith(`.flagstage${"/"}`))
+      if (
+        path === "opencode.json" ||
+        path === ".opencode" ||
+        path.startsWith(`.opencode${"/"}`) ||
+        path === ".flagstage" ||
+        path.startsWith(`.flagstage${"/"}`)
+      ) {
         continue;
+      }
       next.set(path, new Uint8Array(readFileSync(join(dir, path))));
     }
     // The editor workspace hides .flagstage from the returned snapshot. Put the
@@ -136,8 +155,9 @@ export async function runSubprocessEdit(input: {
         }
       }
     }
-    return { changed, files: next };
+    return { changed, files: next, toolLog: tools.calls };
   } finally {
+    if (tools) await tools.close().catch(() => undefined);
     rmSync(dir, { recursive: true, force: true });
   }
 }

@@ -10,6 +10,14 @@ export {
   importerSettingsSchema
 } from "./importer-settings";
 export type { DecisionModel, ImporterSettings, ImporterSettingsPatch } from "./importer-settings";
+export {
+  DEFAULT_HAND_EDIT_PAGE_LIMIT,
+  defaultEditSettings,
+  editSettingsPatchSchema,
+  editSettingsSchema,
+  formatEditSettingsIssues
+} from "./edit-settings";
+export type { EditSettings, EditSettingsPatch } from "./edit-settings";
 export { renderConfigurationMarkdown } from "./docs";
 export { createLogger } from "./logger";
 export { ConfigError } from "./errors";
