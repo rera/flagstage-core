@@ -1,8 +1,9 @@
 import { frameUntrusted } from "@flagstage/ai";
 
 /** Rewritten from the commercial harness prompt. Customer names and commercial URLs are not included. */
-export function buildPrompt(request: string, siteSkill?: string): string {
+export function buildPrompt(request: string, siteSkill?: string, guidance?: string): string {
   const skill = siteSkill?.trim() ? `${siteSkill.trim()}\n\n` : "";
+  const retry = guidance?.trim() ? `\n${guidance.trim()}\n` : "";
   return `You are editing a static website in this directory.
 
 ${skill}Tools: find_pages, read_page, edit_include, set_meta, retag, replace_text, list_links.
@@ -18,5 +19,7 @@ Rules:
 - Read the skills under .flagstage/skills and follow them. When the site skill is included above, follow it for includes, page types, and listings.
 - Forms post to the app's /f/{siteId}/{formKey} endpoint. Include an empty honeypot field named website.
 - Do not hotlink images. Use files already in the snapshot.
-- If nothing on the site needs to change, leave the files untouched.`;
+- If nothing on the site needs to change, leave the files untouched.
+- The note for the site owner is plain language. Do not name tools, settings, or individual people. Say our team if someone has to follow up.
+${retry}`;
 }

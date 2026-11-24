@@ -23,8 +23,14 @@ export interface AgentRunner {
   readonly name: "subprocess";
   edit(
     files: Map<string, Uint8Array>,
-    request: string
-  ): Promise<{ changed: boolean; files: Map<string, Uint8Array>; toolLog?: ToolCallRecord[] }>;
+    request: string,
+    guidance?: string
+  ): Promise<{
+    changed: boolean;
+    files: Map<string, Uint8Array>;
+    toolLog?: ToolCallRecord[];
+    reply?: string;
+  }>;
 }
 
 export const skillsDirectory = join(dirname(fileURLToPath(import.meta.url)), "..", "skills");
@@ -44,10 +50,17 @@ export async function runSubprocessEdit(input: {
   args?: string[];
   files: Map<string, Uint8Array>;
   request: string;
+  /** Trusted note for the editor. Kept outside the untrusted request. */
+  guidance?: string;
   env: Record<string, string>;
   timeoutMs: number;
   skillsDir?: string;
-}): Promise<{ changed: boolean; files: Map<string, Uint8Array>; toolLog: ToolCallRecord[] }> {
+}): Promise<{
+  changed: boolean;
+  files: Map<string, Uint8Array>;
+  toolLog: ToolCallRecord[];
+  reply?: string;
+}> {
   const dir = mkdtempSync(join(tmpdir(), "flagstage-turn-"));
   let tools: Awaited<ReturnType<typeof startSiteToolServer>> | undefined;
   try {
@@ -78,7 +91,7 @@ export async function runSubprocessEdit(input: {
     }
     // Import writes this file. Package skills are copied beside it and do not replace it.
     const siteSkill = readSiteSkill(dir);
-    const prompt = buildPrompt(input.request, siteSkill);
+    const prompt = buildPrompt(input.request, siteSkill, input.guidance);
     writeFileSync(join(dir, ".flagstage", "request.md"), prompt);
     tools = await startSiteToolServer(dir);
     writeFileSync(
@@ -94,6 +107,7 @@ export async function runSubprocessEdit(input: {
       OPENCODE_DISABLE_MODELS_FETCH: "1"
     };
     let stderr = "";
+    let stdout = "";
     const code = await new Promise<number>((resolve, reject) => {
       // `run --standalone` is the headless editor. `--auto` approves file
       // edits, because there is no terminal to ask. amazon-bedrock uses the
@@ -104,7 +118,9 @@ export async function runSubprocessEdit(input: {
         stdio: ["ignore", "pipe", "pipe"],
         timeout: input.timeoutMs
       });
-      child.stdout?.on("data", () => undefined);
+      child.stdout?.on("data", (chunk: Buffer) => {
+        if (stdout.length < 100_000) stdout += chunk.toString("utf8");
+      });
       child.stderr?.on("data", (chunk: Buffer) => {
         if (stderr.length < 4000) stderr += chunk.toString("utf8");
       });
@@ -155,7 +171,7 @@ export async function runSubprocessEdit(input: {
         }
       }
     }
-    return { changed, files: next, toolLog: tools.calls };
+    return { changed, files: next, toolLog: tools.calls, reply: assistantReply(stdout) };
   } finally {
     if (tools) await tools.close().catch(() => undefined);
     rmSync(dir, { recursive: true, force: true });
@@ -169,6 +185,28 @@ function readSiteSkill(dir: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** Assistant text from `opencode run --format json`. Tool events are left out. */
+export function assistantReply(stdout: string): string | undefined {
+  const parts: string[] = [];
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{")) continue;
+    try {
+      const event = JSON.parse(trimmed) as {
+        type?: string;
+        text?: string;
+        part?: { type?: string; text?: string };
+      };
+      if (event.part?.type === "text" && event.part.text) parts.push(event.part.text);
+      else if (event.type === "text" && event.text) parts.push(event.text);
+    } catch {
+      // A line that is not an event is not the owner's note.
+    }
+  }
+  const text = parts.join("").trim();
+  return text || undefined;
 }
 
 function headlessArgs(prompt: string, model: string | undefined): string[] {
@@ -186,11 +224,12 @@ export function subprocessRunner(options: {
 }): AgentRunner {
   return {
     name: "subprocess",
-    edit(files, request) {
+    edit(files, request, guidance) {
       return runSubprocessEdit({
         bin: options.bin ?? "opencode",
         files,
         request,
+        guidance,
         env: options.env,
         timeoutMs: options.timeoutMs,
         skillsDir: options.skillsDir

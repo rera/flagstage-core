@@ -32,7 +32,8 @@ import { injectAnalytics } from "@flagstage/analytics";
 
 import { maybeAlertBudget } from "./budget";
 import { checkTrust } from "./runner";
-import { handEditRefusal } from "./site-tools/guard";
+import { customerReply } from "./site-tools/guard";
+import { editWithinHandLimit } from "./site-tools/retry";
 import type { AgentRunner } from "./subprocess";
 
 const LOCK_MS = 15 * 60 * 1000;
@@ -315,9 +316,15 @@ export async function postMessage(input: {
       return { ...(await finish("queued", reply)), continue: true };
     }
     if (!input.runner) throw new Error("No editor is configured.");
-    let edited: Awaited<ReturnType<AgentRunner["edit"]>>;
+    const editSettings = await getEditSettings(db);
+    let outcome: Awaited<ReturnType<typeof editWithinHandLimit>>;
     try {
-      edited = await input.runner.edit(files, request);
+      outcome = await editWithinHandLimit({
+        runner: input.runner,
+        files,
+        request,
+        limit: editSettings.handEditPageLimit
+      });
     } catch (error) {
       const messageText = error instanceof Error ? error.message : "";
       if (input.deadlineMs && /timed out/i.test(messageText)) {
@@ -330,25 +337,49 @@ export async function postMessage(input: {
       }
       throw error;
     }
-    if (!edited.changed) {
-      const reply = "Nothing needed changing.";
+    const tripped = outcome.toolLog.some((entry) => entry.mode === "refuse");
+    if (!outcome.accepted) {
+      const requestId = randomUUID();
+      await db.insert(changeRequest).values({
+        id: requestId,
+        threadId,
+        siteId: input.siteId,
+        status: "ended",
+        sourceSnapshotId: baseId,
+        summary: input.body,
+        usage: estimateUsage(input.body, files),
+        toolLog: outcome.toolLog
+      });
+      const spoken = customerReply(outcome.reply);
+      if (spoken) {
+        await db
+          .insert(message)
+          .values({ id: randomUUID(), threadId, author: "system", body: spoken });
+      }
+      if (currentSite?.accountId) {
+        await maybeAlertBudget(db, currentSite.accountId).catch(() => undefined);
+      }
+      return finish("open", spoken ?? "");
+    }
+    if (!outcome.changed) {
+      if (tripped) {
+        await db.insert(changeRequest).values({
+          id: randomUUID(),
+          threadId,
+          siteId: input.siteId,
+          status: "ended",
+          sourceSnapshotId: baseId,
+          summary: input.body,
+          usage: estimateUsage(input.body, files),
+          toolLog: outcome.toolLog
+        });
+      }
+      const spoken = tripped ? customerReply(outcome.reply) : undefined;
+      const reply = spoken ?? "Nothing needed changing.";
       await db
         .insert(message)
         .values({ id: randomUUID(), threadId, author: "system", body: reply });
       return finish("open", reply);
-    }
-    const editSettings = await getEditSettings(db);
-    const refusal = handEditRefusal(
-      files,
-      edited.files,
-      edited.toolLog,
-      editSettings.handEditPageLimit
-    );
-    if (refusal) {
-      await db
-        .insert(message)
-        .values({ id: randomUUID(), threadId, author: "system", body: refusal });
-      return finish("open", refusal);
     }
     const resultId = await writeSnapshot({
       db,
@@ -356,7 +387,7 @@ export async function postMessage(input: {
       siteId: input.siteId,
       parentSnapshotId: baseId,
       files: withAnalytics(
-        edited.files,
+        outcome.files,
         sites[0]?.analyticsEnabled !== false,
         input.appOrigin,
         input.siteId
@@ -377,8 +408,8 @@ export async function postMessage(input: {
       sourceSnapshotId: baseId,
       resultSnapshotId: resultId,
       summary: input.body,
-      usage: estimateUsage(input.body, edited.files),
-      toolLog: edited.toolLog ?? []
+      usage: estimateUsage(input.body, outcome.files),
+      toolLog: outcome.toolLog
     });
     const token = randomBytes(18).toString("base64url");
     await db.insert(previewSession).values({
@@ -468,17 +499,29 @@ export async function approveChange(input: {
     if (!prefix) return { ok: false, reason: "Live snapshot is missing." };
     if (!input.runner) return { ok: false, reason: "No editor is configured." };
     const sourceFiles = await readSnapshot(input.store, prefix);
-    const edited = await input.runner.edit(sourceFiles, request.summary);
-    if (!edited.changed) return { ok: false, reason: "Nothing needed changing." };
     const editSettings = await getEditSettings(input.db);
-    const refusal = handEditRefusal(
-      sourceFiles,
-      edited.files,
-      edited.toolLog,
-      editSettings.handEditPageLimit
-    );
-    if (refusal) return { ok: false, reason: refusal };
-    rebuiltLog = edited.toolLog ?? [];
+    const outcome = await editWithinHandLimit({
+      runner: input.runner,
+      files: sourceFiles,
+      request: request.summary,
+      limit: editSettings.handEditPageLimit
+    });
+    if (!outcome.accepted || !outcome.changed) {
+      if (outcome.toolLog.length > 0) {
+        await input.db
+          .update(changeRequest)
+          .set({ toolLog: outcome.toolLog, updatedAt: new Date() })
+          .where(eq(changeRequest.id, request.id));
+      }
+      if (outcome.accepted && !outcome.changed) {
+        return { ok: false, reason: "Nothing needed changing." };
+      }
+      return {
+        ok: false,
+        reason: customerReply(outcome.reply) ?? "This change is not ready to publish."
+      };
+    }
+    rebuiltLog = outcome.toolLog;
     nextId = await writeSnapshot({
       db: input.db,
       store: input.store,
@@ -486,12 +529,12 @@ export async function approveChange(input: {
       parentSnapshotId: live,
       files: input.appOrigin
         ? withAnalytics(
-            edited.files,
+            outcome.files,
             sites[0]?.analyticsEnabled !== false,
             input.appOrigin,
             request.siteId
           )
-        : edited.files
+        : outcome.files
     });
   }
   const nextRows = await input.db.select().from(snapshot).where(eq(snapshot.id, nextId)).limit(1);

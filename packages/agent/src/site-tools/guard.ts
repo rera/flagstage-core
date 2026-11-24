@@ -1,15 +1,42 @@
 export type ToolCallRecord = {
   tool: string;
-  mode: "read" | "dry-run" | "apply";
+  mode: "read" | "dry-run" | "apply" | "refuse" | "retry";
   files: string[];
   dryRunId?: string;
   at: string;
   error?: string;
 };
 
-/** Shown in the thread when a change edits too many pages outside the tools. */
-export const HAND_EDIT_REFUSAL =
-  "This change edited too many pages by hand. Use find_pages, read_page, edit_include, set_meta, retag, replace_text, or list_links. Prefer an include when the same block is on many pages.";
+/** One automatic retry. A second failure ends the change. */
+export const HAND_EDIT_RETRY_LIMIT = 1;
+
+/**
+ * Trusted instruction for the editor after a hand-edit was discarded.
+ * It is not written to the chat.
+ */
+export const HAND_EDIT_GUIDANCE = `The edit you just made was discarded. It changed too many page files by hand.
+Redo that change with find_pages, read_page, edit_include, set_meta, retag, replace_text, and list_links.
+Prefer edit_include when the same block is on many pages.
+The note for the site owner stays plain language. Do not name tools, settings, or individual people. Say our team if someone has to follow up.`;
+
+const TOOL_NAMES = [
+  "find_pages",
+  "read_page",
+  "edit_include",
+  "set_meta",
+  "retag",
+  "replace_text",
+  "list_links",
+  "hand_edit_guard"
+];
+
+/** Drop a reply that would show tool names in the chat. */
+export function customerReply(text: string | undefined): string | undefined {
+  const trimmed = text?.trim();
+  if (!trimmed) return undefined;
+  if (TOOL_NAMES.some((name) => trimmed.includes(name))) return undefined;
+  return trimmed;
+}
 
 export function isPageFile(path: string): boolean {
   const normal = path.replaceAll("\\", "/").replace(/^\.\//, "");
@@ -56,12 +83,6 @@ export function handEditedPages(
   return hand;
 }
 
-export function handEditRefusal(
-  before: Map<string, Uint8Array>,
-  after: Map<string, Uint8Array>,
-  toolLog: readonly { mode: string; files: readonly string[] }[] | undefined,
-  limit: number
-): string | null {
-  const hand = handEditedPages(before, after, toolLog ?? []);
-  return hand.length > limit ? HAND_EDIT_REFUSAL : null;
+export function guardRecord(mode: "refuse" | "retry", files: string[]): ToolCallRecord {
+  return { tool: "hand_edit_guard", mode, files, at: new Date().toISOString() };
 }

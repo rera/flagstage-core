@@ -4,10 +4,31 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { buildPrompt } from "./prompt";
 import { buildAgentEnv } from "./runner";
-import { runSubprocessEdit, skillsDirectory } from "./subprocess";
+import { HAND_EDIT_GUIDANCE } from "./site-tools/guard";
+import { assistantReply, runSubprocessEdit, skillsDirectory } from "./subprocess";
 
 describe("subprocess editor", () => {
+  it("keeps a hand-edit retry outside the untrusted request", () => {
+    const prompt = buildPrompt("Change the footer", undefined, HAND_EDIT_GUIDANCE);
+    const start = prompt.indexOf("<untrusted>");
+    const end = prompt.indexOf("</untrusted>");
+    const untrusted = prompt.slice(start, end);
+    expect(untrusted).toContain("Change the footer");
+    expect(untrusted).not.toContain("find_pages");
+    expect(prompt).toContain(HAND_EDIT_GUIDANCE);
+  });
+
+  it("reads the assistant note from opencode json and skips tool events", () => {
+    const stdout = [
+      JSON.stringify({ type: "tool", part: { type: "tool", tool: "find_pages" } }),
+      JSON.stringify({ type: "text", part: { type: "text", text: "The footer now says 2026." } }),
+      "not json"
+    ].join("\n");
+    expect(assistantReply(stdout)).toBe("The footer now says 2026.");
+  });
+
   it("runs a local command without database or cloud credentials", async () => {
     const env = buildAgentEnv({
       PATH: process.env.PATH,
