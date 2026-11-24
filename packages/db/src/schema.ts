@@ -43,6 +43,17 @@ export const importerSettings = pgTable("importer_settings", {
 });
 
 /**
+ * How many page files one change may edit by hand, outside the site-edit
+ * tools. A missing row means the typed default. Not an environment variable.
+ */
+export const editSettings = pgTable("edit_settings", {
+  id: text("id").primaryKey(),
+  handEditPageLimit: integer("hand_edit_page_limit").notNull().default(8),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  updatedBy: text("updated_by")
+});
+
+/**
  * Better Auth user, plus organization role.
  * Column names follow Better Auth's default camelCase fields so the adapter
  * can read the table without a custom map. org_role is an additional field.
@@ -281,6 +292,10 @@ export const changeRequest = pgTable("change_request", {
   holdReason: text("hold_reason"),
   summary: text("summary"),
   usage: jsonb("usage"),
+  /** Site-edit tool calls for this change: tool, mode, and files. */
+  toolLog: jsonb("tool_log")
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   error: text("error"),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow()

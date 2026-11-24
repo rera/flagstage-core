@@ -4,10 +4,31 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { buildPrompt } from "./prompt";
 import { buildAgentEnv } from "./runner";
-import { runSubprocessEdit, skillsDirectory } from "./subprocess";
+import { HAND_EDIT_GUIDANCE } from "./site-tools/guard";
+import { assistantReply, runSubprocessEdit, skillsDirectory } from "./subprocess";
 
 describe("subprocess editor", () => {
+  it("keeps a hand-edit retry outside the untrusted request", () => {
+    const prompt = buildPrompt("Change the footer", undefined, HAND_EDIT_GUIDANCE);
+    const start = prompt.indexOf("<untrusted>");
+    const end = prompt.indexOf("</untrusted>");
+    const untrusted = prompt.slice(start, end);
+    expect(untrusted).toContain("Change the footer");
+    expect(untrusted).not.toContain("find_pages");
+    expect(prompt).toContain(HAND_EDIT_GUIDANCE);
+  });
+
+  it("reads the assistant note from opencode json and skips tool events", () => {
+    const stdout = [
+      JSON.stringify({ type: "tool", part: { type: "tool", tool: "find_pages" } }),
+      JSON.stringify({ type: "text", part: { type: "text", text: "The footer now says 2026." } }),
+      "not json"
+    ].join("\n");
+    expect(assistantReply(stdout)).toBe("The footer now says 2026.");
+  });
+
   it("runs a local command without database or cloud credentials", async () => {
     const env = buildAgentEnv({
       PATH: process.env.PATH,
@@ -52,6 +73,9 @@ describe("subprocess editor", () => {
     const args = new TextDecoder().decode(result.files.get("args.txt"));
     expect(args).toContain("run\n--standalone\n--archived\n--auto\n--format\njson");
     expect(args).toContain("--model\namazon-bedrock/amazon.nova-micro-v1:0");
+    expect(args).toContain(
+      "find_pages, read_page, edit_include, set_meta, retag, replace_text, list_links"
+    );
     expect(args).toContain("<untrusted>\nAdd a note\n</untrusted>");
     expect(result.files.has("opencode.json")).toBe(false);
   });
@@ -86,5 +110,46 @@ describe("subprocess editor", () => {
     );
     expect(new TextDecoder().decode(result.files.get("index.html"))).toBe("<html></html>");
     expect(result.files.has(".flagstage/request.md")).toBe(false);
+  });
+
+  it("exposes the site-edit tools through the workspace plugin", async () => {
+    const result = await runSubprocessEdit({
+      bin: process.execPath,
+      args: [
+        "-e",
+        [
+          "const fs=require('fs');",
+          "const cfg=JSON.parse(fs.readFileSync('.flagstage/tool-server.json','utf8'));",
+          "const plugin=fs.readFileSync('.opencode/plugins/site-edit.js','utf8');",
+          "if(!plugin.includes('ctx.tool.transform')||plugin.includes('@opencode/plugin')) process.exit(2);",
+          "async function call(input){",
+          "const response=await fetch('http://127.0.0.1:'+cfg.port+'/tool',{method:'POST',headers:{authorization:'Bearer '+cfg.token,'content-type':'application/json'},body:JSON.stringify({tool:'replace_text',input})});",
+          "return response.json();}",
+          "(async()=>{",
+          "const preview=await call({find:'marina',replace:'harbor'});",
+          "if(!preview.dryRunId||preview.changed!==1) process.exit(4);",
+          "const denied=await fetch('http://127.0.0.1:'+cfg.port+'/tools');",
+          "if(denied.status!==401) process.exit(5);",
+          "const applied=await call({find:'marina',replace:'harbor',apply:preview.dryRunId});",
+          "if(!applied.applied) process.exit(6);",
+          "})().catch((error)=>{console.error(error);process.exit(1);});"
+        ].join("")
+      ],
+      files: new Map([
+        ["index.html", new TextEncoder().encode("<p>The marina is open. Try the marinara.</p>")]
+      ]),
+      request: "Rename marina",
+      env: { PATH: "/usr/bin:/bin", HOME: tmpdir() },
+      timeoutMs: 10_000
+    });
+    const html = new TextDecoder().decode(result.files.get("index.html"));
+    expect(html).toContain("The harbor is open. Try the marinara.");
+    expect(result.files.has(".opencode/plugins/site-edit.js")).toBe(false);
+    expect(result.files.has("opencode.json")).toBe(false);
+    expect(result.toolLog.map((call) => `${call.tool}:${call.mode}`)).toEqual([
+      "replace_text:dry-run",
+      "replace_text:apply"
+    ]);
+    expect(result.toolLog[1]?.files).toEqual(["index.html"]);
   });
 });

@@ -558,7 +558,7 @@ Edit the article to change a list. Do not hand-write the generated pages.
     : "";
   return `---
 name: site
-description: "Use for every edit on this site. It lists includes, page types, listings, and the rule for site-wide changes."
+description: "Use for every edit on this site. It lists includes, page types, and listings."
 ---
 
 # Site
@@ -575,9 +575,9 @@ ${includeLines}
 A new page of a type starts from that type's template. Replace \`{{title}}\`, \`{{heading}}\`, \`{{text}}\`, and \`{{url}}\`. Set \`active="{{path}}"\` to the new page's path.
 
 ${types}${remainder}${listings}
-## Site-wide changes
+## Edits
 
-A site-wide change must be done by writing a script and doing a dry run before applying. The dry run shows the count of matching pages and a sample diff. Apply the script only after that dry run. Never hand-edit many files.
+Prefer an include when the same block is on many pages. Sweep pages with find_pages, read_page, edit_include, set_meta, retag, replace_text, and list_links.
 `;
 }
 

@@ -73,7 +73,8 @@ async function applyMigrations(client: PGlite) {
     "0000_init.sql",
     "0001_auth_plugins.sql",
     "0003_builder.sql",
-    "0004_schedule.sql"
+    "0004_schedule.sql",
+    "0006_edit_settings.sql"
   ]) {
     const sqlText = readFileSync(join(root, file), "utf8");
     for (const statement of sqlText.split("--> statement-breakpoint")) {

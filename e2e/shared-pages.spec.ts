@@ -81,7 +81,8 @@ test("import extracts a shared header and preview and live highlight the current
   expect(existsSync(join(src, "_templates", "page.html"))).toBe(true);
   const skill = readFileSync(join(src, ".flagstage", "skills", "site", "SKILL.md"), "utf8");
   expect(skill).toContain("Grove header");
-  expect(skill).toContain("Never hand-edit many files.");
+  expect(skill).toContain("Prefer an include when the same block is on many pages.");
+  expect(skill).toContain("find_pages");
   expect(existsSync(join(src, ".flagstage", "drift.json"))).toBe(true);
   expect(existsSync(join(src, ".flagstage", "listings.json"))).toBe(true);
 
@@ -94,6 +95,7 @@ test("import extracts a shared header and preview and live highlight the current
   expect(homeHtml).not.toContain("<!--#include");
   expect(homeHtml).not.toContain("{{title}}");
   expect(homeHtml).not.toContain("Never hand-edit");
+  expect(homeHtml).not.toContain("find_pages");
 
   const visit = await page.request.get(`/sites/${siteId}/live/visit`);
   expect(visit.ok()).toBe(true);

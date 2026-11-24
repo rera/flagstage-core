@@ -15,13 +15,22 @@ import { fileURLToPath } from "node:url";
 import { frameUntrusted } from "@flagstage/ai";
 
 import { buildPrompt } from "./prompt";
+import { SITE_EDIT_PLUGIN_SOURCE } from "./site-tools/plugin";
+import { startSiteToolServer } from "./site-tools/server";
+import type { ToolCallRecord } from "./site-tools/run";
 
 export interface AgentRunner {
   readonly name: "subprocess";
   edit(
     files: Map<string, Uint8Array>,
-    request: string
-  ): Promise<{ changed: boolean; files: Map<string, Uint8Array> }>;
+    request: string,
+    guidance?: string
+  ): Promise<{
+    changed: boolean;
+    files: Map<string, Uint8Array>;
+    toolLog?: ToolCallRecord[];
+    reply?: string;
+  }>;
 }
 
 export const skillsDirectory = join(dirname(fileURLToPath(import.meta.url)), "..", "skills");
@@ -41,11 +50,19 @@ export async function runSubprocessEdit(input: {
   args?: string[];
   files: Map<string, Uint8Array>;
   request: string;
+  /** Trusted note for the editor. Kept outside the untrusted request. */
+  guidance?: string;
   env: Record<string, string>;
   timeoutMs: number;
   skillsDir?: string;
-}): Promise<{ changed: boolean; files: Map<string, Uint8Array> }> {
+}): Promise<{
+  changed: boolean;
+  files: Map<string, Uint8Array>;
+  toolLog: ToolCallRecord[];
+  reply?: string;
+}> {
   const dir = mkdtempSync(join(tmpdir(), "flagstage-turn-"));
+  let tools: Awaited<ReturnType<typeof startSiteToolServer>> | undefined;
   try {
     for (const [path, body] of input.files) {
       const full = join(dir, path);
@@ -74,14 +91,23 @@ export async function runSubprocessEdit(input: {
     }
     // Import writes this file. Package skills are copied beside it and do not replace it.
     const siteSkill = readSiteSkill(dir);
-    const prompt = buildPrompt(input.request, siteSkill);
+    const prompt = buildPrompt(input.request, siteSkill, input.guidance);
     writeFileSync(join(dir, ".flagstage", "request.md"), prompt);
+    tools = await startSiteToolServer(dir);
+    writeFileSync(
+      join(dir, ".flagstage", "tool-server.json"),
+      JSON.stringify({ port: tools.port, token: tools.token })
+    );
+    const pluginPath = join(dir, ".opencode", "plugins", "site-edit.js");
+    mkdirSync(dirname(pluginPath), { recursive: true });
+    writeFileSync(pluginPath, SITE_EDIT_PLUGIN_SOURCE);
     const childEnv = {
       ...input.env,
       OPENCODE_DISABLE_AUTOUPDATE: "1",
       OPENCODE_DISABLE_MODELS_FETCH: "1"
     };
     let stderr = "";
+    let stdout = "";
     const code = await new Promise<number>((resolve, reject) => {
       // `run --standalone` is the headless editor. `--auto` approves file
       // edits, because there is no terminal to ask. amazon-bedrock uses the
@@ -92,7 +118,9 @@ export async function runSubprocessEdit(input: {
         stdio: ["ignore", "pipe", "pipe"],
         timeout: input.timeoutMs
       });
-      child.stdout?.on("data", () => undefined);
+      child.stdout?.on("data", (chunk: Buffer) => {
+        if (stdout.length < 100_000) stdout += chunk.toString("utf8");
+      });
       child.stderr?.on("data", (chunk: Buffer) => {
         if (stderr.length < 4000) stderr += chunk.toString("utf8");
       });
@@ -115,8 +143,15 @@ export async function runSubprocessEdit(input: {
     }
     const next = new Map<string, Uint8Array>();
     for (const path of walk(dir)) {
-      if (path === "opencode.json" || path === ".flagstage" || path.startsWith(`.flagstage${"/"}`))
+      if (
+        path === "opencode.json" ||
+        path === ".opencode" ||
+        path.startsWith(`.opencode${"/"}`) ||
+        path === ".flagstage" ||
+        path.startsWith(`.flagstage${"/"}`)
+      ) {
         continue;
+      }
       next.set(path, new Uint8Array(readFileSync(join(dir, path))));
     }
     // The editor workspace hides .flagstage from the returned snapshot. Put the
@@ -136,8 +171,9 @@ export async function runSubprocessEdit(input: {
         }
       }
     }
-    return { changed, files: next };
+    return { changed, files: next, toolLog: tools.calls, reply: assistantReply(stdout) };
   } finally {
+    if (tools) await tools.close().catch(() => undefined);
     rmSync(dir, { recursive: true, force: true });
   }
 }
@@ -149,6 +185,28 @@ function readSiteSkill(dir: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** Assistant text from `opencode run --format json`. Tool events are left out. */
+export function assistantReply(stdout: string): string | undefined {
+  const parts: string[] = [];
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{")) continue;
+    try {
+      const event = JSON.parse(trimmed) as {
+        type?: string;
+        text?: string;
+        part?: { type?: string; text?: string };
+      };
+      if (event.part?.type === "text" && event.part.text) parts.push(event.part.text);
+      else if (event.type === "text" && event.text) parts.push(event.text);
+    } catch {
+      // A line that is not an event is not the owner's note.
+    }
+  }
+  const text = parts.join("").trim();
+  return text || undefined;
 }
 
 function headlessArgs(prompt: string, model: string | undefined): string[] {
@@ -166,11 +224,12 @@ export function subprocessRunner(options: {
 }): AgentRunner {
   return {
     name: "subprocess",
-    edit(files, request) {
+    edit(files, request, guidance) {
       return runSubprocessEdit({
         bin: options.bin ?? "opencode",
         files,
         request,
+        guidance,
         env: options.env,
         timeoutMs: options.timeoutMs,
         skillsDir: options.skillsDir

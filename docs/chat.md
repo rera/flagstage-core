@@ -3,6 +3,7 @@
 Every chat starts on a site. The web app stores the message and starts the chat Lambda. Locally, with no function name set, the same turn function runs in the web process.
 
 - OpenCode edits the draft. The preview on the right reloads when the draft snapshot changes. The prompt includes `.flagstage/skills/site/SKILL.md` when the snapshot has that site skill.
+- The editor is given site-edit tools: `find_pages`, `read_page`, `edit_include`, `set_meta`, `retag`, `replace_text`, and `list_links`. A tool previews until it is called again with the apply id from that preview. The change record lists each call and the files it wrote. A change that edits more page files by hand than the platform limit is discarded, and the editor is asked once to redo it. That instruction is not shown in the chat. The limit is a database setting, not an environment variable. The default is 8.
 - An edit that does not touch a file is reported as already satisfied.
 - Publish moves the live snapshot to the draft. Undo this edit moves only the draft. Undo a publish moves the live snapshot.
 - One person holds the draft lock. A second person is told someone else is editing.

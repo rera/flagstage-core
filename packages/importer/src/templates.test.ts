@@ -244,9 +244,11 @@ describe("page types", () => {
     expect(skill).toContain("`page` — template `_templates/page.html`. 4 pages");
     expect(skill).toContain("A new page of a type starts from that type's template.");
     expect(skill).toContain("3 pages did not match these templates.");
+    expect(skill).toContain("Prefer an include when the same block is on many pages.");
     expect(skill).toContain(
-      "A site-wide change must be done by writing a script and doing a dry run before applying. The dry run shows the count of matching pages and a sample diff. Apply the script only after that dry run. Never hand-edit many files."
+      "find_pages, read_page, edit_include, set_meta, retag, replace_text, and list_links."
     );
+    expect(skill).not.toContain("writing a script");
     expect(skill).not.toContain("_inc/nav.html");
     expect(skill).toContain(".flagstage/listings.json");
     expect(skill).toContain("Page 1 is the oldest page.");
@@ -313,7 +315,9 @@ describe("page types", () => {
     expect(home).not.toContain("Never hand-edit");
     expect(home).not.toContain("{{title}}");
     expect(home).toContain('<a href="/" class="active" aria-current="page">');
-    expect(files.get(SITE_SKILL_PATH)).toContain("Never hand-edit many files.");
+    expect(files.get(SITE_SKILL_PATH)).toContain(
+      "Prefer an include when the same block is on many pages."
+    );
     const news = readFileSync(join(out, "news/index.html"), "utf8");
     expect(news).toBe(readFileSync(join(out, "news/page/1.html"), "utf8"));
     expect(news).toContain("Grove header");
@@ -347,7 +351,8 @@ describe("page types", () => {
     const skill = text(result.pages.find((file) => file.path === SITE_SKILL_PATH));
     expect(skill).toContain("No shared include was extracted.");
     expect(skill).toContain("No page type was shared by enough pages to template.");
-    expect(skill).toContain("Never hand-edit many files.");
+    expect(skill).toContain("Prefer an include when the same block is on many pages.");
+    expect(skill).toContain("find_pages");
     expect(skill).not.toContain("listings.json");
     expect(result.pages.some((file) => file.path === LISTINGS_PATH)).toBe(false);
     const manifest = JSON.parse(

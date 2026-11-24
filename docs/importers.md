@@ -122,7 +122,7 @@ After extraction, `runImport` groups the pages by structure. Text and class name
 
 Each kept type is written to `_templates/<type>.html`: the includes stay, `active` becomes `{{path}}`, a listing keeps one example item, and the text becomes `{{title}}`, `{{heading}}`, `{{text}}`, or `{{url}}`. A new page of that type starts from the template.
 
-`.flagstage/skills/site/SKILL.md` names the includes, the page types, and the rule that a site-wide change is a script with a dry run. `.flagstage/drift.json` records each include's sha256 and the pages that link it, including the `active` value. `.flagstage/baseline.json` records each original page's text, links, and images, and which crawled listing pages a generated list or a 301 replaces.
+`.flagstage/skills/site/SKILL.md` names the includes, the page types, and the site-edit tools. Prefer an include when the same block is on many pages. `.flagstage/drift.json` records each include's sha256 and the pages that link it, including the `active` value. `.flagstage/baseline.json` records each original page's text, links, and images, and which crawled listing pages a generated list or a 301 replaces.
 
 On the first Go live, a page that inlines or drops an include is reported as drift. Drift does not stop the publish. Missing text, links, images, or pages do. The site stays in preview, and the edit page lists what is missing. A later publish runs a smaller check against the previous public files (a removed page, a deleted image, or a large loss of text) and still goes live. The same list is kept on the import report, and a chat line is added when the site already has a thread.
 
