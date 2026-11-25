@@ -1,6 +1,7 @@
 import type { DecisionModel } from "@flagstage/config";
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   doublePrecision,
   integer,
@@ -197,7 +198,8 @@ export const snapshot = pgTable("snapshot", {
   kind: text("kind").notNull(),
   storagePrefix: text("storage_prefix").notNull(),
   fileCount: integer("file_count").notNull().default(0),
-  bytes: integer("bytes").notNull().default(0),
+  // int8. A 32-bit int overflows once a snapshot passes 2 GiB.
+  bytes: bigint("bytes", { mode: "number" }).notNull().default(0),
   createdBy: text("created_by"),
   createdAt: ts("created_at").notNull().defaultNow()
 });

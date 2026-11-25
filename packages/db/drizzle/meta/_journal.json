@@ -50,6 +50,13 @@
       "when": 1762970000000,
       "tag": "0006_edit_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1762980000000,
+      "tag": "0007_snapshot_bytes",
+      "breakpoints": true
     }
   ]
 }

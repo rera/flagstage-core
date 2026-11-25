@@ -11,12 +11,12 @@ The stack creates:
 - A Route 53 hosted zone for `domain`, and the NS records to delegate.
 - An ACM certificate for the domain and `*.domain`, validated in that zone.
 - A VPC with two public and two private subnets, no NAT gateway.
-- One Fargate service for the web container, 1 vCPU and 2 GB, always on. Chat is one Lambda. Imports are one-off tasks in the same cluster, on the public subnets.
+- One Fargate service for the web container, 1 vCPU and 2 GB, always on, with 100 GB of ephemeral disk. Go live downloads the snapshot onto that disk. Chat is one Lambda with 10 GB of ephemeral disk (the Lambda maximum; the default 512 MB is too small for the same download). Imports are one-off tasks in the same cluster, 2 vCPU and 4 GB, on the public subnets.
 - An application load balancer for the app hostname.
 - RDS Postgres `db.t4g.micro`, 20 GB, encrypted, not public.
 - A private S3 bucket and a CloudFront distribution. Published sites are read from the bucket. The app is not on that path.
 - An SES domain identity and its three DKIM records in the zone.
-- Bedrock invoke permission on the web task role and the chat Lambda role, and a Bedrock interface endpoint on the private subnets. There is no model API key.
+- Bedrock invoke permission on the web task role and the chat Lambda role, and a Bedrock interface endpoint on the private subnets. The import task role can call `bedrock:InvokeModel` only for the importer decision model (default Claude Haiku 4.5, `global.anthropic.claude-haiku-4-5-20251001-v1:0`) and the foundation model behind it. The running import reads that model id from the database. The stack parameters `ImporterDecisionModelId` and `ImporterFoundationModelId` only scope the role. There is no model API key. The import task uses its public IP to reach Bedrock. The interface endpoint is for the chat Lambda.
 - An optional budget topic. The admin usage log publishes one alert a month when an account crosses its budget.
 - Secrets Manager entries for the database URL and the auth secret. The auth secret is generated.
 - A log group.
@@ -25,16 +25,17 @@ The app is `https://{domain}`. A published site is `https://{slug}.{domain}`.
 
 ## Cost
 
-About **$98 per month** in us-east-1 before traffic, model usage, and import tasks:
+About **$104 per month** in us-east-1 before traffic, model usage, and import tasks:
 
-| Piece                                | About   |
-| ------------------------------------ | ------- |
-| Fargate, 1 vCPU and 2 GB, always on  | $36     |
-| Application load balancer            | $22     |
-| Three public IPv4 addresses          | $11     |
-| RDS `db.t4g.micro`, 20 GB, encrypted | $13     |
-| Bedrock interface endpoint, two AZs  | $15     |
-| S3, CloudFront, logs, secrets        | $1      |
-| **Total**                            | **$98** |
+| Piece                                                  | About    |
+| ------------------------------------------------------ | -------- |
+| Fargate, 1 vCPU and 2 GB, always on                    | $36      |
+| Fargate ephemeral disk, 80 GB above the 20 GB included | $6       |
+| Application load balancer                              | $22      |
+| Three public IPv4 addresses                            | $11      |
+| RDS `db.t4g.micro`, 20 GB, encrypted                   | $13      |
+| Bedrock interface endpoint, two AZs                    | $15      |
+| S3, CloudFront, logs, secrets                          | $1       |
+| **Total**                                              | **$104** |
 
 A NAT gateway is not included. The chat Lambda scales to zero unless `ProvisionedConcurrency` is 1. Import tasks and Bedrock usage are extra.

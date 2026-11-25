@@ -16,6 +16,23 @@ Parameters:
     Type: String
     Description: Amazon Bedrock model id the editor calls.
     Default: amazon.nova-micro-v1:0
+  ImporterDecisionModelId:
+    Type: String
+    Default: global.anthropic.claude-haiku-4-5-20251001-v1:0
+    AllowedPattern: "^[A-Za-z0-9.:_-]{1,256}$"
+    Description: >
+      Inference profile the import task may call. Defaults to the Claude Haiku
+      4.5 global profile in importer settings. This parameter does not configure
+      the application. An import reads the model id from the database. Change
+      this when that setting changes, or InvokeModel is denied.
+  ImporterFoundationModelId:
+    Type: String
+    Default: anthropic.claude-haiku-4-5-20251001-v1:0
+    AllowedPattern: "^[A-Za-z0-9.:_-]{1,256}$"
+    Description: >
+      Foundation model behind ImporterDecisionModelId. A global inference
+      profile also requires InvokeModel on this model in every region it can
+      route to.
   SesFrom:
     Type: String
     Description: From address for invite, password reset, and form mail.
@@ -602,7 +619,7 @@ Resources:
                 Action: iam:PassRole
                 Resource:
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/${Name}-execution"
-                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${Name}-task"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${Name}-import"
 
   ExecutionRole:
     Type: AWS::IAM::Role
@@ -639,6 +656,10 @@ Resources:
       Family: !Ref Name
       Cpu: "1024"
       Memory: "2048"
+      # Go live downloads the snapshot, writes the built files, and may keep
+      # the previous tree. 100 GiB leaves room for a multi-GB snapshot.
+      EphemeralStorage:
+        SizeInGiB: 100
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
@@ -980,6 +1001,10 @@ Resources:
       Role: !GetAtt ChatRole.Arn
       Timeout: 900
       MemorySize: 2048
+      # Edit builds and scheduled publish download the snapshot to /tmp.
+      # The Lambda default is 512 MB. 10240 MB is the platform maximum.
+      EphemeralStorage:
+        Size: 10240
       VpcConfig:
         SubnetIds:
           - !Ref PrivateSubnetA
@@ -1019,17 +1044,57 @@ Resources:
         - ProvisionedConcurrentExecutions: !Ref ProvisionedConcurrency
         - !Ref AWS::NoValue
 
+  ImportTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Name}-import"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: import
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: Snapshots
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt SitesBucket.Arn
+                  - !Sub "${SitesBucket.Arn}/*"
+              - Sid: BedrockDecisionModel
+                Effect: Allow
+                # Converse is authorized by InvokeModel. Scoped to the importer
+                # decision model. The task reads that id from the database.
+                # A global profile also needs the foundation model in every
+                # region it can route to, which is why the region is *.
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${ImporterDecisionModelId}"
+                  - !Sub "arn:aws:bedrock:*::foundation-model/${ImporterFoundationModelId}"
+
   ImportTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: !Sub "${Name}-import"
-      Cpu: "512"
-      Memory: "1024"
+      # 2 vCPU and 4 GB. 0.5 vCPU and 1 GB ran out of memory on large sites.
+      Cpu: "2048"
+      Memory: "4096"
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
       ExecutionRoleArn: !GetAtt ExecutionRole.Arn
-      TaskRoleArn: !GetAtt TaskRole.Arn
+      TaskRoleArn: !GetAtt ImportTaskRole.Arn
       ContainerDefinitions:
         - Name: import
           Image: !Ref ImageUri
