@@ -182,3 +182,24 @@ html:has(dialog.modal-surface[open]) body::before {
   background: rgb(17 22 32 / 40%);
   pointer-events: none;
 }
+
+/* Mobile nav drawer: full viewport, and the dim covers a long page. */
+@media (max-width: 767px) {
+  html.nav-open,
+  html.nav-open body {
+    overflow: hidden;
+  }
+
+  html.nav-open body {
+    position: relative;
+  }
+
+  html.nav-open body::after {
+    content: "";
+    position: absolute;
+    z-index: 40;
+    inset: 0;
+    background: rgb(17 22 32 / 30%);
+    pointer-events: none;
+  }
+}

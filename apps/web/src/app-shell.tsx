@@ -112,6 +112,15 @@ export function AppShell({
   const [menu, setMenu] = useState<"account" | "site" | null>(null);
   const builder = /^\/(?:a\/[^/]+\/)?sites\/[^/]+\/edit/.test(pathname);
   useEffect(() => {
+    const root = document.documentElement;
+    if (!open) {
+      root.classList.remove("nav-open");
+      return;
+    }
+    root.classList.add("nav-open");
+    return () => root.classList.remove("nav-open");
+  }, [open]);
+  useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "b") return;
       const target = event.target;
@@ -189,7 +198,7 @@ export function AppShell({
       {open ? (
         <button
           type="button"
-          className="fixed inset-0 z-overlay bg-[#111620]/30 md:hidden"
+          className="fixed inset-0 z-overlay h-dvh w-full md:hidden"
           aria-label="Close menu"
           onClick={() => setOpen(false)}
         />
@@ -197,7 +206,7 @@ export function AppShell({
       <aside
         data-collapsed={collapsed ? "true" : "false"}
         className={cn(
-          "fixed inset-y-0 left-0 z-overlay flex w-60 max-w-60 shrink-0 flex-col border-r border-border bg-[var(--wash)] md:static",
+          "fixed inset-y-0 left-0 z-overlay flex h-dvh max-h-dvh w-60 max-w-60 shrink-0 flex-col border-r border-border bg-[var(--wash)] md:static md:h-auto md:max-h-none",
           open ? "flex" : "hidden md:flex",
           collapsed ? "md:w-16 md:max-w-16" : "md:w-60"
         )}

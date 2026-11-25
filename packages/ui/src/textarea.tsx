@@ -10,6 +10,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
         className
       )}
       {...props}
+      suppressHydrationWarning
     />
   );
 }
