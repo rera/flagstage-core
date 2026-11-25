@@ -1,32 +1,8 @@
-import type { Importer, ImportOptions } from "./interface";
-import type {
-  CapturedFile,
-  FidelityItem,
-  ImportResult,
-  MappedForm,
-  PageFetch,
-  RedirectRule
-} from "./types";
+import type { ImportOptions } from "./interface";
+import { originOf, sameOriginPath } from "./site-url";
+import type { CapturedFile, FidelityItem, ImportResult, MappedForm, RedirectRule } from "./types";
 
 const TEXT = new TextDecoder();
-
-function originOf(sourceUrl: string): URL {
-  const url = new URL(sourceUrl);
-  url.pathname = "/";
-  url.search = "";
-  url.hash = "";
-  return url;
-}
-
-function sameOriginPath(value: string, origin: URL): string | null {
-  try {
-    const url = new URL(value, origin);
-    if (url.origin !== origin.origin) return null;
-    return `${url.pathname}${url.search}`;
-  } catch {
-    return null;
-  }
-}
 
 function storagePath(pathname: string): string {
   const path = pathname.split("?")[0] || "/";
@@ -38,53 +14,35 @@ function storagePath(pathname: string): string {
   return `${trimmed}/index.html`;
 }
 
-function locs(xml: string): string[] {
-  return [...xml.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/gi)]
-    .map((match) => match[1] ?? "")
-    .filter(Boolean);
-}
+export type AnnotatedForm = MappedForm & {
+  /** Substring of the opening form tag. The crawl points that form at the lead endpoint. */
+  marker?: string;
+};
 
-function pluginNotes(
-  html: string,
-  page: string
-): { forms: FidelityItem[]; plugins: FidelityItem[]; formsMapped: MappedForm[] } {
-  const forms: FidelityItem[] = [];
-  const plugins: FidelityItem[] = [];
-  const formsMapped: MappedForm[] = [];
-  if (/wpcf7|contact-form-7/i.test(html)) {
-    const id = html.match(/name="_wpcf7"\s+value="(\d+)"/i)?.[1] ?? "form";
-    forms.push({ page, kind: "contact-form-7", detail: "Contact Form 7 markup was found." });
-    formsMapped.push({ formKey: `cf7-${id}`, name: `Contact form ${id}`, page });
-  }
-  if (/gform_wrapper|gravityform/i.test(html)) {
-    forms.push({ page, kind: "gravity-forms", detail: "Gravity Forms markup was found." });
-    formsMapped.push({
-      formKey: `gravity-${page.replace(/[^a-z0-9]+/gi, "-")}`,
-      name: "Gravity form",
-      page
-    });
-  }
-  if (/id=["']commentform["']|wp-comments-post/i.test(html)) {
-    plugins.push({
-      page,
-      kind: "comments",
-      detail: "A comment form needs a server. It is not part of the static snapshot."
-    });
-  }
-  if (/role=["']search["']|name=["']s["']/i.test(html)) {
-    plugins.push({
+export type PageAnnotation = {
+  forms?: FidelityItem[];
+  plugins?: FidelityItem[];
+  formsMapped?: AnnotatedForm[];
+};
+
+export type CrawlOptions = ImportOptions & {
+  /** Paths to visit before following links. Defaults to `/`. */
+  seeds?: readonly string[];
+  /** Redirects recorded with the crawl. The crawler does not invent any. */
+  redirects?: readonly RedirectRule[];
+  /** Extra fidelity notes and form mappings for one HTML page. */
+  annotatePage?: (html: string, page: string) => PageAnnotation | null | undefined;
+};
+
+function searchNotes(html: string, page: string): FidelityItem[] {
+  if (!/role=["']search["']/i.test(html)) return [];
+  return [
+    {
       page,
       kind: "search",
       detail: "Site search does not run on a static snapshot."
-    });
-  }
-  if (/wp-login\.php|id=["']loginform["']/i.test(html)) {
-    plugins.push({ page, kind: "login", detail: "A login form was left behind." });
-  }
-  if (/tribe-events|wp-calendar|id=["']calendar["']/i.test(html)) {
-    plugins.push({ page, kind: "calendar", detail: "A calendar plugin was found." });
-  }
-  return { forms, plugins, formsMapped };
+    }
+  ];
 }
 
 function cssUrls(html: string): string[] {
@@ -98,11 +56,12 @@ function rewriteHtml(
   origin: URL,
   appOrigin: string,
   siteId: string,
-  forms: MappedForm[]
+  forms: AnnotatedForm[]
 ): string {
   let next = html.replaceAll(origin.origin, "");
   for (const form of forms) {
-    const marker = form.formKey.startsWith("cf7-") ? "wpcf7-form" : "gform_wrapper";
+    if (!form.marker) continue;
+    const marker = form.marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const action = `${appOrigin}/f/${siteId}/${form.formKey}`;
     next = next.replace(new RegExp(`<form\\b([^>]*${marker}[^>]*)>`, "i"), (tag) => {
       const stripped = tag.replace(/\saction=["'][^"']*["']/i, "");
@@ -112,68 +71,20 @@ function rewriteHtml(
   return next;
 }
 
-async function getText(fetchPage: PageFetch, url: string): Promise<string | null> {
-  const response = await fetchPage(url);
-  if (!response || response.status >= 400) return null;
-  return TEXT.decode(response.body);
-}
-
-export const PUBLIC_SITE_SOURCE = "public-site";
-
-export async function crawlSite(input: ImportOptions): Promise<ImportResult> {
-  if (!input.fetchPage) throw new Error("The public-site importer needs a page fetch.");
+export async function crawlSite(input: CrawlOptions): Promise<ImportResult> {
+  if (!input.fetchPage) throw new Error("The importer needs a page fetch.");
   const fetchPage = input.fetchPage;
   const origin = originOf(input.sourceUrl);
   const home = await fetchPage(origin.origin);
   if (!home || home.status >= 400) {
     throw new Error("The site did not answer.");
   }
-  const wpJson = await getText(fetchPage, new URL("/wp-json", origin).toString());
-  const wordpress = wpJson != null && wpJson.includes("{");
-  // Extra sitemap, content, and form-plugin work stays in this import job.
-  const seeds = new Set<string>(["/"]);
-  const redirects: RedirectRule[] = [
-    { fromPath: "/feed", toPath: "/", source: "wordpress" },
-    { fromPath: "/feed/", toPath: "/", source: "wordpress" },
-    { fromPath: "/index.php", toPath: "/", source: "wordpress" }
-  ];
-  if (wordpress) {
-    for (const sitemapPath of ["/wp-sitemap.xml", "/sitemap_index.xml"]) {
-      const xml = await getText(fetchPage, new URL(sitemapPath, origin).toString());
-      if (!xml) continue;
-      for (const loc of locs(xml)) {
-        const path = sameOriginPath(loc, origin);
-        if (path) seeds.add(path.split("?")[0] || "/");
-      }
-    }
-    for (const collection of ["pages", "posts"]) {
-      const json = await getText(
-        fetchPage,
-        new URL(
-          `/wp-json/wp/v2/${collection}?per_page=100&_fields=id,link,modified`,
-          origin
-        ).toString()
-      );
-      if (!json) continue;
-      let rows: Array<{ id?: number; link?: string }> = [];
-      try {
-        const parsed = JSON.parse(json) as unknown;
-        if (Array.isArray(parsed)) rows = parsed as Array<{ id?: number; link?: string }>;
-      } catch {
-        rows = [];
-      }
-      for (const row of rows) {
-        if (!row.link) continue;
-        const path = sameOriginPath(row.link, origin);
-        if (!path) continue;
-        const pathname = path.split("?")[0] || "/";
-        seeds.add(pathname);
-        if (typeof row.id === "number") {
-          redirects.push({ fromPath: `/?p=${row.id}`, toPath: pathname, source: "wordpress" });
-        }
-      }
-    }
+  const seeds = new Set<string>();
+  for (const path of input.seeds ?? ["/"]) {
+    if (path) seeds.add(path);
   }
+  if (seeds.size === 0) seeds.add("/");
+  const redirects: RedirectRule[] = [...(input.redirects ?? [])];
 
   const queue = [...seeds].map((path) => ({ path, depth: 0 }));
   const seenPages = new Set<string>();
@@ -218,11 +129,16 @@ export async function crawlSite(input: ImportOptions): Promise<ImportResult> {
       continue;
     }
     const html = TEXT.decode(response.body);
-    const notes = pluginNotes(html, current.path);
-    forms.push(...notes.forms);
-    plugins.push(...notes.plugins);
-    mapped.push(...notes.formsMapped);
-    const rewritten = rewriteHtml(html, origin, input.appOrigin, input.siteId, notes.formsMapped);
+    const extra = input.annotatePage?.(html, current.path);
+    const pageForms = extra?.forms ?? [];
+    const pagePlugins = [...searchNotes(html, current.path), ...(extra?.plugins ?? [])];
+    const pageMapped = extra?.formsMapped ?? [];
+    forms.push(...pageForms);
+    plugins.push(...pagePlugins);
+    for (const form of pageMapped) {
+      mapped.push({ formKey: form.formKey, name: form.name, page: form.page });
+    }
+    const rewritten = rewriteHtml(html, origin, input.appOrigin, input.siteId, pageMapped);
     pages.push({
       path: storagePath(current.path),
       body: new TextEncoder().encode(rewritten),
@@ -284,8 +200,3 @@ export async function crawlSite(input: ImportOptions): Promise<ImportResult> {
     }
   };
 }
-
-export const publicSiteImporter: Importer = {
-  name: PUBLIC_SITE_SOURCE,
-  run: crawlSite
-};

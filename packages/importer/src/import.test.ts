@@ -17,10 +17,10 @@ import type { BlobStore, StoredObject } from "@flagstage/storage";
 
 import {
   approveImport,
-  crawlSite,
   registerImporter,
   runImport,
   storeImport,
+  wordpressImporter,
   type ImportResult
 } from "./index";
 
@@ -129,7 +129,7 @@ describe("site import", () => {
       await db
         .insert(importRun)
         .values({ id: "run-1", siteId: "site-1", sourceUrl: origin, status: "running" });
-      const crawl = await crawlSite({
+      const crawl = await wordpressImporter.run({
         sourceUrl: origin,
         appOrigin: "http://localhost:3000",
         siteId: "site-1",
@@ -281,7 +281,11 @@ describe("site import", () => {
       stats: { pages: 1, assets: 1, pagesFound: 1, pagesDone: 1, skipped: [] }
     };
     registerImporter({
-      name: "fixture-source",
+      id: "fixture-source",
+      label: "Fixture source",
+      detect() {
+        return null;
+      },
       async run(options) {
         await options.onProgress?.({ pagesFound: 1, pagesDone: 0, skipped: [] });
         return result;
@@ -345,7 +349,11 @@ describe("site import", () => {
 
   it("records progress from the source, then fails the run when that source throws", async () => {
     registerImporter({
-      name: "progress-source",
+      id: "progress-source",
+      label: "Progress source",
+      detect() {
+        return null;
+      },
       async run(options) {
         await options.onProgress?.({
           pagesFound: 4,
@@ -443,7 +451,11 @@ describe("site import", () => {
     const page = (main: string, block: string) =>
       `<!doctype html><html><head><title>${main}</title></head><body>${block}<main><p>${main}</p></main></body></html>`;
     registerImporter({
-      name: "shared-blocks",
+      id: "shared-blocks",
+      label: "Shared blocks",
+      detect() {
+        return null;
+      },
       async run() {
         return {
           pages: [
@@ -540,6 +552,124 @@ describe("site import", () => {
     expect(skill).toContain("edit_include");
     const run = await db.select().from(importRun).where(eq(importRun.id, "run-6"));
     expect(run[0]?.fidelityReport).toMatchObject({ uncertain: [] });
+    await client.close();
+  });
+
+  it("detects WordPress when the run does not name a source", async () => {
+    const client = new PGlite();
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+    await db.insert(account).values({ id: "acct-wp", name: "News", slug: "wp-detect" });
+    await db.insert(site).values({
+      id: "site-wp",
+      accountId: "acct-wp",
+      name: "News",
+      slug: "wp-detect",
+      sourceUrl: "https://news.example",
+      status: "importing"
+    });
+    await db.insert(importRun).values({
+      id: "run-wp",
+      siteId: "site-wp",
+      sourceUrl: "https://news.example",
+      status: "queued"
+    });
+    const stored = await runImport({
+      db,
+      store: memoryStore(),
+      siteId: "site-wp",
+      importRunId: "run-wp",
+      sourceUrl: "https://news.example",
+      appOrigin: "http://localhost:3000",
+      caps: { maxPages: 10, maxDepth: 2, maxAssets: 5 },
+      fetchPage: async (url) => {
+        const path = new URL(url).pathname;
+        if (path === "/wp-json") {
+          return {
+            status: 200,
+            body: new TextEncoder().encode(JSON.stringify({ name: "News", namespaces: ["wp/v2"] })),
+            contentType: "application/json"
+          };
+        }
+        if (path === "/wp-json/wp/v2/posts") {
+          return {
+            status: 200,
+            body: new TextEncoder().encode(
+              JSON.stringify([{ id: 7, link: "https://news.example/hello" }])
+            ),
+            contentType: "application/json"
+          };
+        }
+        if (path === "/wp-json/wp/v2/pages") {
+          return {
+            status: 200,
+            body: new TextEncoder().encode("[]"),
+            contentType: "application/json"
+          };
+        }
+        if (path === "/" || path === "/hello") {
+          return {
+            status: 200,
+            body: new TextEncoder().encode("<!doctype html><p>Hello</p>"),
+            contentType: "text/html"
+          };
+        }
+        return { status: 404, body: new Uint8Array(), contentType: "text/html" };
+      }
+    });
+    expect(stored.snapshotId).toBeTruthy();
+    const redirects = await db.select().from(siteRedirect);
+    expect(redirects.some((row) => row.fromPath === "/?p=7" && row.toPath === "/hello")).toBe(true);
+    expect(redirects.some((row) => row.fromPath === "/feed" && row.toPath === "/")).toBe(true);
+    await client.close();
+  });
+
+  it("does not record WordPress or feed redirects for a plain site", async () => {
+    const client = new PGlite();
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+    await db.insert(account).values({ id: "acct-plain", name: "Plain", slug: "plain-detect" });
+    await db.insert(site).values({
+      id: "site-plain",
+      accountId: "acct-plain",
+      name: "Plain",
+      slug: "plain-detect",
+      sourceUrl: "https://plain.example",
+      status: "importing"
+    });
+    await db.insert(importRun).values({
+      id: "run-plain",
+      siteId: "site-plain",
+      sourceUrl: "https://plain.example",
+      status: "queued"
+    });
+    const stored = await runImport({
+      db,
+      store: memoryStore(),
+      siteId: "site-plain",
+      importRunId: "run-plain",
+      sourceUrl: "https://plain.example",
+      appOrigin: "http://localhost:3000",
+      caps: { maxPages: 10, maxDepth: 2, maxAssets: 5 },
+      fetchPage: async (url) => {
+        const path = new URL(url).pathname;
+        if (path === "/" || path === "/about") {
+          return {
+            status: 200,
+            body: new TextEncoder().encode(
+              '<!doctype html><a href="/about">About</a><!-- wp-login.php /feed /index.php -->'
+            ),
+            contentType: "text/html"
+          };
+        }
+        return { status: 404, body: new Uint8Array(), contentType: "text/html" };
+      }
+    });
+    expect(stored.snapshotId).toBeTruthy();
+    const redirects = await db.select().from(siteRedirect);
+    expect(redirects.map((row) => row.fromPath)).toEqual([]);
+    const run = await db.select().from(importRun).where(eq(importRun.id, "run-plain"));
+    expect(run[0]?.fidelityReport).toMatchObject({ plugins: [], forms: [] });
     await client.close();
   });
 });
