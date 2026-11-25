@@ -16,9 +16,10 @@ import {
 
 import { setBudgetAction } from "../../../../../src/actions";
 import { database, requireAccount } from "../../../../../src/guard";
+import { LocalTime } from "../../../../../src/local-time";
 import { formatUsd } from "../../../../../src/money";
 import { Page } from "../../../../../src/page";
-import { friendlyWhen, monthKey } from "../../../../../src/time";
+import { monthKey } from "../../../../../src/time";
 
 export default async function AccountUsagePage({
   params
@@ -132,7 +133,7 @@ export default async function AccountUsagePage({
                 return (
                   <TableRow key={entry.id}>
                     <TableCell className="text-muted-foreground">
-                      {friendlyWhen(entry.createdAt, owner?.timeZone || "UTC")}
+                      <LocalTime value={entry.createdAt.toISOString()} />
                     </TableCell>
                     <TableCell>{owner?.name}</TableCell>
                     <TableCell title={cost.title}>{cost.text}</TableCell>

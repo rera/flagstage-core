@@ -25,9 +25,11 @@ import { ImportProgressPanel, ImportResultPanel } from "../../../../../../src/im
 import { readImportProgress } from "../../../../../../src/import-review";
 import { readSnapshotImport } from "../../../../../../src/import-snapshot";
 import { ImportWatch } from "../../../../../../src/import-watch";
+import { Hostname } from "../../../../../../src/hostname";
+import { LocalTime } from "../../../../../../src/local-time";
 import { Page } from "../../../../../../src/page";
 import { SiteIdentity } from "../../../../../../src/site-nav";
-import { friendlyWhen, versionLabel } from "../../../../../../src/time";
+import { versionLabel } from "../../../../../../src/time";
 
 export default async function SiteOverviewPage({
   params
@@ -136,7 +138,7 @@ export default async function SiteOverviewPage({
         name={found.name}
         status={found.status}
         host={host}
-        published={current ? friendlyWhen(current.createdAt, zone) : null}
+        published={current ? current.createdAt.toISOString() : null}
       />
       {importing ? <ImportProgressPanel progress={progress} /> : null}
       {found.status === "failed" ? (
@@ -209,7 +211,7 @@ type Cards = {
   accountSlug: string;
 };
 
-function HistoryCard({ history, found, zone, byId, canPublish }: Cards) {
+function HistoryCard({ history, found, byId, canPublish }: Cards) {
   return (
     <section className="rounded-xl border border-border bg-card px-4 py-4">
       <h2 className="text-base font-semibold">History</h2>
@@ -226,15 +228,15 @@ function HistoryCard({ history, found, zone, byId, canPublish }: Cards) {
             const restore =
               canPublish && label === "Published" && item.id !== found.currentSnapshotId;
             return (
-              <li key={item.id} className="flex items-center gap-3 py-2.5">
-                <span className="min-w-0">
+              <li key={item.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
+                <span className="min-w-0 flex-1">
                   <span className="block font-medium">{shown}</span>
-                  <span className="block text-muted-foreground">
+                  <span className="block truncate text-muted-foreground">
                     {who?.name || who?.email || "Someone on the account"}
                   </span>
                 </span>
-                <span className="ml-auto shrink-0 text-muted-foreground">
-                  {friendlyWhen(item.createdAt, zone)}
+                <span className="shrink-0 text-muted-foreground">
+                  <LocalTime value={item.createdAt.toISOString()} />
                 </span>
                 {restore ? (
                   <form action={rollbackAction}>
@@ -293,7 +295,8 @@ function DomainCard({ domains, base, host }: Cards) {
       {domains.length === 0 ? (
         <>
           <p className="mt-3 text-sm text-muted-foreground">
-            No custom domain yet. It still answers on {host}.
+            No custom domain yet. It still answers on{" "}
+            <Hostname value={host} className="font-mono" />.
           </p>
           <a href={`${base}/domain`} className="mt-2 inline-block text-sm font-medium text-primary">
             Add a domain
@@ -302,9 +305,12 @@ function DomainCard({ domains, base, host }: Cards) {
       ) : (
         <ul className="mt-3 space-y-2 text-sm">
           {domains.map((domain) => (
-            <li key={domain.id} className="flex items-center justify-between gap-3">
-              <span className="font-mono text-xs">{domain.hostname}</span>
-              <Badge variant={domain.status === "active" ? "success" : "warning"}>
+            <li key={domain.id} className="flex min-w-0 items-center justify-between gap-3">
+              <Hostname value={domain.hostname} truncate className="font-mono text-xs" />
+              <Badge
+                variant={domain.status === "active" ? "success" : "warning"}
+                className="shrink-0"
+              >
                 {domain.status}
               </Badge>
             </li>

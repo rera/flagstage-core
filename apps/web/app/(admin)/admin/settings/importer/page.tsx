@@ -45,11 +45,7 @@ export default async function ImporterSettingsPage({
       {query.error ? (
         <p className="text-sm text-destructive">Enter whole numbers for the page and asset caps.</p>
       ) : null}
-      <form
-        id="importer-settings"
-        action={saveImporterSettingsAction}
-        className="max-w-md space-y-4"
-      >
+      <form action={saveImporterSettingsAction} className="max-w-md space-y-4">
         <Field
           label="Decision model"
           id="decisionModel"
@@ -89,6 +85,7 @@ export default async function ImporterSettingsPage({
           defaultValue={settings.maxAssets}
           hint="Images, files, and other media copied with the site."
         />
+        <Button type="submit">Save</Button>
       </form>
       <section className="space-y-3">
         <h2 className="text-base font-semibold">Status</h2>
@@ -123,12 +120,6 @@ export default async function ImporterSettingsPage({
             ))}
           </TableBody>
         </Table>
-      </section>
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">Controls</h2>
-        <Button type="submit" form="importer-settings">
-          Save
-        </Button>
       </section>
     </SettingsPage>
   );

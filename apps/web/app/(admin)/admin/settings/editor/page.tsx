@@ -19,7 +19,7 @@ export default async function EditorSettingsPage({
           Enter a whole number for the hand-edit page limit.
         </p>
       ) : null}
-      <form id="editor-settings" action={saveEditSettingsAction} className="max-w-md space-y-4">
+      <form action={saveEditSettingsAction} className="max-w-md space-y-4">
         <Field
           id="handEditPageLimit"
           name="handEditPageLimit"
@@ -31,13 +31,8 @@ export default async function EditorSettingsPage({
           defaultValue={settings.handEditPageLimit}
           hint="A change that hand-edits more pages than this is sent back to be done with the editing tools instead. Default is 8."
         />
+        <Button type="submit">Save</Button>
       </form>
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">Controls</h2>
-        <Button type="submit" form="editor-settings">
-          Save
-        </Button>
-      </section>
     </SettingsPage>
   );
 }

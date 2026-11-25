@@ -1,5 +1,8 @@
 import { Badge } from "@flagstage/ui";
 
+import { Hostname } from "./hostname";
+import { LocalTime } from "./local-time";
+
 function statusLabel(status: string) {
   if (status === "live") return "Live";
   if (status === "importing") return "Importing";
@@ -32,13 +35,18 @@ export function SiteIdentity({
             {statusLabel(status)}
           </Badge>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <span className="font-mono">{host}</span>
-          {published
-            ? ` · Published ${published}`
-            : status === "live"
-              ? ""
-              : " · Nothing published yet"}
+        <p className="mt-1 min-w-0 text-sm text-muted-foreground">
+          <Hostname value={host} className="font-mono" />
+          {published ? (
+            <>
+              {" · Published "}
+              <LocalTime value={published} />
+            </>
+          ) : status === "live" ? (
+            ""
+          ) : (
+            " · Nothing published yet"
+          )}
         </p>
       </div>
     </header>

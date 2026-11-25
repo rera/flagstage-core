@@ -132,3 +132,41 @@
     background: none;
   }
 }
+
+/* Open modals only. A closed dialog stays hidden so it cannot cover the page. */
+dialog.modal-surface:not([open]) {
+  display: none;
+}
+
+dialog.modal-surface[open] {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 1rem;
+  overflow: auto;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+dialog.modal-surface[open]::backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(17 22 32 / 40%);
+  /* Same color outside the viewport so a full-page capture stays dimmed below the fold. */
+  box-shadow: 0 0 0 100vmax rgb(17 22 32 / 40%);
+}
+
+html:has(dialog.modal-surface[open]),
+html:has(dialog.modal-surface[open]) body {
+  overflow: hidden;
+}

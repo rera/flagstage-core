@@ -7,6 +7,7 @@ import { Button, Field, Label, fieldClass } from "@flagstage/ui";
 import { importSiteAction } from "./actions";
 import { detectImporterAction, listImporterChoicesAction } from "./detect-importer";
 import { detectedHint } from "./import-review";
+import { ModalDialog } from "./modal-dialog";
 import { TimeZoneInput } from "./time-zone-input";
 
 type Choice = { id: string; label: string };
@@ -78,10 +79,7 @@ export function NewSiteDialog({ accounts }: { accounts: Array<{ id: string; name
       >
         New site
       </Button>
-      <dialog
-        ref={dialog}
-        className="m-auto w-[min(100%,28rem)] rounded-xl border border-border bg-background p-6 text-foreground shadow-lg backdrop:bg-[#111620]/40"
-      >
+      <ModalDialog dialogRef={dialog}>
         <form action={importSiteAction} className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">New site</h2>
           <TimeZoneInput />
@@ -149,7 +147,7 @@ export function NewSiteDialog({ accounts }: { accounts: Array<{ id: string; name
             <Button type="submit">Import a site</Button>
           </div>
         </form>
-      </dialog>
+      </ModalDialog>
     </>
   );
 }
