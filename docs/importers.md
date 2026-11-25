@@ -77,7 +77,7 @@ await runImport({
 });
 ```
 
-`listImporters()` returns the registered ids. `getImporter("acme")` returns the source `runImport` will call. `detectImporter(url, fetchPage)` returns the choice `{ id, label, confidence, evidence }`. `detectImporterAction` in `apps/web/src/detect-importer.ts` is that call for a signed-in user. The import screen does not call it yet.
+`listImporters()` returns the registered ids. `getImporter("acme")` returns the source `runImport` will call. `detectImporter(url, fetchPage)` returns the choice `{ id, label, confidence, evidence }`. `detectImporterAction` in `apps/web/src/detect-importer.ts` is that call for a signed-in user. The New site dialog calls it after an address is entered and submits the chosen id as `source`. A run with no `source` argument reads `options.source` on the import row, then detects.
 
 ## Detectors
 
@@ -109,7 +109,7 @@ The WordPress detector requests `/wp-json` on the origin of the entered URL. It 
 
 Return the pages as imported. `runImport` extracts shared blocks after `run` returns. See [Shared blocks](#shared-blocks). Set `uncertain` to `[]` unless the source already knows about a block it left inline.
 
-`stats.pages` and `stats.assets` are the totals stored on the import row when the run finishes. Also set `pagesFound`, `pagesDone`, and `skipped` (`{ path, reason }`). The site page reads those three fields from the row while the import runs and after it finishes.
+`stats.pages` and `stats.assets` are the totals stored on the import row when the run finishes. Also set `pagesFound`, `pagesDone`, and `skipped` (`{ path, reason }`). Overview reads those fields, and an optional `stage` string, while the import runs.
 
 ## Options and progress
 

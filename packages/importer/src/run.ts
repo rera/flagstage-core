@@ -16,6 +16,31 @@ import { storeImport } from "./persist";
 import { detectImporter, getImporter } from "./registry";
 import type { ImportCaps, PageFetch } from "./types";
 
+async function chosenSource(
+  db: Database,
+  importRunId: string,
+  explicit: string | undefined
+): Promise<string> {
+  const named = explicit?.trim() ?? "";
+  if (named) return named;
+  const rows = await db
+    .select({ options: importRun.options })
+    .from(importRun)
+    .where(eq(importRun.id, importRunId))
+    .limit(1);
+  let options: unknown = rows[0]?.options;
+  if (typeof options === "string") {
+    try {
+      options = JSON.parse(options) as unknown;
+    } catch {
+      return "";
+    }
+  }
+  if (!options || typeof options !== "object" || Array.isArray(options)) return "";
+  const source = (options as { source?: unknown }).source;
+  return typeof source === "string" ? source.trim() : "";
+}
+
 async function notify(db: Database, siteId: string) {
   try {
     await db.execute(sql`select pg_notify('flagstage_chat', ${siteId})`);
@@ -50,7 +75,7 @@ export async function runImport(input: {
     const fetchPage = input.fetchPage ?? defaultFetch;
     const caps = await readImportCaps(input.db, input.caps.maxDepth);
     const capturePrefix = importPrefix(input.importRunId);
-    const requested = input.source?.trim();
+    const requested = await chosenSource(input.db, input.importRunId, input.source);
     const sourceName = requested
       ? requested
       : (await detectImporter(input.sourceUrl, fetchPage)).id;

@@ -1,28 +1,126 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, Field, Label, fieldClass } from "@flagstage/ui";
 
 import { importSiteAction } from "./actions";
+import { detectImporterAction, listImporterChoicesAction } from "./detect-importer";
+import { detectedHint } from "./import-review";
 import { TimeZoneInput } from "./time-zone-input";
+
+type Choice = { id: string; label: string };
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 export function NewSiteDialog({ accounts }: { accounts: Array<{ id: string; name: string }> }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const request = useRef(0);
+  const changed = useRef(false);
+  const [choices, setChoices] = useState<Choice[]>([]);
+  const [url, setUrl] = useState("");
+  const [detected, setDetected] = useState<Choice | null>(null);
+  const [source, setSource] = useState("");
+
+  useEffect(() => {
+    void listImporterChoicesAction()
+      .then(setChoices)
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const target = url.trim();
+    if (!isHttpUrl(target)) {
+      setDetected(null);
+      return;
+    }
+    const id = request.current + 1;
+    request.current = id;
+    const timer = setTimeout(() => {
+      void detectImporterAction(target)
+        .then((choice) => {
+          if (request.current !== id) return;
+          setDetected({ id: choice.id, label: choice.label });
+          if (!changed.current) setSource(choice.id);
+        })
+        .catch(() => {
+          if (request.current !== id) return;
+          setDetected(null);
+        });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [url]);
+
+  function reset() {
+    request.current += 1;
+    changed.current = false;
+    setUrl("");
+    setDetected(null);
+    setSource("");
+  }
+
+  const selected = source || detected?.id || "";
   return (
     <>
-      <Button type="button" onClick={() => dialog.current?.showModal()}>
+      <Button
+        type="button"
+        onClick={() => {
+          reset();
+          dialog.current?.showModal();
+        }}
+      >
         New site
       </Button>
       <dialog
         ref={dialog}
-        className="w-[min(100%,28rem)] rounded-xl border border-border bg-background p-6 text-foreground shadow-lg backdrop:bg-[#111620]/40"
+        className="m-auto w-[min(100%,28rem)] rounded-xl border border-border bg-background p-6 text-foreground shadow-lg backdrop:bg-[#111620]/40"
       >
         <form action={importSiteAction} className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">New site</h2>
           <TimeZoneInput />
           <Field label="Site name" name="name" required />
-          <Field label="Site address" name="sourceUrl" type="url" required />
+          <Field
+            label="Site address"
+            name="sourceUrl"
+            type="url"
+            required
+            value={url}
+            onChange={(event) => {
+              changed.current = false;
+              setUrl(event.target.value);
+            }}
+          />
+          {detected && choices.length > 0 ? (
+            <div className="space-y-2">
+              <Label htmlFor="importer">Importer</Label>
+              <select
+                id="importer"
+                name="source"
+                className={fieldClass}
+                value={selected}
+                onChange={(event) => {
+                  changed.current = true;
+                  setSource(event.target.value);
+                }}
+              >
+                {choices.map((choice) => (
+                  <option key={choice.id} value={choice.id}>
+                    {choice.label}
+                  </option>
+                ))}
+              </select>
+              <p id="importer-hint" className="text-xs text-muted-foreground">
+                {detectedHint(detected.label)}
+              </p>
+            </div>
+          ) : null}
           {accounts.length === 1 ? (
             <input type="hidden" name="accountId" value={accounts[0]?.id ?? ""} />
           ) : (
@@ -38,7 +136,14 @@ export function NewSiteDialog({ accounts }: { accounts: Array<{ id: string; name
             </div>
           )}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => dialog.current?.close()}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                reset();
+                dialog.current?.close();
+              }}
+            >
               Cancel
             </Button>
             <Button type="submit">Import a site</Button>
