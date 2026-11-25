@@ -1,4 +1,5 @@
 import { crawlSite, type AnnotatedForm, type PageAnnotation } from "../crawl";
+import { maybeGunzip } from "../discover";
 import type { Importer, ImporterMatch } from "../interface";
 import { fetchText, originOf, sameOriginPath, sitemapLocs } from "../site-url";
 import type { FidelityItem, PageFetch, RedirectRule } from "../types";
@@ -20,10 +21,7 @@ function wordpressIndex(body: string): boolean {
   return namespaces.some((entry) => entry === "wp/v2");
 }
 
-async function detectWordPress(
-  url: string,
-  fetchPage: PageFetch
-): Promise<ImporterMatch | null> {
+async function detectWordPress(url: string, fetchPage: PageFetch): Promise<ImporterMatch | null> {
   let origin: URL;
   try {
     origin = originOf(url);
@@ -94,8 +92,10 @@ async function wordpressDiscovery(origin: URL, fetchPage: PageFetch) {
     { fromPath: "/index.php", toPath: "/", source: "wordpress" }
   ];
   for (const sitemapPath of ["/wp-sitemap.xml", "/sitemap_index.xml"]) {
-    const xml = await fetchText(fetchPage, new URL(sitemapPath, origin).toString());
-    if (!xml) continue;
+    const sitemapUrl = new URL(sitemapPath, origin).toString();
+    const response = await fetchPage(sitemapUrl);
+    if (!response || response.status >= 400) continue;
+    const xml = TEXT.decode(maybeGunzip(sitemapUrl, response.contentType, response.body));
     for (const loc of sitemapLocs(xml)) {
       const path = sameOriginPath(loc, origin);
       if (!path) continue;

@@ -1,6 +1,6 @@
 # Importing
 
-Paste a URL and start an import. Core detects the importer from that URL. A WordPress site serves the REST API at `/wp-json`. That importer reads the public pages, the WordPress sitemaps, and the public page and post lists. It does not need a plugin on the WordPress site. Any other site uses the public website crawler, which follows links from the pages it fetches.
+Paste a URL and start an import. Core detects the importer from that URL. A WordPress site serves the REST API at `/wp-json`. That importer reads the public pages, the WordPress sitemaps, and the public page and post lists. It does not need a plugin on the WordPress site. Any other site uses the public website crawler. That crawler reads `robots.txt` and `/sitemap.xml` when they exist, and follows links from `/` when they do not. A caller can also pass an explicit list of URLs.
 
 Defaults: 5,000 pages and 20,000 assets, set in Admin under Settings, Importer. Link depth defaults to 6 (`IMPORT_MAX_DEPTH`).
 
