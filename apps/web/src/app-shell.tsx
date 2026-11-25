@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
-import { Button, FlagstageMark, buttonVariants, cn } from "@flagstage/ui";
+import { Badge, Button, FlagstageMark, buttonVariants, cn } from "@flagstage/ui";
 
 import { SIDEBAR_COOKIE } from "./account-cookie";
 import { NavIcon } from "./nav-icon";
@@ -112,6 +112,15 @@ export function AppShell({
   const [menu, setMenu] = useState<"account" | "site" | null>(null);
   const builder = /^\/(?:a\/[^/]+\/)?sites\/[^/]+\/edit/.test(pathname);
   useEffect(() => {
+    const root = document.documentElement;
+    if (!open) {
+      root.classList.remove("nav-open");
+      return;
+    }
+    root.classList.add("nav-open");
+    return () => root.classList.remove("nav-open");
+  }, [open]);
+  useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "b") return;
       const target = event.target;
@@ -189,7 +198,7 @@ export function AppShell({
       {open ? (
         <button
           type="button"
-          className="fixed inset-0 z-overlay bg-[#111620]/30 md:hidden"
+          className="fixed inset-0 z-overlay h-dvh w-full md:hidden"
           aria-label="Close menu"
           onClick={() => setOpen(false)}
         />
@@ -197,12 +206,12 @@ export function AppShell({
       <aside
         data-collapsed={collapsed ? "true" : "false"}
         className={cn(
-          "fixed inset-y-0 left-0 z-overlay flex w-60 flex-col border-r border-border bg-[var(--wash)] md:static",
+          "fixed inset-y-0 left-0 z-overlay flex h-dvh max-h-dvh w-60 max-w-60 shrink-0 flex-col border-r border-border bg-[var(--wash)] md:static md:h-auto md:max-h-none",
           open ? "flex" : "hidden md:flex",
-          collapsed ? "md:w-16" : "md:w-60"
+          collapsed ? "md:w-16 md:max-w-16" : "md:w-60"
         )}
       >
-        <div className="relative flex items-start gap-2.5 px-3 pt-4">
+        <div className={cn("relative flex items-start gap-2.5 px-3 pt-4", rail && "md:px-2")}>
           <a href={home} className="mt-0.5 shrink-0" aria-label={name}>
             {logoSrc ? (
               <img src={logoSrc} alt="" width={36} height={36} className="size-9 rounded-[9px]" />
@@ -212,7 +221,7 @@ export function AppShell({
               </span>
             )}
           </a>
-          <div className={cn("flex min-w-0 flex-1 flex-col", rail && "md:hidden")}>
+          <div className={cn("flex min-w-0 flex-1 flex-col overflow-hidden", rail && "md:hidden")}>
             {adminMode ? (
               <>
                 <p className="truncate px-0.5 text-sm font-semibold">Platform admin</p>
@@ -264,13 +273,13 @@ export function AppShell({
             {!adminMode && current && showSiteMenu ? (
               <button
                 type="button"
-                className="mt-0.5 flex min-w-0 flex-col items-start px-0.5 text-left hover:text-foreground"
+                className="mt-0.5 flex w-full min-w-0 max-w-full flex-col items-start px-0.5 text-left hover:text-foreground"
                 aria-expanded={menu === "site"}
                 aria-haspopup="listbox"
                 aria-label={`Switch site, ${siteLabel}`}
                 onClick={() => setMenu((value) => (value === "site" ? null : "site"))}
               >
-                <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
+                <span className="flex w-full min-w-0 items-center gap-1.5 text-sm font-semibold">
                   {currentSite ? (
                     <span
                       aria-hidden
@@ -280,12 +289,22 @@ export function AppShell({
                       )}
                     />
                   ) : null}
-                  <span className="truncate">{siteLabel}</span>
+                  <span className="min-w-0 truncate">{siteLabel}</span>
                 </span>
                 {currentSite ? (
-                  <span className="mt-0.5 flex min-w-0 items-center gap-2 pl-3 text-[11px] text-muted-foreground">
-                    <span className="truncate font-mono">{currentSite.host}</span>
-                    <span>{statusLabel(currentSite.status)}</span>
+                  <span className="mt-0.5 flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 pl-3">
+                    <span
+                      className="min-w-0 max-w-full truncate font-mono text-[11px] text-muted-foreground"
+                      title={currentSite.host}
+                    >
+                      {currentSite.host}
+                    </span>
+                    <Badge
+                      variant={currentSite.status === "live" ? "success" : "default"}
+                      className="max-w-full shrink-0 whitespace-normal px-1.5 py-px text-center text-[10px] leading-tight"
+                    >
+                      {statusLabel(currentSite.status)}
+                    </Badge>
                   </span>
                 ) : null}
               </button>
@@ -332,8 +351,8 @@ export function AppShell({
                         item.id === currentSite?.id && "bg-[var(--wash)]"
                       )}
                     >
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-medium">{item.name}</span>
+                      <span className="flex min-w-0 items-center justify-between gap-2">
+                        <span className="min-w-0 truncate text-sm font-medium">{item.name}</span>
                         <span
                           className={cn(
                             "shrink-0 text-[11px] font-medium",
@@ -343,7 +362,10 @@ export function AppShell({
                           {statusLabel(item.status)}
                         </span>
                       </span>
-                      <span className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground">
+                      <span
+                        className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground"
+                        title={item.host}
+                      >
                         {item.host}
                       </span>
                     </a>

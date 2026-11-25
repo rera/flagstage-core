@@ -7,6 +7,7 @@ import { Badge, Button, Field, PageHeader, t } from "@flagstage/ui";
 
 import { addDomainAction, recheckDomainAction } from "../../../../../../../src/actions";
 import { database, requireSite } from "../../../../../../../src/guard";
+import { Hostname } from "../../../../../../../src/hostname";
 import { Page } from "../../../../../../../src/page";
 import { SiteIdentity } from "../../../../../../../src/site-nav";
 
@@ -46,8 +47,10 @@ export default async function DomainPage({
             const records = (domain.records ?? []) as DnsRecord[];
             return (
               <section key={domain.id} className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold">{domain.hostname}</h2>
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2 className="min-w-0 text-lg font-semibold">
+                    <Hostname value={domain.hostname} />
+                  </h2>
                   <Badge variant={domain.status === "active" ? "success" : "warning"}>
                     {domain.status}
                   </Badge>
@@ -86,7 +89,10 @@ export default async function DomainPage({
         </div>
         <aside className="rounded-xl border border-border bg-card px-4 py-4 text-sm">
           <h2 className="font-semibold">Before it is connected</h2>
-          <p className="mt-2 text-muted-foreground">The site answers on {found.slug}.localhost.</p>
+          <p className="mt-2 text-muted-foreground">
+            The site answers on <Hostname value={`${found.slug}.localhost`} className="font-mono" />
+            .
+          </p>
           <p className="mt-2 text-muted-foreground">
             Add the hostname, then create the records at your DNS host. Core checks them. It does
             not change DNS for you.

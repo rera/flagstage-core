@@ -4,9 +4,10 @@ import { site, siteDomain, snapshot } from "@flagstage/db";
 import { eq, inArray } from "drizzle-orm";
 
 import { database, requireAccount } from "../../../../../src/guard";
+import { Hostname } from "../../../../../src/hostname";
+import { LocalTime } from "../../../../../src/local-time";
 import { NewSiteDialog } from "../../../../../src/new-site-dialog";
 import { Page } from "../../../../../src/page";
-import { friendlyWhen } from "../../../../../src/time";
 
 function statusLabel(status: string) {
   if (status === "live") return "Live";
@@ -76,10 +77,12 @@ export default async function AccountSitesPage({
               <a
                 key={row.id}
                 href={`/a/${found.slug}/sites/${row.id}`}
-                className="grid gap-3 rounded-xl border border-border bg-card px-5 py-4 hover:bg-[var(--wash)] sm:grid-cols-[minmax(0,1.3fr)_auto_minmax(0,1fr)_minmax(0,1fr)] sm:items-center"
+                className="grid min-w-0 grid-cols-1 gap-2 rounded-xl border border-border bg-card px-5 py-4 hover:bg-[var(--wash)] lg:grid-cols-[minmax(0,1.45fr)_minmax(0,0.95fr)_minmax(0,1.15fr)_minmax(0,1.2fr)] lg:items-center lg:gap-x-4"
               >
-                <span className="block font-semibold">{row.name}</span>
-                <span className="flex flex-wrap items-center gap-1.5">
+                <span className="min-w-0 truncate font-semibold" title={row.name}>
+                  {row.name}
+                </span>
+                <span className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <Badge variant={row.status === "live" ? "success" : "default"}>
                     {statusLabel(row.status)}
                   </Badge>
@@ -87,11 +90,19 @@ export default async function AccountSitesPage({
                     <Badge variant="warning">Draft waiting</Badge>
                   ) : null}
                 </span>
-                <span className="truncate font-mono text-xs text-muted-foreground">{domain}</span>
-                <span className="text-sm text-muted-foreground">
-                  {when
-                    ? `Published ${friendlyWhen(when, row.timeZone || "UTC")}`
-                    : "Not published"}
+                <Hostname
+                  value={domain}
+                  truncate
+                  className="font-mono text-xs text-muted-foreground"
+                />
+                <span className="min-w-0 text-sm text-muted-foreground">
+                  {when ? (
+                    <>
+                      Published <LocalTime value={when.toISOString()} />
+                    </>
+                  ) : (
+                    "Not published"
+                  )}
                 </span>
               </a>
             );

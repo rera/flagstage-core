@@ -15,6 +15,7 @@ import {
 import { BrowserFrame } from "../../../../../../../src/browser-frame";
 import { SchedulePanel } from "../../../../../../../src/schedule-form";
 import { database, requireSite } from "../../../../../../../src/guard";
+import { Hostname } from "../../../../../../../src/hostname";
 import { chatBody } from "../../../../../../../src/time";
 import { ChatStream } from "../chat-stream";
 
@@ -114,9 +115,9 @@ export default async function SitePage({
               {found.name}
             </a>
           </h1>
-          <details className="relative">
-            <summary className="cursor-pointer list-none font-mono text-xs text-muted-foreground marker:content-none">
-              {host}
+          <details className="relative max-w-full">
+            <summary className="cursor-pointer list-none marker:content-none">
+              <Hostname value={host} truncate className="font-mono text-xs text-muted-foreground" />
             </summary>
             <div className="absolute z-overlay mt-1 min-w-52 rounded-xl border border-border bg-popover p-1 shadow-sm">
               {siblings.map((item) => (
@@ -126,9 +127,11 @@ export default async function SitePage({
                   className="block rounded-lg px-3 py-2 text-sm hover:bg-[var(--wash)]"
                 >
                   {item.name}
-                  <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
-                    {item.slug}.localhost
-                  </span>
+                  <Hostname
+                    value={`${item.slug}.localhost`}
+                    truncate
+                    className="mt-0.5 font-mono text-[11px] text-muted-foreground"
+                  />
                 </a>
               ))}
             </div>

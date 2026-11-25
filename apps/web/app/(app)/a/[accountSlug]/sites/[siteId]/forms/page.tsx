@@ -6,9 +6,9 @@ import { formSubmission, leadForm } from "@flagstage/db";
 import { EmptyState, PageHeader, Table, TableBody, TableCell, TableRow, t } from "@flagstage/ui";
 
 import { database, requireSite } from "../../../../../../../src/guard";
+import { LocalTime } from "../../../../../../../src/local-time";
 import { Page } from "../../../../../../../src/page";
 import { SiteIdentity } from "../../../../../../../src/site-nav";
-import { friendlyWhen } from "../../../../../../../src/time";
 
 export default async function FormsPage({
   params
@@ -37,7 +37,6 @@ export default async function FormsPage({
   const newest = [...submissions].sort(
     (left, right) => right.createdAt.getTime() - left.createdAt.getTime()
   );
-  const zone = found.timeZone || "UTC";
   return (
     <Page>
       <div className="space-y-4">
@@ -67,7 +66,7 @@ export default async function FormsPage({
                   <TableRow key={row.id}>
                     <TableCell>{names.get(row.leadFormId) ?? row.leadFormId}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {friendlyWhen(row.createdAt, zone)}
+                      <LocalTime value={row.createdAt.toISOString()} />
                     </TableCell>
                     <TableCell>
                       <a

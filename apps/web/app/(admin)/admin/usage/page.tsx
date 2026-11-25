@@ -13,8 +13,9 @@ import { account, changeRequest, site } from "@flagstage/db";
 
 import { AdminPage } from "../../../../src/admin-page";
 import { database } from "../../../../src/guard";
+import { LocalTime } from "../../../../src/local-time";
 import { formatUsd } from "../../../../src/money";
-import { friendlyWhen, monthKey } from "../../../../src/time";
+import { monthKey } from "../../../../src/time";
 
 export default async function UsagePage() {
   const db = database();
@@ -101,7 +102,7 @@ export default async function UsagePage() {
                       return (
                         <TableRow key={entry.id}>
                           <TableCell className="text-muted-foreground">
-                            {friendlyWhen(entry.createdAt, owner?.timeZone || "UTC")}
+                            <LocalTime value={entry.createdAt.toISOString()} />
                           </TableCell>
                           <TableCell>{owner?.name}</TableCell>
                           <TableCell className="font-mono text-xs">

@@ -11,7 +11,8 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: `http://127.0.0.1:${port}`,
-    trace: "retain-on-failure"
+    trace: "retain-on-failure",
+    timezoneId: "America/New_York"
   },
   webServer: {
     command: "node start.mjs",
@@ -20,7 +21,7 @@ export default defineConfig({
     timeout: 180_000
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile", use: { ...devices["Pixel 5"] } }
+    { name: "chromium", use: { ...devices["Desktop Chrome"], timezoneId: "America/New_York" } },
+    { name: "mobile", use: { ...devices["Pixel 5"], timezoneId: "America/New_York" } }
   ]
 });
