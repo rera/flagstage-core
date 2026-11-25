@@ -1,10 +1,17 @@
 # Write your own importer
 
-An importer is a named source. It returns an `ImportResult`: pages, assets, redirects, forms, a fidelity report, and stats. `runImport` looks the name up in the registry, stores the result, and writes progress onto the import row.
+An importer is a registered source. It has an id, a label, a detector, and a `run` function. `run` returns an `ImportResult`: pages, assets, redirects, forms, a fidelity report, and stats. `runImport` looks the id up in the registry, stores the result, and writes progress onto the import row.
 
-The built-in source is the public-site crawler. Its name is `public-site`. Leave `source` off a run and that crawler is the one that runs. The import screen stays a single URL field.
+When a run does not pass `source`, detection runs every detector against the entered URL and picks the best match. The public crawler is the fallback. Its id is `public` and its label is `Public website`. Its detector does not match a site, and it has no WordPress knowledge.
 
-A fork registers another source the same way. A Contentful importer, for example, lives in the fork. It registers a name and returns an `ImportResult`. This repository ships the crawler only.
+This repository ships two importers.
+
+| Id          | Label          | Module                                         |
+| ----------- | -------------- | ---------------------------------------------- |
+| `public`    | Public website | `packages/importer/src/importers/public.ts`    |
+| `wordpress` | WordPress      | `packages/importer/src/importers/wordpress.ts` |
+
+A fork adds another source as a new module plus one `registerImporter` call in `packages/importer/src/registry.ts`. A Squarespace importer, for example, lives in that module. It supplies its own detector. The generic crawler stays generic.
 
 ## Register
 
@@ -12,7 +19,19 @@ A fork registers another source the same way. A Contentful importer, for example
 import { registerImporter, type Importer, type ImportResult } from "@flagstage/importer";
 
 export const acme: Importer = {
-  name: "acme",
+  id: "acme",
+  label: "Acme",
+  async detect(url, fetchPage) {
+    const origin = new URL(url);
+    origin.pathname = "/";
+    origin.search = "";
+    origin.hash = "";
+    const response = await fetchPage(new URL("/acme.json", origin).toString());
+    if (!response || response.status >= 400) return null;
+    const body = new TextDecoder().decode(response.body);
+    if (!body.includes('"acme"')) return null;
+    return { match: true, confidence: 0.9, evidence: "The site served /acme.json." };
+  },
   async run(options) {
     await options.onProgress?.({ pagesFound: 1, pagesDone: 0, skipped: [] });
     const result: ImportResult = {
@@ -37,9 +56,9 @@ export const acme: Importer = {
 registerImporter(acme);
 ```
 
-Call `registerImporter` in the process that runs the import, and import that module before `runImport`. With no cluster set, the web process runs the import. With `ECS_CLUSTER` and `IMPORT_TASK_DEFINITION` set, the import task is `apps/worker`. Registering a name that is already present replaces that source.
+Call `registerImporter` in the process that runs the import, and import that module before `runImport`. The built-in importers register when `@flagstage/importer` loads. With no cluster set, the web process runs the import. With `ECS_CLUSTER` and `IMPORT_TASK_DEFINITION` set, the import task is `apps/worker`. Registering an id that is already present replaces that source.
 
-`runImport` takes an optional `source`. These three call sites start a run today:
+`runImport` takes an optional `source`. Leave it unset and detection chooses the importer. Pass an id to force one. These three call sites start a run today:
 
 - `apps/web/src/dispatch.ts`
 - `apps/worker/src/main.ts`
@@ -58,7 +77,19 @@ await runImport({
 });
 ```
 
-`listImporters()` returns the registered names. `getImporter("acme")` returns the source `runImport` will call.
+`listImporters()` returns the registered ids. `getImporter("acme")` returns the source `runImport` will call. `detectImporter(url, fetchPage)` returns the choice `{ id, label, confidence, evidence }`. `detectImporterAction` in `apps/web/src/detect-importer.ts` is that call for a signed-in user. The import screen does not call it yet.
+
+## Detectors
+
+`detect(url, fetchPage)` returns `{ match, confidence, evidence }` or null.
+
+`fetchPage` reads one URL and returns `{ status, body, contentType }`, or null. `runImport` passes the same function the crawl uses. The default follows redirects and calls `fetch`. Return null when this importer does not recognize the site. Do not throw for a site of a different kind. A throw is treated as no match.
+
+`match` is true only when this importer should run. `confidence` is a number. The highest confidence wins. Equal confidence is broken by id, alphabetically, so the result does not depend on registration order. `evidence` is one short sentence a person can read.
+
+The public importer is not in that contest. When nothing matches, the choice is `public`, confidence 0, evidence `No importer recognized this site.`
+
+The WordPress detector requests `/wp-json` on the origin of the entered URL. It matches when the body is a JSON object whose `namespaces` include `wp/v2`. A plain page, a 404, or some other JSON object does not match.
 
 ## Result
 
@@ -84,21 +115,31 @@ Return the pages as imported. `runImport` extracts shared blocks after `run` ret
 
 `options` carries `sourceUrl`, `appOrigin`, `siteId`, and `caps` (`maxPages`, `maxDepth`, `maxAssets`). Those caps are the operator limits.
 
-`fetchPage` reads one URL and returns `{ status, body, contentType }`, or null. `runImport` sets it. The default follows redirects and calls `fetch`. The public-site crawler requires it.
+`fetchPage` reads one URL and returns `{ status, body, contentType }`, or null. `runImport` sets it. The default follows redirects and calls `fetch`. The public crawler and the WordPress importer both require it.
 
 `onProgress` receives `{ pagesFound, pagesDone, skipped }`. `runImport` writes that object onto the import row and notifies the site page. Call it as the source makes progress. The final `stats` object replaces it when the run completes, so copy the same fields onto `stats`.
 
 A thrown error fails the run. The message is stored on the import row, and the site status becomes `failed`. An unknown `source` fails the same way.
 
-## The public-site crawler
+## The public crawler
 
-`packages/importer/src/crawl.ts` is the first importer. `publicSiteImporter.name` is `public-site`. `packages/importer/src/registry.ts` registers it when `@flagstage/importer` loads. The type of a source is `Importer` in `packages/importer/src/interface.ts`. The result type is `ImportResult` in `packages/importer/src/types.ts`.
+`packages/importer/src/crawl.ts` is the generic crawl. `publicImporter` in `packages/importer/src/importers/public.ts` is the registered source. Its id is `public`. The type of a source is `Importer` in `packages/importer/src/interface.ts`. The result type is `ImportResult` in `packages/importer/src/types.ts`.
 
-`crawlSite` is that source's `run`. It fetches the origin. It records redirects for `/feed`, `/feed/`, and `/index.php`. When the origin answers `/wp-json`, it also reads `/wp-sitemap.xml` or `/sitemap_index.xml` and the page and post listings, and records `/?p=<id>` for each listed post or page. It then follows same-origin links until a cap stops it. HTML is rewritten into `pages`. Other saved files are `assets`. A recognized form is pointed at `{appOrigin}/f/{siteId}/{formKey}` and added to `forms`. Search, comments, login, and calendar markup are fidelity notes. Missing files are listed on the report.
+`crawlSite` is that source's `run`. It fetches the origin, then follows same-origin links until a cap stops it. HTML is rewritten into `pages`. Other saved files are `assets`. A form mapped by `annotatePage` is pointed at `{appOrigin}/f/{siteId}/{formKey}` and added to `forms`. Site search markup is a fidelity note. Missing files are listed on the report. This crawler does not request WordPress URLs, and it does not record `/feed`, `/feed/`, `/index.php`, or `/?p=` redirects.
+
+`crawlSite` accepts optional `seeds`, `redirects`, and `annotatePage`. A specialized importer uses those to add starting paths, redirects, and per-page notes, then returns the same `ImportResult`. The public importer passes none of them.
 
 After each page it calls `onProgress` with pages found, pages done, and any skipped path. An origin that does not answer throws `The site did not answer.`
 
 `stats.pages` on this crawler counts pages visited, including a page that was skipped. `stats.assets` counts files saved as assets. `pages.length` is the HTML that was kept.
+
+## The WordPress importer
+
+`packages/importer/src/importers/wordpress.ts` registers id `wordpress` and label `WordPress`. It does not need a plugin on the WordPress site. It reads the public site and the public REST API, then calls `crawlSite`.
+
+The run seeds `/` plus every same-origin URL in `/wp-sitemap.xml` and `/sitemap_index.xml`. It also seeds the first page of `/wp-json/wp/v2/pages` and `/wp-json/wp/v2/posts` (`per_page=100`). Each listed post or page with an id gets a redirect from `/?p=<id>` to that path. The run also records redirects from `/feed`, `/feed/`, and `/index.php` to `/`.
+
+Contact Form 7 and Gravity Forms markup is mapped to lead forms. Comment forms (`wp-comments-post`), login (`wp-login.php`), `tribe-events`, and `wp-calendar` are fidelity notes. The generic crawl still notes site search.
 
 ## Shared blocks
 

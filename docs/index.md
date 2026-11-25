@@ -17,7 +17,7 @@ Flagstage Core is the self-hosted edition. An organization runs accounts. An acc
 | [Roles](roles.md)                                | Who can do what                             |
 | [DNS checklist](domains.md)                      | What each record and status means           |
 | [Importing](importing.md)                        | How a crawl becomes a snapshot              |
-| [Write your own importer](importers.md)          | Register a source that returns an import    |
+| [Write your own importer](importers.md)          | Register a source and its detector          |
 | [Upgrading](upgrading.md)                        | Versions and breaking changes               |
 | [Backup and restore](backup-restore.md)          | Database and files                          |
 | [Troubleshooting](troubleshooting.md)            | Common failures                             |

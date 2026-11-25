@@ -1,6 +1,6 @@
 # Importing
 
-Paste a URL and start an import. Core checks that the site answers, crawls the public pages, and, when the site exposes a sitemap or a content listing, includes those URLs in the same job.
+Paste a URL and start an import. Core detects the importer from that URL. A WordPress site serves the REST API at `/wp-json`. That importer reads the public pages, the WordPress sitemaps, and the public page and post lists. It does not need a plugin on the WordPress site. Any other site uses the public website crawler, which follows links from the pages it fetches.
 
 Defaults: 500 pages, depth 6, 10,000 assets. Caps are environment settings.
 
@@ -8,4 +8,4 @@ The fidelity report lists missing assets, CSS backgrounds, pages that depend on 
 
 The web process records the site and starts a one-off import task. Locally, with no cluster set, the same import runs in the web process. The site page shows pages found, pages done, and skipped pages while the crawl runs. The import stores the source. Preview and Go live build the public files from it, stitching includes. The first import becomes live only after someone chooses Go live. That first publish is refused when the built pages are missing text, links, images, or pages from the import. A generated listing and a pagination URL that now redirects are not missing. A later publish warns about a removed page or a large loss of text and still goes live. In development, `pnpm dev:sites` serves the published files. Add `{slug}.localhost` to your hosts file and open it on that server's port.
 
-The crawl is the `public-site` source. [Write your own importer](importers.md) to register another one.
+Leave the source unset and detection chooses the importer. The public crawler's id is `public`. [Write your own importer](importers.md) to register another one.

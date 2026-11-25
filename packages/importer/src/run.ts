@@ -8,19 +8,11 @@ import type { BlobStore } from "@flagstage/storage";
 
 import { withImportBaseline } from "./baseline";
 import { extractSharedBlocks } from "./extract";
+import { defaultFetch } from "./fetch-page";
 import { scaffoldSite } from "./templates";
 import { storeImport } from "./persist";
-import { getImporter, PUBLIC_SITE_SOURCE } from "./registry";
+import { detectImporter, getImporter } from "./registry";
 import type { ImportCaps, PageFetch } from "./types";
-
-async function defaultFetch(url: string) {
-  const response = await fetch(url, { redirect: "follow" });
-  return {
-    status: response.status,
-    body: new Uint8Array(await response.arrayBuffer()),
-    contentType: response.headers.get("content-type") ?? ""
-  };
-}
 
 async function notify(db: Database, siteId: string) {
   try {
@@ -49,9 +41,13 @@ export async function runImport(input: {
     .set({ status: "running", updatedAt: now })
     .where(eq(importRun.id, input.importRunId));
   try {
-    const importer = getImporter(input.source?.trim() || PUBLIC_SITE_SOURCE);
+    const fetchPage = input.fetchPage ?? defaultFetch;
+    const requested = input.source?.trim();
+    const importer = requested
+      ? getImporter(requested)
+      : getImporter((await detectImporter(input.sourceUrl, fetchPage)).id);
     const imported = await importer.run({
-      fetchPage: input.fetchPage ?? defaultFetch,
+      fetchPage,
       sourceUrl: input.sourceUrl,
       appOrigin: input.appOrigin,
       siteId: input.siteId,

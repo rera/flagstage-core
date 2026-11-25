@@ -32,7 +32,7 @@ Open http://localhost:3000. The first admin comes from `adminEmail` in `flagstag
 | `packages/auth`        | Better Auth email and password                                                          |
 | `packages/core`        | Accounts, memberships, `can()`                                                          |
 | `packages/storage`     | `BlobStore` (`fs` and `s3`)                                                             |
-| `packages/importer`    | Importer registry, shared-block extraction, and the public-site crawler.                |
+| `packages/importer`    | Importer registry, detectors, the public crawler, and the WordPress importer.           |
 | `packages/agent`       | OpenCode subprocess runner and skills                                                   |
 | `packages/ai`          | Intent, trust judge, and reply calls                                                    |
 | `packages/sitebuild`   | SSI include stitch, listing pages, and a content-hash manifest for publish              |
