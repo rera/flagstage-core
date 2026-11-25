@@ -49,8 +49,7 @@ export async function getEditSettings(db: Database): Promise<EditSettings> {
 
 /**
  * Replace the platform edit settings. Platform admins only (`org.manage`).
- * The admin page is not built yet. It should call this rather than writing
- * the row through another path.
+ * The admin editor page calls this.
  */
 export async function updateEditSettings(
   db: Database,

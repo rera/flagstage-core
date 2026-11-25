@@ -26,7 +26,8 @@ export class ImporterSettingsError extends Error {
 
 /**
  * The importer's knobs. A missing row returns the defaults: decision calls on,
- * Claude Haiku 4.5 on Bedrock, confidence threshold 0.6.
+ * Claude Haiku 4.5 on Bedrock, confidence threshold 0.6, 5,000 pages, and
+ * 20,000 assets.
  */
 export async function getImporterSettings(db: Database): Promise<ImporterSettings> {
   const rows = await db
@@ -39,7 +40,10 @@ export async function getImporterSettings(db: Database): Promise<ImporterSetting
   const parsed = importerSettingsSchema.safeParse({
     decisionModel: row.decisionModel,
     decisionEnabled: row.decisionEnabled,
-    decisionConfidenceThreshold: row.decisionConfidenceThreshold
+    decisionConfidenceThreshold: row.decisionConfidenceThreshold,
+    maxPages: row.maxPages,
+    maxAssets: row.maxAssets,
+    disabledImporters: row.disabledImporters ?? []
   });
   if (!parsed.success) {
     throw new ImporterSettingsError(
@@ -53,7 +57,7 @@ export async function getImporterSettings(db: Database): Promise<ImporterSetting
 /**
  * Replace the platform importer settings. Platform admins only (`org.manage`).
  * The patch is validated and merged onto the current row. The admin importer
- * page can call this without adding another write path.
+ * page calls this.
  */
 export async function updateImporterSettings(
   db: Database,
@@ -78,7 +82,10 @@ export async function updateImporterSettings(
     decisionModel: parsed.data.decisionModel ?? current.decisionModel,
     decisionEnabled: parsed.data.decisionEnabled ?? current.decisionEnabled,
     decisionConfidenceThreshold:
-      parsed.data.decisionConfidenceThreshold ?? current.decisionConfidenceThreshold
+      parsed.data.decisionConfidenceThreshold ?? current.decisionConfidenceThreshold,
+    maxPages: parsed.data.maxPages ?? current.maxPages,
+    maxAssets: parsed.data.maxAssets ?? current.maxAssets,
+    disabledImporters: parsed.data.disabledImporters ?? current.disabledImporters
   });
   const now = new Date();
   await db
@@ -88,6 +95,9 @@ export async function updateImporterSettings(
       decisionModel: next.decisionModel,
       decisionEnabled: next.decisionEnabled,
       decisionConfidenceThreshold: next.decisionConfidenceThreshold,
+      maxPages: next.maxPages,
+      maxAssets: next.maxAssets,
+      disabledImporters: next.disabledImporters,
       updatedAt: now,
       updatedBy: actor.id
     })
@@ -97,6 +107,9 @@ export async function updateImporterSettings(
         decisionModel: next.decisionModel,
         decisionEnabled: next.decisionEnabled,
         decisionConfidenceThreshold: next.decisionConfidenceThreshold,
+        maxPages: next.maxPages,
+        maxAssets: next.maxAssets,
+        disabledImporters: next.disabledImporters,
         updatedAt: now,
         updatedBy: actor.id
       }

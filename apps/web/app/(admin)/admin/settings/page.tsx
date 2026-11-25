@@ -1,6 +1,6 @@
 import { loadConfig } from "@flagstage/config";
 
-import { AdminPage } from "../../../../src/admin-page";
+import { SettingsPage } from "../../../../src/settings-nav";
 
 export default async function AdminSettingsPage() {
   let model = "Not configured";
@@ -22,7 +22,10 @@ export default async function AdminSettingsPage() {
     { label: "Domain", value: domain }
   ];
   return (
-    <AdminPage title="Settings" description="How this install calls the model and serves sites.">
+    <SettingsPage
+      current="install"
+      description="How this install calls the model and serves sites."
+    >
       <dl className="grid gap-3 sm:grid-cols-3">
         {values.map((item) => (
           <div key={item.label} className="rounded-xl border border-border bg-card px-4 py-3">
@@ -35,6 +38,6 @@ export default async function AdminSettingsPage() {
         These values come from flagstage.config.json. Change them there and redeploy. Budgets belong
         on each account. Time zones belong on each site.
       </p>
-    </AdminPage>
+    </SettingsPage>
   );
 }

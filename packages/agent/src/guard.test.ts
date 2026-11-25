@@ -292,6 +292,28 @@ describe("hand-edit guard", () => {
     }
   });
 
+  it("refuses a hand edit that passes the stored page limit", async () => {
+    const { db, client, store } = await ready();
+    try {
+      await updateEditSettings(db, admin, { handEditPageLimit: 1 });
+      const refused = await postMessage({
+        db,
+        store,
+        siteId: "site-1",
+        userId: "user-1",
+        body: "Touch two pages",
+        appOrigin: "http://localhost:3000",
+        runner: editing(["p/0.html", "p/1.html"])
+      });
+      expect(refused.reply).toBe("");
+      const requests = await db.select().from(changeRequest);
+      expect(requests[0]?.status).toBe("ended");
+      expect(await draftId(db)).toBeNull();
+    } finally {
+      await client.close();
+    }
+  });
+
   it("allows a handful of hand-edited pages", async () => {
     const { db, client, store } = await ready();
     let calls = 0;

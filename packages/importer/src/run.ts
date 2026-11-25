@@ -29,7 +29,8 @@ export async function runImport(input: {
   importRunId: string;
   sourceUrl: string;
   appOrigin: string;
-  caps: ImportCaps;
+  /** Page and asset caps are read from platform settings. Depth is per run. */
+  caps: Pick<ImportCaps, "maxDepth"> & Partial<ImportCaps>;
   source?: string;
   fetchPage?: PageFetch;
   /** Bedrock region for the decision model. The model id is not read from the environment. */
@@ -41,17 +42,26 @@ export async function runImport(input: {
     .set({ status: "running", updatedAt: now })
     .where(eq(importRun.id, input.importRunId));
   try {
+    const settings = await getImporterSettings(input.db);
     const fetchPage = input.fetchPage ?? defaultFetch;
     const requested = input.source?.trim();
-    const importer = requested
-      ? getImporter(requested)
-      : getImporter((await detectImporter(input.sourceUrl, fetchPage)).id);
+    const sourceName = requested
+      ? requested
+      : (await detectImporter(input.sourceUrl, fetchPage)).id;
+    if (settings.disabledImporters.includes(sourceName)) {
+      throw new Error(`The ${sourceName} importer is turned off.`);
+    }
+    const importer = getImporter(sourceName);
     const imported = await importer.run({
       fetchPage,
       sourceUrl: input.sourceUrl,
       appOrigin: input.appOrigin,
       siteId: input.siteId,
-      caps: input.caps,
+      caps: {
+        maxPages: settings.maxPages,
+        maxAssets: settings.maxAssets,
+        maxDepth: input.caps.maxDepth
+      },
       onProgress: async (progress) => {
         await input.db
           .update(importRun)
@@ -60,7 +70,6 @@ export async function runImport(input: {
         await notify(input.db, input.siteId);
       }
     });
-    const settings = await getImporterSettings(input.db);
     const result = withImportBaseline(
       await scaffoldSite(extractSharedBlocks(imported), {
         decide: bedrockListingDecide({

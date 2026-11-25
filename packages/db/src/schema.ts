@@ -39,6 +39,12 @@ export const importerSettings = pgTable("importer_settings", {
   decisionConfidenceThreshold: doublePrecision("decision_confidence_threshold")
     .notNull()
     .default(0.6),
+  maxPages: integer("max_pages").notNull().default(5000),
+  maxAssets: integer("max_assets").notNull().default(20000),
+  disabledImporters: jsonb("disabled_importers")
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   updatedAt: ts("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by")
 });

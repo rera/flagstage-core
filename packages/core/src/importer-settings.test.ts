@@ -26,14 +26,26 @@ const accountAdmin: Principal = {
 
 async function database() {
   const client = new PGlite();
-  const sqlText = readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle/0005_importer_settings.sql"),
-    "utf8"
-  );
-  await client.exec(sqlText);
+  const root = join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle");
+  for (const file of ["0005_importer_settings.sql", "0008_import_caps.sql"]) {
+    const sqlText = readFileSync(join(root, file), "utf8");
+    for (const statement of sqlText.split("--> statement-breakpoint")) {
+      const query = statement.trim();
+      if (query) await client.exec(query);
+    }
+  }
   const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
   return { db, client };
 }
+
+const defaults = {
+  decisionModel: { provider: "bedrock" as const, modelId: DEFAULT_DECISION_MODEL_ID },
+  decisionEnabled: true,
+  decisionConfidenceThreshold: 0.6,
+  maxPages: 5000,
+  maxAssets: 20000,
+  disabledImporters: [] as string[]
+};
 
 describe("importer settings", () => {
   it("returns the Haiku 4.5 defaults when the row is missing", async () => {
@@ -41,11 +53,7 @@ describe("importer settings", () => {
     try {
       const settings = await getImporterSettings(db);
       expect(DEFAULT_DECISION_MODEL_ID).toBe("global.anthropic.claude-haiku-4-5-20251001-v1:0");
-      expect(settings).toEqual({
-        decisionModel: { provider: "bedrock", modelId: DEFAULT_DECISION_MODEL_ID },
-        decisionEnabled: true,
-        decisionConfidenceThreshold: 0.6
-      });
+      expect(settings).toEqual(defaults);
     } finally {
       await client.close();
     }
@@ -66,7 +74,10 @@ describe("importer settings", () => {
       expect(merged).toEqual({
         decisionModel: { provider: "bedrock", modelId: "anthropic.claude-haiku-4-5-test" },
         decisionEnabled: true,
-        decisionConfidenceThreshold: 0.25
+        decisionConfidenceThreshold: 0.25,
+        maxPages: 5000,
+        maxAssets: 20000,
+        disabledImporters: []
       });
       expect(await getImporterSettings(db)).toEqual(merged);
     } finally {
@@ -93,11 +104,32 @@ describe("importer settings", () => {
         })
       ).rejects.toThrow(/modelId/);
 
-      expect(await getImporterSettings(db)).toEqual({
-        decisionModel: { provider: "bedrock", modelId: DEFAULT_DECISION_MODEL_ID },
-        decisionEnabled: true,
-        decisionConfidenceThreshold: 0.6
-      });
+      expect(await getImporterSettings(db)).toEqual(defaults);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("stores page and asset caps, and which importers are off", async () => {
+    const { db, client } = await database();
+    try {
+      const saved = await updateImporterSettings(db, admin, { maxPages: 12, maxAssets: 34 });
+      expect(saved.maxPages).toBe(12);
+      expect(saved.maxAssets).toBe(34);
+      expect(await getImporterSettings(db)).toEqual(saved);
+
+      const off = await updateImporterSettings(db, admin, { disabledImporters: ["public-site"] });
+      expect(off.disabledImporters).toEqual(["public-site"]);
+      expect(off.maxPages).toBe(12);
+      const on = await updateImporterSettings(db, admin, { disabledImporters: [] });
+      expect(on.disabledImporters).toEqual([]);
+      expect(await getImporterSettings(db)).toEqual(on);
+
+      await expect(updateImporterSettings(db, admin, { maxPages: 0 })).rejects.toThrow(/maxPages/);
+      await expect(updateImporterSettings(db, admin, { maxAssets: 1.5 })).rejects.toThrow(
+        /maxAssets/
+      );
+      expect((await getImporterSettings(db)).maxPages).toBe(12);
     } finally {
       await client.close();
     }

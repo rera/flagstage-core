@@ -3,6 +3,8 @@ export type { EnvField, EnvName } from "./fields";
 export {
   DEFAULT_DECISION_CONFIDENCE_THRESHOLD,
   DEFAULT_DECISION_MODEL_ID,
+  DEFAULT_IMPORT_MAX_ASSETS,
+  DEFAULT_IMPORT_MAX_PAGES,
   decisionModelSchema,
   defaultImporterSettings,
   formatImporterSettingsIssues,

@@ -106,6 +106,15 @@ export function NavIcon({ name }: { name: string }) {
       </svg>
     );
   }
+  if (name === "platform") {
+    return (
+      <svg {...common}>
+        <path d="M3.5 13.5V5.5L8 2.5l4.5 3v8" />
+        <path d="M6 13.5v-3h4v3" />
+        <path d="M6.5 7h.5M9 7h.5M6.5 9h.5M9 9h.5" />
+      </svg>
+    );
+  }
   if (name === "accounts") {
     return (
       <svg {...common}>

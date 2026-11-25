@@ -2,7 +2,7 @@
 
 Paste a URL and start an import. Core detects the importer from that URL. A WordPress site serves the REST API at `/wp-json`. That importer reads the public pages, the WordPress sitemaps, and the public page and post lists. It does not need a plugin on the WordPress site. Any other site uses the public website crawler, which follows links from the pages it fetches.
 
-Defaults: 500 pages, depth 6, 10,000 assets. Caps are environment settings.
+Defaults: 5,000 pages and 20,000 assets, set in Admin under Settings, Importer. Link depth defaults to 6 (`IMPORT_MAX_DEPTH`).
 
 The fidelity report lists missing assets, CSS backgrounds, pages that depend on a plugin (forms, search, calendars, logins, comments), and shared blocks that were left in the page because they were not an exact match. Known form plugins are mapped to lead forms when the markup is recognizable. Blocks that match on most pages are stored once under `_inc/` and referenced from the pages. Pages that share a structure become a template under `_templates/`. A site skill is written to `.flagstage/skills/`, and a drift manifest records which pages use each include. When the import finds articles, it also writes `.flagstage/listings.json`. The build turns dated articles into listing pages from that file. Preview and the live site omit those files.
 

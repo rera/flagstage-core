@@ -130,11 +130,7 @@ try {
         config.product?.region ??
         config.S3_REGION ??
         "",
-      caps: {
-        maxPages: config.IMPORT_MAX_PAGES,
-        maxDepth: config.IMPORT_MAX_DEPTH,
-        maxAssets: config.IMPORT_MAX_ASSETS
-      }
+      caps: { maxDepth: config.IMPORT_MAX_DEPTH }
     });
     console.log(`${imported.slug} ${imported.siteId} ${imported.snapshotId}`);
   } else if (parsed.kind === "member-add") {

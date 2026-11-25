@@ -113,7 +113,7 @@ Return the pages as imported. `runImport` extracts shared blocks after `run` ret
 
 ## Options and progress
 
-`options` carries `sourceUrl`, `appOrigin`, `siteId`, and `caps` (`maxPages`, `maxDepth`, `maxAssets`). Those caps are the operator limits.
+`options` carries `sourceUrl`, `appOrigin`, `siteId`, and `caps` (`maxPages`, `maxDepth`, `maxAssets`). `runImport` fills `maxPages` and `maxAssets` from the platform importer settings (defaults 5,000 and 20,000). `maxDepth` is `IMPORT_MAX_DEPTH`.
 
 `fetchPage` reads one URL and returns `{ status, body, contentType }`, or null. `runImport` sets it. The default follows redirects and calls `fetch`. The public crawler and the WordPress importer both require it.
 

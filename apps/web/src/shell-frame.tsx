@@ -10,7 +10,7 @@ import { ACCOUNT_COOKIE, SIDEBAR_COOKIE } from "./account-cookie";
 import { AppShell, type ShellAccount, type ShellSite } from "./app-shell";
 import { signOut } from "./actions";
 import { currentSession } from "./auth";
-import { database, visibleAccounts } from "./guard";
+import { accountHome, database, visibleAccounts } from "./guard";
 
 export async function ShellFrame({ children }: { children: ReactNode }) {
   const session = await currentSession().catch(() => null);
@@ -32,6 +32,7 @@ export async function ShellFrame({ children }: { children: ReactNode }) {
   let canEdit = false;
   let lastSlug: string | null = null;
   let collapsed = false;
+  let backHref = "/sites";
   if (session?.user && process.env.NEXT_PHASE !== "phase-production-build") {
     try {
       const grants = await loadGrants(database(), session.user.id);
@@ -83,6 +84,10 @@ export async function ShellFrame({ children }: { children: ReactNode }) {
           }))
           .sort((left, right) => left.name.localeCompare(right.name));
       }
+      if (admin) {
+        const backAccount = accounts.find((item) => item.slug === lastSlug) ?? accounts[0];
+        if (backAccount) backHref = await accountHome(backAccount);
+      }
     } catch {
       admin = false;
     }
@@ -100,6 +105,7 @@ export async function ShellFrame({ children }: { children: ReactNode }) {
       canEdit={canEdit}
       lastSlug={lastSlug}
       collapsed={collapsed}
+      backHref={backHref}
       signOut={signOut}
     >
       {children}

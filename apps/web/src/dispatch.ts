@@ -66,11 +66,7 @@ export async function startImport(job: { siteId: string; runId: string; sourceUr
     sourceUrl: job.sourceUrl,
     appOrigin: config.APP_URL,
     region,
-    caps: {
-      maxPages: config.IMPORT_MAX_PAGES,
-      maxDepth: config.IMPORT_MAX_DEPTH,
-      maxAssets: config.IMPORT_MAX_ASSETS
-    }
+    caps: { maxDepth: config.IMPORT_MAX_DEPTH }
   }).catch(() => undefined);
 }
 

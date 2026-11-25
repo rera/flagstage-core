@@ -137,7 +137,7 @@ describe("flagstage commands", () => {
         accountSlug: "missing",
         url: "https://example.com",
         appOrigin: "http://localhost:3000",
-        caps: { maxPages: 1, maxDepth: 1, maxAssets: 1 }
+        caps: { maxDepth: 1 }
       })
     ).rejects.toThrow(/No account/);
     await client.close();

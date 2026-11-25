@@ -87,6 +87,7 @@ export function AppShell({
   canEdit,
   lastSlug,
   collapsed: collapsedInitially,
+  backHref,
   signOut,
   children
 }: {
@@ -100,10 +101,12 @@ export function AppShell({
   canEdit: boolean;
   lastSlug?: string | null;
   collapsed?: boolean;
+  backHref?: string;
   signOut: (formData: FormData) => Promise<void>;
   children: ReactNode;
 }) {
   const pathname = usePathname() ?? "";
+  const adminMode = pathname === "/admin" || pathname.startsWith("/admin/");
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(Boolean(collapsedInitially));
   const [menu, setMenu] = useState<"account" | "site" | null>(null);
@@ -143,7 +146,13 @@ export function AppShell({
   const currentSite = sites.find((item) => item.id === siteId);
   const showAccount = admin ? accounts.length > 0 : accounts.length >= 2;
   const showSiteMenu = Boolean(current) && (sites.length >= 2 || canCreate);
-  const home = current ? `/a/${current.slug}` : admin ? "/admin/accounts" : "/sites";
+  const home = adminMode
+    ? "/admin/accounts"
+    : current
+      ? `/a/${current.slug}`
+      : admin
+        ? "/admin/accounts"
+        : "/sites";
   const siteBase = current && currentSite ? `/a/${current.slug}/sites/${currentSite.id}` : "";
   const siteLinks = currentSite
     ? [
@@ -204,7 +213,18 @@ export function AppShell({
             )}
           </a>
           <div className={cn("flex min-w-0 flex-1 flex-col", rail && "md:hidden")}>
-            {current && showAccount ? (
+            {adminMode ? (
+              <>
+                <p className="truncate px-0.5 text-sm font-semibold">Platform admin</p>
+                <a
+                  href={backHref || "/sites"}
+                  onClick={close}
+                  className="mt-0.5 inline-block px-0.5 text-[13px] font-medium text-primary"
+                >
+                  Back to sites
+                </a>
+              </>
+            ) : current && showAccount ? (
               <button
                 type="button"
                 className="flex min-w-0 items-center gap-1 px-0.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -241,7 +261,7 @@ export function AppShell({
             ) : (
               <p className="truncate px-0.5 text-sm font-semibold">{name}</p>
             )}
-            {current && showSiteMenu ? (
+            {!adminMode && current && showSiteMenu ? (
               <button
                 type="button"
                 className="mt-0.5 flex min-w-0 flex-col items-start px-0.5 text-left hover:text-foreground"
@@ -269,11 +289,11 @@ export function AppShell({
                   </span>
                 ) : null}
               </button>
-            ) : current ? (
+            ) : !adminMode && current ? (
               <p className="mt-0.5 truncate px-0.5 text-sm font-semibold">{siteLabel}</p>
             ) : null}
           </div>
-          {menu === "account" && showAccount ? (
+          {!adminMode && menu === "account" && showAccount ? (
             <ul
               role="listbox"
               aria-label="Accounts"
@@ -297,7 +317,7 @@ export function AppShell({
               ))}
             </ul>
           ) : null}
-          {menu === "site" && current ? (
+          {!adminMode && menu === "site" && current ? (
             <div className="absolute top-full right-3 left-3 z-20 mt-1 rounded-xl border border-border bg-background p-1 shadow-sm">
               <ul role="listbox" aria-label="Sites" className="max-h-80 overflow-auto">
                 {sites.map((item) => (
@@ -339,7 +359,7 @@ export function AppShell({
           ) : null}
         </div>
         <div className="mt-3 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pb-3">
-          {currentSite && canEdit ? (
+          {!adminMode && currentSite && canEdit ? (
             <a
               href={`${siteBase}/edit`}
               onClick={close}
@@ -350,7 +370,7 @@ export function AppShell({
               <span className={rail ? "md:sr-only" : undefined}>Make changes</span>
             </a>
           ) : null}
-          {siteLinks.length > 0 ? (
+          {!adminMode && siteLinks.length > 0 ? (
             <nav className="flex flex-col gap-1" aria-label="Site">
               {siteLinks.map((link) => (
                 <NavLink
@@ -365,7 +385,7 @@ export function AppShell({
               ))}
             </nav>
           ) : null}
-          {accountLinks.length > 0 ? (
+          {!adminMode && accountLinks.length > 0 ? (
             <div>
               <p
                 className={cn(
@@ -391,17 +411,9 @@ export function AppShell({
             </div>
           ) : null}
           {admin ? (
-            <div>
-              <p
-                className={cn(
-                  "px-3 pb-1 text-[10px] font-medium tracking-[0.08em] text-muted-foreground",
-                  rail && "md:sr-only"
-                )}
-              >
-                ADMIN
-              </p>
-              <nav className="flex flex-col gap-1" aria-label="Admin">
-                {adminLinks.map((link) => (
+            <nav className="flex flex-col gap-1" aria-label="Admin">
+              {adminMode ? (
+                adminLinks.map((link) => (
                   <NavLink
                     key={link.href}
                     href={link.href}
@@ -411,9 +423,18 @@ export function AppShell({
                     rail={rail}
                     onNavigate={close}
                   />
-                ))}
-              </nav>
-            </div>
+                ))
+              ) : (
+                <NavLink
+                  href="/admin/accounts"
+                  label="Platform admin"
+                  icon="platform"
+                  current={false}
+                  rail={rail}
+                  onNavigate={close}
+                />
+              )}
+            </nav>
           ) : null}
         </div>
         <div className="mt-auto border-t border-border p-3">
@@ -478,7 +499,11 @@ export function AppShell({
             Menu
           </button>
           <span className="truncate text-sm font-semibold">
-            {current ? `${showAccount ? `${current.name} › ` : ""}${siteLabel}` : name}
+            {adminMode
+              ? "Platform admin"
+              : current
+                ? `${showAccount ? `${current.name} › ` : ""}${siteLabel}`
+                : name}
           </span>
         </header>
         <main id="content" className="flex min-h-0 flex-1 flex-col">
