@@ -80,7 +80,7 @@ test("saving caps and the hand-edit limit persists", async ({ page }) => {
       "Editor"
     ]);
     await expect(page.getByLabel("Decision model")).toHaveValue(/claude-haiku-4-5/);
-    await expect(page.getByRole("cell", { name: "Public website" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Public website", exact: true })).toBeVisible();
     await expect(page.getByRole("cell", { name: "WordPress", exact: true })).toBeVisible();
     await page.getByLabel("Max pages").fill("4200");
     await page.getByLabel("Max assets").fill("18000");
@@ -125,7 +125,7 @@ test("writes the admin settings screenshots", async ({ page }, testInfo) => {
   await page.screenshot({ path: `${dir}/06-enter-admin.png`, fullPage: true });
   await page.goto("/admin/settings/importer");
   await expect(page.getByLabel("Max pages")).toBeVisible();
-  await expect(page.getByRole("cell", { name: "Public website" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Public website", exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: "WordPress", exact: true })).toBeVisible();
   await page.screenshot({ path: `${dir}/04-admin-importer.png`, fullPage: true });
   await page.getByRole("link", { name: "Editor", exact: true }).click();
