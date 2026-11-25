@@ -20,6 +20,9 @@ import {
 
 const text = new TextDecoder();
 
+/** How many snapshot objects a publish reads from storage at once. */
+export const SNAPSHOT_DOWNLOAD_CONCURRENCY = 8;
+
 /**
  * Copy a legacy snapshot (files at the prefix root) into `src/`.
  * A second call is a no-op once any source file exists. Legacy objects stay
@@ -204,13 +207,13 @@ async function downloadPreviousHtml(
   const dir = join(root, "prev");
   mkdirSync(dir, { recursive: true });
   const keys = [...diff.changed, ...diff.removed].filter(isHtmlKey);
-  for (const key of keys) {
+  await mapLimit(keys, SNAPSHOT_DOWNLOAD_CONCURRENCY, async (key) => {
     const object = await store.get(previousOutput + key);
-    if (!object) continue;
+    if (!object) return;
     const abs = join(dir, key);
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, object.body);
-  }
+  });
   return dir;
 }
 
@@ -220,15 +223,36 @@ function isHtmlKey(key: string): boolean {
 }
 
 async function download(store: BlobStore, prefix: string, dir: string): Promise<void> {
-  for (const item of await store.list(prefix)) {
+  const files = (await store.list(prefix)).flatMap((item) => {
     const relative = item.key.slice(prefix.length);
-    if (!isSafeRelative(relative)) continue;
-    const object = await store.get(item.key);
-    if (!object) continue;
-    const abs = join(dir, relative);
+    return isSafeRelative(relative) ? [{ key: item.key, relative }] : [];
+  });
+  await mapLimit(files, SNAPSHOT_DOWNLOAD_CONCURRENCY, async (file) => {
+    const object = await store.get(file.key);
+    if (!object) return;
+    const abs = join(dir, file.relative);
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, object.body);
-  }
+  });
+}
+
+async function mapLimit<T>(
+  items: readonly T[],
+  limit: number,
+  run: (item: T) => Promise<void>
+): Promise<void> {
+  if (items.length === 0 || limit < 1) return;
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      const item = items[index];
+      if (item === undefined) return;
+      await run(item);
+    }
+  });
+  await Promise.all(workers);
 }
 
 function isSafeRelative(relative: string): boolean {

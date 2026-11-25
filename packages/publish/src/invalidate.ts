@@ -9,6 +9,13 @@ import { readManifest } from "./materialize";
 
 const BATCH = 3000;
 
+/**
+ * Changed files above this count invalidate the whole distribution.
+ * Per-file paths multiply (visitor path plus the rewritten snapshot key) and
+ * CloudFront caps one invalidation at 3000 paths.
+ */
+export const INVALIDATION_FILE_LIMIT = 500;
+
 export type InvalidationSend = (input: {
   distributionId: string;
   paths: string[];
@@ -16,16 +23,19 @@ export type InvalidationSend = (input: {
 
 /**
  * Paths CloudFront should drop for these output keys.
- * The viewer-request function rewrites the URI to the snapshot prefix before
- * the cache lookup, so the rewritten key is included. The visitor path is
- * included as well, for a cache that still keys on the original URI.
+ * More than INVALIDATION_FILE_LIMIT files become one `/*` path.
+ * Below that, the viewer-request function rewrites the URI to the snapshot
+ * prefix before the cache lookup, so the rewritten key is included. The
+ * visitor path is included as well, for a cache that still keys on the
+ * original URI.
  */
 export function invalidationPaths(publicPrefix: string, keys: string[]): string[] {
+  const files = [...new Set(keys.filter((key) => key && !key.startsWith("/")))];
+  if (files.length > INVALIDATION_FILE_LIMIT) return ["/*"];
   const prefix = publicPrefix.startsWith("/") ? publicPrefix : `/${publicPrefix}`;
   const normalized = prefix.endsWith("/") ? prefix : `${prefix}/`;
   const paths = new Set<string>();
-  for (const key of keys) {
-    if (!key || key.startsWith("/")) continue;
+  for (const key of files) {
     paths.add(`${normalized}${key}`);
     if (key === "index.html") {
       paths.add("/");

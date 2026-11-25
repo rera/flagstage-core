@@ -9,7 +9,7 @@ import {
 } from "@flagstage/storage";
 
 import { invalidatePublishedKeys, invalidationPaths } from "./invalidate";
-import { materializeOutput } from "./materialize";
+import { SNAPSHOT_DOWNLOAD_CONCURRENCY, materializeOutput } from "./materialize";
 
 const text = new TextEncoder();
 const decode = new TextDecoder();
@@ -254,5 +254,101 @@ describe("CDN invalidation", () => {
       "/news/index.html",
       "/snapshots/site/snap/out/news/index.html"
     ]);
+  });
+
+  it("uses per-file paths at 500 changed files and /* above that", () => {
+    const prefix = "snapshots/site/snap/out/";
+    const atLimit = Array.from({ length: 500 }, (_, index) => `files/${index}.txt`);
+    const over = [...atLimit, "files/500.txt"];
+    const limited = invalidationPaths(prefix, atLimit);
+    expect(limited).not.toContain("/*");
+    expect(limited).toContain("/files/0.txt");
+    expect(limited).toContain("/snapshots/site/snap/out/files/499.txt");
+    expect(invalidationPaths(prefix, over)).toEqual(["/*"]);
+  });
+
+  it("sends /* when the published snapshot changes more than 500 files", async () => {
+    const store = memoryStore();
+    const previous = "snapshots/site/wide-prev/";
+    const next = "snapshots/site/wide-next/";
+    const before: Record<string, string> = {};
+    const after: Record<string, string> = {};
+    for (let index = 0; index < 501; index += 1) {
+      before[`f${index}.txt`] = "a";
+      after[`f${index}.txt`] = "b";
+    }
+    await store.put(
+      manifestKey(previous),
+      text.encode(JSON.stringify({ files: before })),
+      "application/json"
+    );
+    await store.put(
+      manifestKey(next),
+      text.encode(JSON.stringify({ files: after })),
+      "application/json"
+    );
+    const sent: string[][] = [];
+    await invalidatePublishedKeys({
+      store,
+      distributionId: "EDIST",
+      fromPrefix: previous,
+      toPrefix: next,
+      send: async (input) => {
+        sent.push(input.paths);
+      }
+    });
+    expect(sent).toEqual([["/*"]]);
+  });
+});
+
+describe("snapshot download", () => {
+  it("reads snapshot files in parallel up to a fixed concurrency", async () => {
+    const store = memoryStore();
+    const prefix = "snapshots/site/parallel/";
+    const count = SNAPSHOT_DOWNLOAD_CONCURRENCY * 2;
+    for (let index = 0; index < count; index += 1) {
+      await store.put(`${sourcePrefix(prefix)}page-${index}.html`, text.encode(`<p>${index}</p>`));
+    }
+    let inFlight = 0;
+    let maxInFlight = 0;
+    let release = false;
+    const waiting: Array<() => void> = [];
+    const gated: BlobStore = {
+      put: (key, body, contentType) => store.put(key, body, contentType),
+      get: async (key) => {
+        if (!key.startsWith(sourcePrefix(prefix))) return store.get(key);
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        if (!release) await new Promise<void>((resolve) => waiting.push(resolve));
+        inFlight -= 1;
+        return store.get(key);
+      },
+      list: (listed) => store.list(listed),
+      delete: (key) => store.delete(key),
+      copy: (from, to) => store.copy(from, to)
+    };
+    const job = materializeOutput({ store: gated, storagePrefix: prefix });
+    try {
+      const start = Date.now();
+      while (waiting.length !== SNAPSHOT_DOWNLOAD_CONCURRENCY) {
+        if (Date.now() - start > 3000) {
+          throw new Error(
+            `expected ${SNAPSHOT_DOWNLOAD_CONCURRENCY} downloads in flight, saw ${waiting.length}`
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      expect(maxInFlight).toBe(SNAPSHOT_DOWNLOAD_CONCURRENCY);
+    } finally {
+      release = true;
+      for (const resolve of waiting.splice(0)) resolve();
+    }
+    await job;
+    expect(maxInFlight).toBe(SNAPSHOT_DOWNLOAD_CONCURRENCY);
+    for (let index = 0; index < count; index += 1) {
+      expect(await body(store, `${outputPrefix(prefix)}page-${index}.html`)).toBe(
+        `<p>${index}</p>`
+      );
+    }
   });
 });
