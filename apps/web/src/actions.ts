@@ -13,9 +13,12 @@ import {
   can,
   createAccount,
   createInvitation,
+  getImporterSettings,
   hasAnyAccess,
   loadGrants,
-  slugify
+  slugify,
+  updateEditSettings,
+  updateImporterSettings
 } from "@flagstage/core";
 import { importRun, message, site, thread, user } from "@flagstage/db";
 import { sendEmail } from "@flagstage/forms";
@@ -59,6 +62,7 @@ import { ACCOUNT_COOKIE, SITE_COOKIE } from "./account-cookie";
 import { getAuth } from "./auth";
 import { applyAuthResponse } from "./cookies";
 import { database, landingPath, requirePrincipal } from "./guard";
+import { installedImporters } from "./installed-importers";
 
 async function deliver(to: string, subject: string, text: string) {
   const config = loadConfig();
@@ -641,6 +645,56 @@ export async function addDomainAction(formData: FormData) {
     });
   }
   redirect(await siteHref(siteId, "/domain"));
+}
+
+export async function saveImporterSettingsAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  if (!can(principal, "org.manage")) redirect("/no-access");
+  const modelId = String(formData.get("decisionModel") ?? "").trim();
+  const maxPages = Number(formData.get("maxPages"));
+  const maxAssets = Number(formData.get("maxAssets"));
+  try {
+    await updateImporterSettings(database(), principal, {
+      decisionModel: { provider: "bedrock", modelId },
+      maxPages,
+      maxAssets
+    });
+  } catch {
+    redirect("/admin/settings/importer?error=1");
+  }
+  redirect("/admin/settings/importer");
+}
+
+export async function toggleImporterAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  if (!can(principal, "org.manage")) redirect("/no-access");
+  const id = String(formData.get("importer") ?? "").trim();
+  if (!installedImporters().some((item) => item.id === id)) {
+    redirect("/admin/settings/importer?error=1");
+  }
+  const db = database();
+  const current = await getImporterSettings(db);
+  const disabled = new Set(current.disabledImporters);
+  if (disabled.has(id)) disabled.delete(id);
+  else disabled.add(id);
+  try {
+    await updateImporterSettings(db, principal, { disabledImporters: [...disabled] });
+  } catch {
+    redirect("/admin/settings/importer?error=1");
+  }
+  redirect("/admin/settings/importer");
+}
+
+export async function saveEditSettingsAction(formData: FormData) {
+  const principal = await requirePrincipal();
+  if (!can(principal, "org.manage")) redirect("/no-access");
+  const handEditPageLimit = Number(formData.get("handEditPageLimit"));
+  try {
+    await updateEditSettings(database(), principal, { handEditPageLimit });
+  } catch {
+    redirect("/admin/settings/editor?error=1");
+  }
+  redirect("/admin/settings/editor");
 }
 
 export async function recheckDomainAction(formData: FormData) {

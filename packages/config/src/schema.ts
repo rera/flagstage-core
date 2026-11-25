@@ -60,9 +60,7 @@ export const envSchema = z
         .enum(["0", "1", "true", "false", "yes", "no"])
         .transform((value) => value === "1" || value === "true" || value === "yes")
     ),
-    IMPORT_MAX_PAGES: intWithDefault(500),
     IMPORT_MAX_DEPTH: intWithDefault(6),
-    IMPORT_MAX_ASSETS: intWithDefault(10_000),
     ANALYTICS_ENABLED: z.preprocess(
       (value) => (value === undefined || value === "" ? "1" : value),
       z

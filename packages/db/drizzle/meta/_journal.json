@@ -57,6 +57,13 @@
       "when": 1762980000000,
       "tag": "0007_snapshot_bytes",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1762990000000,
+      "tag": "0008_import_caps",
+      "breakpoints": true
     }
   ]
 }

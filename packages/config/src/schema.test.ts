@@ -16,7 +16,9 @@ describe("loadConfig", () => {
   it("applies defaults for a local install", () => {
     const config = loadConfig(valid);
     expect(config.STORAGE_DRIVER).toBe("fs");
-    expect(config.IMPORT_MAX_PAGES).toBe(500);
+    expect(config.IMPORT_MAX_DEPTH).toBe(6);
+    expect("IMPORT_MAX_PAGES" in config).toBe(false);
+    expect("IMPORT_MAX_ASSETS" in config).toBe(false);
     expect(config.EMAIL_PASSWORD_ENABLED).toBe(true);
     expect(config.ANALYTICS_ENABLED).toBe(true);
     expect(config.AGENT_TIMEOUT_SEC).toBe(600);

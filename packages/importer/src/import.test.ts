@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
 
+import { updateImporterSettings, type Principal } from "@flagstage/core";
 import { account, importRun, leadForm, site, siteRedirect, type Database } from "@flagstage/db";
 import * as fullSchema from "@flagstage/db";
 import type { BlobStore, StoredObject } from "@flagstage/storage";
@@ -21,8 +22,11 @@ import {
   runImport,
   storeImport,
   wordpressImporter,
+  type ImportCaps,
   type ImportResult
 } from "./index";
+
+const admin: Principal = { id: "admin-1", orgRole: "admin", memberships: [] };
 
 const html = `<!doctype html><html><head>
 <style>.hero{background:url(/wp-content/uploads/bg.png)}</style>
@@ -69,7 +73,9 @@ async function applyMigrations(client: PGlite) {
     "0001_auth_plugins.sql",
     "0003_builder.sql",
     "0004_schedule.sql",
-    "0005_importer_settings.sql"
+    "0005_importer_settings.sql",
+    "0007_snapshot_bytes.sql",
+    "0008_import_caps.sql"
   ]) {
     const sqlText = readFileSync(join(root, file), "utf8");
     for (const statement of sqlText.split("--> statement-breakpoint")) {
@@ -242,7 +248,7 @@ describe("site import", () => {
       importRunId: "run-2",
       sourceUrl: "https://example.test",
       appOrigin: "http://localhost:3000",
-      caps: { maxPages: 5, maxDepth: 1, maxAssets: 5 },
+      caps: { maxDepth: 1 },
       fetchPage: async () => ({ status: 500, body: new Uint8Array(), contentType: "text/html" })
     });
     expect(stored.snapshotId).toBeUndefined();
@@ -317,7 +323,7 @@ describe("site import", () => {
       importRunId: "run-3",
       sourceUrl: "https://example.test",
       appOrigin: "http://localhost:3000",
-      caps: { maxPages: 5, maxDepth: 1, maxAssets: 5 },
+      caps: { maxDepth: 1 },
       source: "fixture-source",
       fetchPage: async () => {
         throw new Error("The named source should not fetch.");
@@ -388,7 +394,7 @@ describe("site import", () => {
       importRunId: "run-4",
       sourceUrl: "https://example.test",
       appOrigin: "http://localhost:3000",
-      caps: { maxPages: 5, maxDepth: 1, maxAssets: 5 },
+      caps: { maxDepth: 1 },
       source: "progress-source"
     });
     expect(stored.snapshotId).toBeUndefined();
@@ -429,7 +435,7 @@ describe("site import", () => {
       importRunId: "run-5",
       sourceUrl: "https://example.test",
       appOrigin: "http://localhost:3000",
-      caps: { maxPages: 5, maxDepth: 1, maxAssets: 5 },
+      caps: { maxDepth: 1 },
       source: "no-such-source"
     });
     expect(stored.snapshotId).toBeUndefined();
@@ -509,7 +515,7 @@ describe("site import", () => {
       importRunId: "run-6",
       sourceUrl: "https://example.test",
       appOrigin: "http://localhost:3000",
-      caps: { maxPages: 5, maxDepth: 1, maxAssets: 5 },
+      caps: { maxDepth: 1 },
       source: "shared-blocks"
     });
     expect(stored.snapshotId).toBeTruthy();
@@ -670,6 +676,90 @@ describe("site import", () => {
     expect(redirects.map((row) => row.fromPath)).toEqual([]);
     const run = await db.select().from(importRun).where(eq(importRun.id, "run-plain"));
     expect(run[0]?.fidelityReport).toMatchObject({ plugins: [], forms: [] });
+    await client.close();
+  });
+
+  it("uses the stored page and asset caps, and skips an importer that is off", async () => {
+    const client = new PGlite();
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+    await updateImporterSettings(db, admin, { maxPages: 2, maxAssets: 3 });
+    let seen: ImportCaps | undefined;
+    registerImporter({
+      id: "cap-probe",
+      label: "Cap probe",
+      detect() {
+        return null;
+      },
+      async run(options) {
+        seen = options.caps;
+        return {
+          pages: [
+            {
+              path: "index.html",
+              body: new TextEncoder().encode("<p>capped</p>"),
+              contentType: "text/html; charset=utf-8"
+            }
+          ],
+          assets: [],
+          redirects: [],
+          forms: [],
+          report: { forms: [], plugins: [], missingAssets: [], cssBackgrounds: [], uncertain: [] },
+          stats: { pages: 1, assets: 0, pagesFound: 1, pagesDone: 1, skipped: [] }
+        };
+      }
+    });
+    await db.insert(account).values({ id: "acct-caps", name: "Caps", slug: "caps" });
+    await db.insert(site).values({
+      id: "site-caps",
+      accountId: "acct-caps",
+      name: "Caps",
+      slug: "caps-site",
+      sourceUrl: "https://example.test",
+      status: "importing"
+    });
+    await db.insert(importRun).values({
+      id: "run-caps",
+      siteId: "site-caps",
+      sourceUrl: "https://example.test",
+      status: "queued"
+    });
+    const stored = await runImport({
+      db,
+      store: memoryStore(),
+      siteId: "site-caps",
+      importRunId: "run-caps",
+      sourceUrl: "https://example.test",
+      appOrigin: "http://localhost:3000",
+      caps: { maxDepth: 4 },
+      source: "cap-probe"
+    });
+    expect(stored.snapshotId).toBeTruthy();
+    expect(seen).toEqual({ maxPages: 2, maxAssets: 3, maxDepth: 4 });
+
+    await updateImporterSettings(db, admin, { disabledImporters: ["cap-probe"] });
+    await db.insert(importRun).values({
+      id: "run-caps-off",
+      siteId: "site-caps",
+      sourceUrl: "https://example.test",
+      status: "queued"
+    });
+    seen = undefined;
+    const skipped = await runImport({
+      db,
+      store: memoryStore(),
+      siteId: "site-caps",
+      importRunId: "run-caps-off",
+      sourceUrl: "https://example.test",
+      appOrigin: "http://localhost:3000",
+      caps: { maxDepth: 4 },
+      source: "cap-probe"
+    });
+    expect(skipped.snapshotId).toBeUndefined();
+    expect(seen).toBeUndefined();
+    const row = await db.select().from(importRun).where(eq(importRun.id, "run-caps-off"));
+    expect(row[0]?.status).toBe("failed");
+    expect(row[0]?.error).toMatch(/turned off/);
     await client.close();
   });
 });

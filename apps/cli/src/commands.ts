@@ -142,7 +142,7 @@ export async function importAccountSite(input: {
   url: string;
   name?: string;
   appOrigin: string;
-  caps: { maxPages: number; maxDepth: number; maxAssets: number };
+  caps: { maxDepth: number };
   region?: string;
 }) {
   const rows = await input.db

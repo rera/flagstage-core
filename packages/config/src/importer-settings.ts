@@ -17,6 +17,12 @@ export const DEFAULT_DECISION_MODEL_ID = "global.anthropic.claude-haiku-4-5-2025
 /** Matches the threshold the importer used before this setting existed. */
 export const DEFAULT_DECISION_CONFIDENCE_THRESHOLD = 0.6;
 
+/** Default page cap for an import. A platform setting, not an environment variable. */
+export const DEFAULT_IMPORT_MAX_PAGES = 5_000;
+
+/** Default asset cap for an import. A platform setting, not an environment variable. */
+export const DEFAULT_IMPORT_MAX_ASSETS = 20_000;
+
 export const decisionModelSchema = z
   .object({
     provider: z.literal("bedrock"),
@@ -28,7 +34,10 @@ export const importerSettingsSchema = z
   .object({
     decisionModel: decisionModelSchema,
     decisionEnabled: z.boolean(),
-    decisionConfidenceThreshold: z.number().min(0).max(1)
+    decisionConfidenceThreshold: z.number().min(0).max(1),
+    maxPages: z.number().int().positive().max(1_000_000),
+    maxAssets: z.number().int().positive().max(10_000_000),
+    disabledImporters: z.array(z.string().trim().min(1).max(64)).max(64)
   })
   .strict();
 
@@ -47,7 +56,10 @@ export function defaultImporterSettings(): ImporterSettings {
   return {
     decisionModel: { provider: "bedrock", modelId: DEFAULT_DECISION_MODEL_ID },
     decisionEnabled: true,
-    decisionConfidenceThreshold: DEFAULT_DECISION_CONFIDENCE_THRESHOLD
+    decisionConfidenceThreshold: DEFAULT_DECISION_CONFIDENCE_THRESHOLD,
+    maxPages: DEFAULT_IMPORT_MAX_PAGES,
+    maxAssets: DEFAULT_IMPORT_MAX_ASSETS,
+    disabledImporters: []
   };
 }
 

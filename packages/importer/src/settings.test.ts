@@ -22,11 +22,14 @@ const SUMMARY: ListingSummary = {
 
 async function database() {
   const client = new PGlite();
-  const sqlText = readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle/0005_importer_settings.sql"),
-    "utf8"
-  );
-  await client.exec(sqlText);
+  const root = join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle");
+  for (const file of ["0005_importer_settings.sql", "0008_import_caps.sql"]) {
+    const sqlText = readFileSync(join(root, file), "utf8");
+    for (const statement of sqlText.split("--> statement-breakpoint")) {
+      const query = statement.trim();
+      if (query) await client.exec(query);
+    }
+  }
   const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
   return { db, client };
 }

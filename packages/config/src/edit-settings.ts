@@ -2,8 +2,8 @@ import { z } from "zod";
 
 /**
  * How many page files one change may edit by hand, outside the site-edit tools.
- * One database row, not an environment variable. The admin screen comes later;
- * it should call the core accessor rather than reading this row itself.
+ * One database row, not an environment variable. The admin editor page calls
+ * the core accessor rather than reading this row itself.
  */
 export const DEFAULT_HAND_EDIT_PAGE_LIMIT = 8;
 

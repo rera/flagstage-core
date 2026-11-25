@@ -31,6 +31,10 @@ How many page files one change may edit by hand is also a platform setting
 in the database, not an environment variable. The default is 8. Pages
 written by the site-edit tools do not count toward it.
 
+How many pages and assets one import may copy are platform settings too,
+edited in Admin under Settings, Importer. The defaults are 5,000 pages and
+20,000 assets. Link depth stays \`IMPORT_MAX_DEPTH\`.
+
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
 ${rows}

@@ -22,6 +22,10 @@ How many page files one change may edit by hand is also a platform setting
 in the database, not an environment variable. The default is 8. Pages
 written by the site-edit tools do not count toward it.
 
+How many pages and assets one import may copy are platform settings too,
+edited in Admin under Settings, Importer. The defaults are 5,000 pages and
+20,000 assets. Link depth stays `IMPORT_MAX_DEPTH`.
+
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | yes | `` | Postgres connection string. Required at boot. |
@@ -45,9 +49,7 @@ written by the site-edit tools do not count toward it.
 | `MAIL_FROM` | no | `` | From address for SES. Defaults to sesFrom in flagstage.config.json. |
 | `FORM_NOTIFY_EMAIL` | no | `` | Optional addresses that receive a form submission. Separate several with commas. A form's own notify list is included too. |
 | `EMAIL_PASSWORD_ENABLED` | no | `1` | Set to 0 to turn off email and password sign-in. |
-| `IMPORT_MAX_PAGES` | no | `500` | Default page cap for an import. |
-| `IMPORT_MAX_DEPTH` | no | `6` | Default link depth for an import. |
-| `IMPORT_MAX_ASSETS` | no | `10000` | Default asset cap for an import. |
+| `IMPORT_MAX_DEPTH` | no | `6` | Default link depth for an import. Page and asset caps are Admin settings. |
 | `ANALYTICS_ENABLED` | no | `1` | Default for new sites. A site can turn analytics off. When off, the beacon is not injected. |
 | `LOG_LEVEL` | no | `info` | pino level: fatal, error, warn, info, debug, trace, or silent. |
 | `METRICS_TOKEN` | no | `` | Bearer token required by /api/metrics. When unset, the endpoint responds 404. |

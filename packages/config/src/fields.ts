@@ -180,28 +180,12 @@ export const ENV_FIELDS = [
     defaultValue: "1"
   },
   {
-    name: "IMPORT_MAX_PAGES",
-    description: "Default page cap for an import.",
-    requirement: "optional",
-    secret: false,
-    example: "500",
-    defaultValue: "500"
-  },
-  {
     name: "IMPORT_MAX_DEPTH",
-    description: "Default link depth for an import.",
+    description: "Default link depth for an import. Page and asset caps are Admin settings.",
     requirement: "optional",
     secret: false,
     example: "6",
     defaultValue: "6"
-  },
-  {
-    name: "IMPORT_MAX_ASSETS",
-    description: "Default asset cap for an import.",
-    requirement: "optional",
-    secret: false,
-    example: "10000",
-    defaultValue: "10000"
   },
   {
     name: "ANALYTICS_ENABLED",
