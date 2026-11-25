@@ -113,11 +113,15 @@ Return the pages as imported. `runImport` extracts shared blocks after `run` ret
 
 ## Options and progress
 
-`options` carries `sourceUrl`, `appOrigin`, `siteId`, and `caps` (`maxPages`, `maxDepth`, `maxAssets`). `runImport` fills `maxPages` and `maxAssets` from the platform importer settings (defaults 5,000 and 20,000). `maxDepth` is `IMPORT_MAX_DEPTH`.
+`options` carries `sourceUrl`, `appOrigin`, `siteId`, and `caps`. `runImport` calls `readImportCaps`, which is the only place that chooses the page and asset caps. Those come from platform importer settings (defaults 5,000 and 20,000). `maxDepth` is the depth passed for the run (`IMPORT_MAX_DEPTH`).
 
-`fetchPage` reads one URL and returns `{ status, body, contentType }`, or null. `runImport` sets it. The default follows redirects and calls `fetch`. The public crawler and the WordPress importer both require it.
+`urls`, when set, is an explicit list of absolute URLs or same-origin paths to import.
 
-`onProgress` receives `{ pagesFound, pagesDone, skipped }`. `runImport` writes that object onto the import row and notifies the site page. Call it as the source makes progress. The final `stats` object replaces it when the run completes, so copy the same fields onto `stats`.
+`fetchPage` reads one URL and returns `{ status, body, contentType }`, or null. `runImport` sets it. The default follows redirects, sends `User-Agent: FlagstageCrawler`, and calls `fetch`. The public crawler and the WordPress importer both require it.
+
+`store` and `capturePrefix` stream each captured file as it is fetched. `runImport` sets both. The progress file is `progress.json` under that prefix. A later run with the same prefix skips pages already listed there.
+
+`onProgress` receives `{ stage, pagesFound, pagesDone, pagesProcessed, skipped }`. `stage` is `discovering`, `crawling`, or `rewriting`. `pagesProcessed` counts finished pages and matches `pagesDone`, which the current site page reads. `runImport` writes that object onto the import row and notifies the site page. Call it as the source makes progress. The final `stats` object replaces it when the run completes, so copy the same fields onto `stats`.
 
 A thrown error fails the run. The message is stored on the import row, and the site status becomes `failed`. An unknown `source` fails the same way.
 
@@ -125,11 +129,17 @@ A thrown error fails the run. The message is stored on the import row, and the s
 
 `packages/importer/src/crawl.ts` is the generic crawl. `publicImporter` in `packages/importer/src/importers/public.ts` is the registered source. Its id is `public`. The type of a source is `Importer` in `packages/importer/src/interface.ts`. The result type is `ImportResult` in `packages/importer/src/types.ts`.
 
-`crawlSite` is that source's `run`. It fetches the origin, then follows same-origin links until a cap stops it. HTML is rewritten into `pages`. Other saved files are `assets`. A form mapped by `annotatePage` is pointed at `{appOrigin}/f/{siteId}/{formKey}` and added to `forms`. Site search markup is a fidelity note. Missing files are listed on the report. This crawler does not request WordPress URLs, and it does not record `/feed`, `/feed/`, `/index.php`, or `/?p=` redirects.
+`crawlSite` is that source's `run`. It fetches `/robots.txt` and obeys `Disallow` for `FlagstageCrawler` (or `User-agent: *` when that group is the one that matches). It reads every `Sitemap:` line and `/sitemap.xml`, follows sitemap indexes and nested sitemaps, and gunzips `.gz` bodies. Those URLs are the page set, plus `/` when robots allows it. With no sitemap, it follows same-origin links from the seeds (default `/`) until a cap or `maxDepth` stops it. `urls` replaces that discovery. An explicit list does not also crawl the sitemap.
 
-`crawlSite` accepts optional `seeds`, `redirects`, and `annotatePage`. A specialized importer uses those to add starting paths, redirects, and per-page notes, then returns the same `ImportResult`. The public importer passes none of them.
+HTML is stored as `pages`. Other saved files are `assets`. A link to an imported page or asset is rewritten to a root-relative URL. A link to a page that was not imported stays absolute on the source origin. A form mapped by `annotatePage` is pointed at `{appOrigin}/f/{siteId}/{formKey}` and added to `forms`. Site search markup is a fidelity note. Missing files are listed on the report. This crawler does not request WordPress URLs, and it does not record `/feed`, `/feed/`, `/index.php`, or `/?p=` redirects.
 
-After each page it calls `onProgress` with pages found, pages done, and any skipped path. An origin that does not answer throws `The site did not answer.`
+Workers default to 6 (`DEFAULT_CRAWL_CONCURRENCY`, clamped to 8) with 200ms between fetches to one host (`DEFAULT_HOST_INTERVAL_MS`). Those are code defaults. Pass `concurrency` or `hostIntervalMs` on `crawlSite` to override them. There is no environment variable for either.
+
+When `store` is set, each file is written under `capturePrefix` as it is fetched and the result bodies are empty. `progress.json` next to those files lists the finished paths. A later `crawlSite` with the same prefix and origin skips them. Without `store`, the result still carries the bytes.
+
+`crawlSite` accepts optional `seeds`, `redirects`, and `annotatePage`. A specialized importer uses those to add starting paths, redirects, and per-page notes, then returns the same `ImportResult`. The public importer passes none of them. `parseRobots`, `collectSitemapPages`, and `maybeGunzip` are the discovery helpers. The WordPress importer keeps its own seeds and can call the same helpers. It already gunzips the WordPress sitemap responses.
+
+After each page it calls `onProgress` with the stage, pages found, pages processed, and any skipped path. An origin that does not answer throws `The site did not answer.` A crawl whose robots rules leave no allowed page throws `robots.txt disallows this crawl.`
 
 `stats.pages` on this crawler counts pages visited, including a page that was skipped. `stats.assets` counts files saved as assets. `pages.length` is the HTML that was kept.
 

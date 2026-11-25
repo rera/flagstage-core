@@ -57,8 +57,10 @@ export type SkippedPage = {
 export type ImportStats = {
   pages: number;
   assets: number;
+  stage?: "discovering" | "crawling" | "rewriting";
   pagesFound?: number;
   pagesDone?: number;
+  pagesProcessed?: number;
   skipped?: SkippedPage[];
 };
 
@@ -69,4 +71,9 @@ export type ImportResult = {
   forms: MappedForm[];
   report: FidelityReport;
   stats: ImportStats;
+  /**
+   * Set when page and asset bytes were streamed under this prefix
+   * (`files/` plus the storage path). `body` may be empty until read back.
+   */
+  capturePrefix?: string;
 };

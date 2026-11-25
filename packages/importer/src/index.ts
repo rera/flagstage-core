@@ -1,4 +1,23 @@
-export { crawlSite, type AnnotatedForm, type CrawlOptions, type PageAnnotation } from "./crawl";
+export { readImportCaps } from "./caps";
+export {
+  crawlSite,
+  CRAWLER_USER_AGENT,
+  DEFAULT_CRAWL_CONCURRENCY,
+  DEFAULT_HOST_INTERVAL_MS,
+  resolveCrawlConcurrency,
+  storagePath,
+  type AnnotatedForm,
+  type CrawlOptions,
+  type PageAnnotation
+} from "./crawl";
+export {
+  collectSitemapPages,
+  isAssetPath,
+  maybeGunzip,
+  pagePathsFromList,
+  parseRobots,
+  type RobotsRules
+} from "./discover";
 export { extractSharedBlocks } from "./extract";
 export { PUBLIC_IMPORTER_ID, publicImporter } from "./importers/public";
 export { WORDPRESS_IMPORTER_ID, wordpressImporter } from "./importers/wordpress";
@@ -14,6 +33,7 @@ export {
 export type {
   ImportOptions,
   ImportProgress,
+  ImportStage,
   Importer,
   ImporterChoice,
   ImporterMatch

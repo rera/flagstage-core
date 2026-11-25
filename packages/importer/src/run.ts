@@ -4,9 +4,11 @@ import { bedrockListingDecide } from "@flagstage/ai";
 import { getImporterSettings } from "@flagstage/core";
 import type { Database } from "@flagstage/db";
 import { importRun, site } from "@flagstage/db";
-import type { BlobStore } from "@flagstage/storage";
+import { importPrefix, type BlobStore } from "@flagstage/storage";
 
 import { withImportBaseline } from "./baseline";
+import { readImportCaps } from "./caps";
+import { deleteCapture, hydrateCaptured } from "./capture";
 import { extractSharedBlocks } from "./extract";
 import { defaultFetch } from "./fetch-page";
 import { scaffoldSite } from "./templates";
@@ -31,6 +33,8 @@ export async function runImport(input: {
   appOrigin: string;
   /** Page and asset caps are read from platform settings. Depth is per run. */
   caps: Pick<ImportCaps, "maxDepth"> & Partial<ImportCaps>;
+  /** Same-origin pages to import. When set, the public crawler does not discover further pages. */
+  urls?: readonly string[];
   source?: string;
   fetchPage?: PageFetch;
   /** Bedrock region for the decision model. The model id is not read from the environment. */
@@ -44,6 +48,8 @@ export async function runImport(input: {
   try {
     const settings = await getImporterSettings(input.db);
     const fetchPage = input.fetchPage ?? defaultFetch;
+    const caps = await readImportCaps(input.db, input.caps.maxDepth);
+    const capturePrefix = importPrefix(input.importRunId);
     const requested = input.source?.trim();
     const sourceName = requested
       ? requested
@@ -52,24 +58,26 @@ export async function runImport(input: {
       throw new Error(`The ${sourceName} importer is turned off.`);
     }
     const importer = getImporter(sourceName);
-    const imported = await importer.run({
-      fetchPage,
-      sourceUrl: input.sourceUrl,
-      appOrigin: input.appOrigin,
-      siteId: input.siteId,
-      caps: {
-        maxPages: settings.maxPages,
-        maxAssets: settings.maxAssets,
-        maxDepth: input.caps.maxDepth
-      },
-      onProgress: async (progress) => {
-        await input.db
-          .update(importRun)
-          .set({ stats: progress, updatedAt: new Date() })
-          .where(eq(importRun.id, input.importRunId));
-        await notify(input.db, input.siteId);
-      }
-    });
+    const imported = await hydrateCaptured(
+      input.store,
+      await importer.run({
+        fetchPage,
+        sourceUrl: input.sourceUrl,
+        appOrigin: input.appOrigin,
+        siteId: input.siteId,
+        caps,
+        urls: input.urls,
+        store: input.store,
+        capturePrefix,
+        onProgress: async (progress) => {
+          await input.db
+            .update(importRun)
+            .set({ stats: progress, updatedAt: new Date() })
+            .where(eq(importRun.id, input.importRunId));
+          await notify(input.db, input.siteId);
+        }
+      })
+    );
     const result = withImportBaseline(
       await scaffoldSite(extractSharedBlocks(imported), {
         decide: bedrockListingDecide({
@@ -87,6 +95,7 @@ export async function runImport(input: {
       importRunId: input.importRunId,
       result
     });
+    await deleteCapture(input.store, result.capturePrefix);
     await notify(input.db, input.siteId);
     return { snapshotId: stored.snapshotId };
   } catch (error) {
