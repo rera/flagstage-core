@@ -161,12 +161,24 @@ dialog.modal-surface[open] {
 dialog.modal-surface[open]::backdrop {
   position: fixed;
   inset: 0;
-  background: rgb(17 22 32 / 40%);
-  /* Same color outside the viewport so a full-page capture stays dimmed below the fold. */
-  box-shadow: 0 0 0 100vmax rgb(17 22 32 / 40%);
+  background: transparent;
 }
 
 html:has(dialog.modal-surface[open]),
 html:has(dialog.modal-surface[open]) body {
   overflow: hidden;
+}
+
+html:has(dialog.modal-surface[open]) body {
+  position: relative;
+}
+
+/* Covers the whole document, including content below the fold, in one even layer. */
+html:has(dialog.modal-surface[open]) body::before {
+  content: "";
+  position: absolute;
+  z-index: 70;
+  inset: 0;
+  background: rgb(17 22 32 / 40%);
+  pointer-events: none;
 }

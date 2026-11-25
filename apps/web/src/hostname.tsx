@@ -21,9 +21,13 @@ export function Hostname({
   return (
     <span className={cn("min-w-0", className)} title={value}>
       {labels.map((label, index) => (
-        <span key={index} className="inline-block max-w-full truncate align-bottom">
-          {label}
-          {index < labels.length - 1 ? "." : null}
+        <span key={index}>
+          <span className="whitespace-nowrap">{label}</span>
+          {index < labels.length - 1 ? (
+            <>
+              .<wbr />
+            </>
+          ) : null}
         </span>
       ))}
     </span>
