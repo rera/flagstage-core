@@ -36,7 +36,9 @@ import {
   localInputToUtc,
   materializeOutput,
   notePublishChecks,
+  publishRedirects,
   recordPublish,
+  redirectEdge,
   rollbackTo,
   swapLive,
   writeHostMap
@@ -106,6 +108,12 @@ async function publishHostMap(host: string | undefined, prefix: string | undefin
   const config = loadConfig();
   if (config.HOSTMAP_DRIVER !== "cloudfront-kvs" || !config.CLOUDFRONT_KVS_ARN) return;
   await writeHostPrefix(cloudfrontKeyValueStore(config.CLOUDFRONT_KVS_ARN), host, prefix);
+}
+
+async function publishEdgeRedirects(siteId: string, host: string) {
+  const edge = redirectEdge(loadConfig());
+  if (!edge.store) return;
+  await publishRedirects({ db: database(), siteId, host, store: edge.store });
 }
 
 async function invalidateLive(fromPrefix: string | null | undefined, toPrefix: string | undefined) {
@@ -310,6 +318,7 @@ export async function approveSiteAction(formData: FormData) {
   const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
   const found = rows[0];
   if (!found) redirect(await landingPath(principal));
+  await publishEdgeRedirects(siteId, liveHost(found.slug));
   const before = found.currentSnapshotId
     ? await db.select().from(snapshot).where(eq(snapshot.id, found.currentSnapshotId)).limit(1)
     : [];
@@ -399,6 +408,7 @@ export async function approveChangeAction(formData: FormData) {
   const config = loadConfig();
   const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
   const found = rows[0];
+  if (found) await publishEdgeRedirects(siteId, liveHost(found.slug));
   const published = await approveChange({
     db: database(),
     store: createBlobStore(config),
@@ -446,6 +456,7 @@ export async function publishDraftAction(formData: FormData) {
     siteId,
     built.checks ?? { blocked: false, drift: [], missing: [], ms: 0 }
   );
+  await publishEdgeRedirects(siteId, liveHost(found.slug));
   const swapped = await swapLive(db, siteId, found.currentSnapshotId, snapshotId);
   if (!swapped) redirect(`${await siteHref(siteId)}?error=1`);
   await recordPublish({
