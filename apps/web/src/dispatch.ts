@@ -20,7 +20,12 @@ function editor() {
   });
 }
 
-export async function startImport(job: { siteId: string; runId: string; sourceUrl: string }) {
+export async function startImport(job: {
+  siteId: string;
+  runId: string;
+  sourceUrl: string;
+  source?: string;
+}) {
   const cluster = process.env.ECS_CLUSTER;
   const taskDefinition = process.env.IMPORT_TASK_DEFINITION;
   if (cluster && taskDefinition) {
@@ -66,6 +71,7 @@ export async function startImport(job: { siteId: string; runId: string; sourceUr
     sourceUrl: job.sourceUrl,
     appOrigin: config.APP_URL,
     region,
+    source: job.source,
     caps: { maxDepth: config.IMPORT_MAX_DEPTH }
   }).catch(() => undefined);
 }

@@ -251,6 +251,53 @@ const corpus = createServer((_req, res) => {
 });
 await new Promise((resolve) => corpus.listen(Number(corpusPort), "127.0.0.1", resolve));
 
+const wpPort = process.env.E2E_WP_PORT ?? "4001";
+const wpHeader = `<header class="site-header"><p>Pine and Harbor outfitters</p><nav class="site-nav"><a href="/">Home</a><a href="/jackets">Jackets</a><a href="/boots">Boots</a><a href="/coats">Coats</a><a href="/visit">Visit</a></nav></header>`;
+
+function wpFooter(year) {
+  return `<footer class="site-footer"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/contact">Contact</a><p>Copyright ${year}</p></footer>`;
+}
+
+function wpPage(title, main, year = "2026") {
+  return `<!doctype html><html><head><title>${title}</title></head><body>${wpHeader}<main>${main}</main>${wpFooter(year)}</body></html>`;
+}
+
+const wpPages = new Map([
+  ["/", wpPage("Home", "<h1>Home</h1><p>Welcome to the outfitters.</p>")],
+  [
+    "/jackets",
+    wpPage("Women's jackets", "<h1>Women's jackets</h1><p>A size chart for this jacket.</p>", "2025")
+  ],
+  ["/boots", wpPage("Boots", "<article><h1>Boots</h1><p>A boot for the trail.</p></article>")],
+  ["/coats", wpPage("Coats", "<article><h1>Coats</h1><p>A coat for the harbor.</p></article>")],
+  [
+    "/visit",
+    wpPage(
+      "Visit us",
+      "<h1>Visit us</h1><p>The shop is on the harbor.</p><p>Hours are posted at the door.</p>"
+    )
+  ]
+]);
+
+const wordpress = createServer(async (req, res) => {
+  const path = new URL(req.url ?? "/", "http://127.0.0.1").pathname.replace(/\/+$/, "") || "/";
+  if (path === "/wp-json") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ name: "Pine and Harbor", namespaces: ["wp/v2"] }));
+    return;
+  }
+  const body = wpPages.get(path);
+  if (!body) {
+    res.writeHead(404, { "content-type": "text/plain" });
+    res.end("not found");
+    return;
+  }
+  await sleep(3000);
+  res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+  res.end(body);
+});
+await new Promise((resolve) => wordpress.listen(Number(wpPort), "127.0.0.1", resolve));
+
 const env = {
   ...process.env,
   PATH: `${join(process.cwd(), "e2e/bin")}${delimiter}${process.env.PATH ?? ""}`,
@@ -287,6 +334,7 @@ function shutdown(code) {
   stopping = true;
   fixture.close();
   corpus.close();
+  wordpress.close();
   for (const child of children) child.kill("SIGTERM");
   setTimeout(() => process.exit(code), 500);
 }

@@ -19,10 +19,6 @@ import { chatBody } from "../../../../../../../src/time";
 import { ChatStream } from "../chat-stream";
 
 type Report = {
-  forms?: Array<{ page: string; kind: string; detail: string }>;
-  plugins?: Array<{ page: string; kind: string; detail: string }>;
-  missingAssets?: string[];
-  cssBackgrounds?: string[];
   publishChecks?: Array<{ page: string; kind: string; detail: string }>;
 };
 
@@ -88,12 +84,7 @@ export default async function SitePage({
   const runs = await db.select().from(importRun).where(eq(importRun.siteId, siteId));
   const latest = runs[runs.length - 1];
   const report = (latest?.fidelityReport ?? null) as Report | null;
-  const notes = [
-    ...(report?.forms ?? []).map((item) => `${item.page}: ${item.detail}`),
-    ...(report?.plugins ?? []).map((item) => `${item.page}: ${item.detail}`),
-    ...(report?.missingAssets ?? []).map((asset) => `${t("sites.missing")} ${asset}`),
-    ...(report?.publishChecks ?? []).map((item) => `${item.page}: ${item.detail}`)
-  ];
+  const notes = (report?.publishChecks ?? []).map((item) => `${item.page}: ${item.detail}`);
   const threads = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
   const threadId = threads[0]?.id;
   const messages = threadId
@@ -102,11 +93,6 @@ export default async function SitePage({
   const requests = await db.select().from(changeRequest).where(eq(changeRequest.siteId, siteId));
   const ready = requests.filter((item) => item.status === "preview_ready");
   const readyChange = ready.find((item) => item.resultSnapshotId === found.draftSnapshotId);
-  const progress = (latest?.stats ?? {}) as {
-    pagesFound?: number;
-    pagesDone?: number;
-    skipped?: Array<{ path: string; reason: string }>;
-  };
   const draftId = found.draftSnapshotId ?? found.currentSnapshotId;
   const snaps = await db.select().from(snapshot).where(eq(snapshot.siteId, siteId));
   const pendingSnapshot = snaps
@@ -118,7 +104,6 @@ export default async function SitePage({
   const host = `${found.slug}.localhost`;
   const siblings = await db.select().from(site).where(eq(site.accountId, found.accountId));
   const working = threads[0]?.status === "queued";
-  const importing = found.status === "importing";
   return (
     <div className="flex h-dvh min-h-0 flex-col">
       <ChatStream siteId={found.id} />
@@ -223,30 +208,6 @@ export default async function SitePage({
         <section className="flex min-h-0 flex-col border-border md:border-r">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
             {query.error ? <Alert variant="destructive">{t("sites.failed")}</Alert> : null}
-            {importing ? (
-              <>
-                <Thinking label={t("sites.importing")} />
-                <Steps
-                  items={[
-                    {
-                      id: "found",
-                      label: `${t("sites.pagesFound")} ${progress.pagesFound ?? 0}`,
-                      state: (progress.pagesDone ?? 0) > 0 ? "done" : "active"
-                    },
-                    {
-                      id: "done",
-                      label: `${t("sites.pagesDone")} ${progress.pagesDone ?? 0}`,
-                      state: "active"
-                    },
-                    ...(progress.skipped ?? []).map((item) => ({
-                      id: item.path,
-                      label: `${t("sites.skipped")} ${item.path}: ${item.reason}`,
-                      state: "wait" as const
-                    }))
-                  ]}
-                />
-              </>
-            ) : null}
             {found.status === "failed" ? (
               <Alert variant="destructive">{latest?.error ?? t("sites.failed")}</Alert>
             ) : null}

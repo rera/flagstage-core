@@ -41,7 +41,7 @@ No phone-home and no update check. No billing, plans, or a review queue. No inbo
 
 ## Closed
 
-- The web container starts chat in one Lambda and imports as one-off tasks. Locally those functions run in the web process. The site page shows pages found, pages done, and skipped pages, and it follows the draft.
+- The web container starts chat in one Lambda and imports as one-off tasks. Locally those functions run in the web process. Overview shows pages found, pages done, and skipped pages while a crawl runs, then the import result before Go live. The edit page follows the draft.
 - Published sites are S3 to CloudFront. The app does not serve them. Previews are auth-gated at `/preview/<token>`. Local viewing is `pnpm dev:sites`. `none` stays the domains driver in the stack.
 - A first run is empty. `adminEmail` in `flagstage.config.json` creates the first admin and prints a one-time sign-in link. There is no demo organization, demo site, or demo password.
 - An admin creates an account from the app or with `flagstage account create`. `flagstage member add` invites an account admin. See [Invite account admins](account-admins.md).

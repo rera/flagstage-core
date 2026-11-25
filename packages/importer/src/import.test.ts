@@ -353,6 +353,68 @@ describe("site import", () => {
     await client.close();
   });
 
+  it("uses the importer id saved on the run when source is omitted", async () => {
+    registerImporter({
+      id: "saved-source",
+      label: "Saved source",
+      detect() {
+        return null;
+      },
+      async run() {
+        return {
+          pages: [
+            {
+              path: "index.html",
+              body: new TextEncoder().encode("<p>saved source</p>"),
+              contentType: "text/html; charset=utf-8"
+            }
+          ],
+          assets: [],
+          redirects: [],
+          forms: [],
+          report: { forms: [], plugins: [], missingAssets: [], cssBackgrounds: [], uncertain: [] },
+          stats: { pages: 1, assets: 0, pagesFound: 1, pagesDone: 1, skipped: [] }
+        };
+      }
+    });
+    const client = new PGlite();
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+    await db.insert(account).values({ id: "acct-saved", name: "Saved", slug: "saved" });
+    await db.insert(site).values({
+      id: "site-saved",
+      accountId: "acct-saved",
+      name: "Saved",
+      slug: "saved",
+      sourceUrl: "https://example.test",
+      status: "importing"
+    });
+    await db.insert(importRun).values({
+      id: "run-saved",
+      siteId: "site-saved",
+      sourceUrl: "https://example.test",
+      status: "queued",
+      options: { source: "saved-source" }
+    });
+    const store = memoryStore();
+    const stored = await runImport({
+      db,
+      store,
+      siteId: "site-saved",
+      importRunId: "run-saved",
+      sourceUrl: "https://example.test",
+      appOrigin: "http://localhost:3000",
+      caps: { maxPages: 5, maxDepth: 1, maxAssets: 5 },
+      fetchPage: async () => {
+        throw new Error("The saved source should not fetch.");
+      }
+    });
+    expect(stored.snapshotId).toBeTruthy();
+    const home = [...store.files.keys()].find((key) => key.endsWith("src/index.html"));
+    expect(new TextDecoder().decode(store.files.get(home ?? "")?.body)).toContain("saved source");
+    await client.close();
+  });
+
   it("records progress from the source, then fails the run when that source throws", async () => {
     registerImporter({
       id: "progress-source",

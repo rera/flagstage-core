@@ -22,7 +22,7 @@ import {
 } from "@flagstage/core";
 import { importRun, message, site, thread, user } from "@flagstage/db";
 import { sendEmail } from "@flagstage/forms";
-import { approveImport } from "@flagstage/importer";
+import { approveImport, getImporter } from "@flagstage/importer";
 import { startImport, startTurn } from "./dispatch";
 import { createBlobStore, outputPrefix, publicPrefixFor } from "@flagstage/storage";
 import {
@@ -270,9 +270,17 @@ export async function importSiteAction(formData: FormData) {
   if (!can(principal, "site.manage", { accountId })) redirect("/no-access");
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
+  const source = String(formData.get("source") ?? "").trim();
   const accountSlug = await accountSlugFor(accountId);
   const sitesPath = accountSlug ? `/a/${accountSlug}/sites` : "/";
   if (!sourceUrl || !name) redirect(`${sitesPath}?error=1`);
+  if (source) {
+    try {
+      getImporter(source);
+    } catch {
+      redirect(`${sitesPath}?error=1`);
+    }
+  }
   const db = database();
   const siteId = randomUUID();
   const runId = randomUUID();
@@ -295,9 +303,15 @@ export async function importSiteAction(formData: FormData) {
     status: "importing",
     timeZone
   });
-  await db.insert(importRun).values({ id: runId, siteId, sourceUrl, status: "queued" });
+  await db.insert(importRun).values({
+    id: runId,
+    siteId,
+    sourceUrl,
+    status: "queued",
+    options: source ? { source } : {}
+  });
   try {
-    await startImport({ siteId, runId, sourceUrl });
+    await startImport({ siteId, runId, sourceUrl, source: source || undefined });
   } catch (error) {
     const messageText = error instanceof Error ? error.message : "Import failed";
     await db
