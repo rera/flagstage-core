@@ -26,7 +26,7 @@ Provisioned concurrency defaults to 0, so the first message after idle waits for
 
 Publish can go live later. The builder's Schedule control, or a chat line such as "publish this Friday at 9am", pins the current draft snapshot and a time in the site's time zone. The zone starts as UTC and is set from the browser the first time someone saves a schedule. An optional revert time republishes the snapshot that was live just before that scheduled publish. Later edits do not change a pinned snapshot. Cancel and reschedule are on the site's Scheduled list.
 
-On AWS, EventBridge Scheduler creates a one-time schedule that invokes the chat Lambda with the schedule id. The Lambda calls the same publish path as the button. Locally, the web process checks for due schedules every five seconds. A run is idempotent: a missing snapshot or one that is already live is skipped, and a second delivery does not publish again. Each publish or revert is a row in the version history and the usage log. There are no recurring schedules and no notifications.
+On AWS, EventBridge Scheduler creates a one-time schedule that invokes the chat Lambda with the schedule id. The Lambda calls the same publish path as the button. Locally, the web process checks for due schedules every five seconds. That publish writes the site's redirects into the CloudFront key value store. A stored path, including `/?p=ID`, answers 301. A site that would exceed the store limits does not go live. A run is idempotent: a missing snapshot or one that is already live is skipped, and a second delivery does not publish again. Each publish or revert is a row in the version history and the usage log. There are no recurring schedules and no notifications.
 
 ## Mobile preview
 

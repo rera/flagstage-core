@@ -28,7 +28,7 @@ function editor() {
 
 export async function handler(event: TurnEvent & { scheduleId?: string; action?: string }) {
   if (event.scheduleId) {
-    const { publishScheduled, revertScheduled, syncScheduleHost } =
+    const { publishScheduled, redirectEdge, revertScheduled, syncScheduleHost } =
       await import("@flagstage/publish");
     const config = loadConfig();
     const db = getDb(config.DATABASE_URL);
@@ -36,7 +36,10 @@ export async function handler(event: TurnEvent & { scheduleId?: string; action?:
     const status =
       event.action === "revert"
         ? await revertScheduled(db, event.scheduleId, now)
-        : await publishScheduled(db, event.scheduleId, now, createBlobStore(config));
+        : await publishScheduled(db, event.scheduleId, now, createBlobStore(config), {
+            ...redirectEdge(config),
+            enforce: true
+          });
     if (status === "published" || status === "reverted") {
       await syncScheduleHost(db, event.scheduleId);
     }

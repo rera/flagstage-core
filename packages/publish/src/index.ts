@@ -16,11 +16,23 @@ export {
   swapLive,
   writeHostMap
 } from "./publish";
+export {
+  KVS_LIMITS,
+  RedirectMapError,
+  assertRedirectsFit,
+  canonicalFromPath,
+  memoryRedirectStore,
+  publishRedirects,
+  redirectEdge,
+  redirectKey
+} from "./redirects";
+export type { RedirectEdge, RedirectLimits, RedirectStore } from "./redirects";
 export { syncScheduleHost } from "./sync-host";
 export {
   describeSchedule,
   insertSchedule,
   publishScheduled,
+  recentPublishedSchedules,
   revertScheduled,
   runDueSchedules
 } from "./schedule";

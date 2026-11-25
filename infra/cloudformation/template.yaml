@@ -297,7 +297,7 @@ Resources:
     Type: AWS::CloudFront::KeyValueStore
     Properties:
       Name: !Sub "${Name}-hosts"
-      Comment: Hostname to live snapshot prefix
+      Comment: Hostname prefixes and per-host redirect paths
 
   ViewerRequestFunction:
     Type: AWS::CloudFront::Function
@@ -305,12 +305,14 @@ Resources:
       Name: !Sub "${Name}-viewer-request"
       AutoPublish: true
       FunctionConfig:
-        Comment: Rewrite the host onto the live snapshot prefix
+        Comment: Rewrite the host onto the snapshot and return stored redirects
         Runtime: cloudfront-js-2.0
         KeyValueStoreAssociations:
           - KeyValueStoreARN: !GetAtt HostMap.Arn
       FunctionCode: |
           // Ported from rera/flagstage infrastructure/026-custom-domains/template.yaml @ 27a19bd0c040d40ce2356d6758bb7127657ab782
+          // Hostname keys have no slash. Redirect keys are the hostname plus the path.
+          // A query string is part of the key, sorted and encoded, so /?p=ID matches.
           import cf from "cloudfront";
           var kvsHandle = cf.kvs();
 
@@ -323,6 +325,64 @@ Resources:
               },
               body: "Not Found"
             };
+          }
+
+          function moved(target) {
+            return {
+              statusCode: 301,
+              statusDescription: "Moved Permanently",
+              headers: {
+                location: { value: target }
+              }
+            };
+          }
+
+          function canonicalQuery(qs) {
+            if (!qs) return "";
+            var pairs = [];
+            var names = Object.keys(qs);
+            for (var i = 0; i < names.length; i++) {
+              var name = names[i];
+              var entry = qs[name];
+              if (!entry) continue;
+              if (entry.multiValue && entry.multiValue.length) {
+                for (var j = 0; j < entry.multiValue.length; j++) {
+                  var item = entry.multiValue[j];
+                  pairs.push([name, item && item.value != null ? String(item.value) : ""]);
+                }
+              } else {
+                pairs.push([name, entry.value != null ? String(entry.value) : ""]);
+              }
+            }
+            pairs.sort(function (left, right) {
+              if (left[0] < right[0]) return -1;
+              if (left[0] > right[0]) return 1;
+              if (left[1] < right[1]) return -1;
+              if (left[1] > right[1]) return 1;
+              return 0;
+            });
+            var parts = [];
+            for (var k = 0; k < pairs.length; k++) {
+              parts.push(encodeURIComponent(pairs[k][0]) + "=" + encodeURIComponent(pairs[k][1]));
+            }
+            return parts.join("&");
+          }
+
+          async function redirectTarget(host, path, qs) {
+            var query = canonicalQuery(qs);
+            if (query) {
+              try {
+                var specific = await kvsHandle.get(host + path + "?" + query);
+                if (specific) return specific;
+              } catch (err) {
+                // A missing key rejects. Fall through to the path, then to the file.
+              }
+            }
+            try {
+              return await kvsHandle.get(host + path);
+            } catch (err) {
+              return "";
+            }
           }
 
           async function handler(event) {
@@ -363,6 +423,10 @@ Resources:
                 return notFound();
               }
             }
+            var path = uri || "/";
+            if (path.charAt(0) !== "/") path = "/" + path;
+            var target = await redirectTarget(host, path, request.querystring);
+            if (target) return moved(target);
             if (uri === "/" || uri === "") {
               request.uri = "/" + prefix + "index.html";
               return request;
@@ -565,13 +629,12 @@ Resources:
                 Resource:
                   - !GetAtt SitesBucket.Arn
                   - !Sub "${SitesBucket.Arn}/*"
+              # Describe supplies the ETag. ListKeys finds stale redirects. UpdateKeys puts and deletes.
               - Sid: HostMap
                 Effect: Allow
                 Action:
                   - cloudfront-keyvaluestore:DescribeKeyValueStore
-                  - cloudfront-keyvaluestore:GetKey
                   - cloudfront-keyvaluestore:ListKeys
-                  - cloudfront-keyvaluestore:PutKey
                   - cloudfront-keyvaluestore:UpdateKeys
                 Resource: !GetAtt HostMap.Arn
               - Sid: Invalidate

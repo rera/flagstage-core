@@ -1,14 +1,20 @@
 import { randomUUID } from "node:crypto";
 
-import { and, eq, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, lte } from "drizzle-orm";
 
 import type { Database } from "@flagstage/db";
-import { changeRequest, site, siteSchedule, snapshot, thread } from "@flagstage/db";
+import { changeRequest, message, site, siteSchedule, snapshot, thread } from "@flagstage/db";
 import type { BlobStore } from "@flagstage/storage";
 
 import { armSchedule } from "./arm";
 import { reviewStoredPublish } from "./materialize";
 import { notePublishChecks, recordPublish, swapLive } from "./publish";
+import {
+  RedirectMapError,
+  assertRedirectsFit,
+  publishRedirects,
+  type RedirectEdge
+} from "./redirects";
 import { describeInstant } from "./when";
 
 export type ScheduleRow = typeof siteSchedule.$inferSelect;
@@ -44,11 +50,31 @@ async function claim(db: Database, id: string, from: string, to: string): Promis
   return updated.length > 0;
 }
 
+async function noteRedirectFailure(db: Database, siteId: string, text: string) {
+  const threads = await db.select().from(thread).where(eq(thread.siteId, siteId)).limit(1);
+  const threadId = threads[0]?.id ?? randomUUID();
+  if (!threads[0]) {
+    await db.insert(thread).values({
+      id: threadId,
+      siteId,
+      title: "Schedules",
+      status: "open"
+    });
+  }
+  await db.insert(message).values({
+    id: randomUUID(),
+    threadId,
+    author: "system",
+    body: text
+  });
+}
+
 export async function publishScheduled(
   db: Database,
   id: string,
   now = new Date(),
-  store?: BlobStore
+  store?: BlobStore,
+  edge?: RedirectEdge
 ): Promise<"published" | "skipped" | "noop"> {
   const rows = await db.select().from(siteSchedule).where(eq(siteSchedule.id, id)).limit(1);
   const row = rows[0];
@@ -88,6 +114,34 @@ export async function publishScheduled(
       await notePublishChecks(db, current.id, checks);
     } catch {
       // A check that cannot be read does not stop a scheduled go-live.
+    }
+  }
+  if (edge?.store || edge?.enforce) {
+    try {
+      if (edge.store) {
+        await publishRedirects({
+          db,
+          siteId: current.id,
+          host: edge.hostFor(current.slug),
+          store: edge.store
+        });
+      } else {
+        await assertRedirectsFit({ db, siteId: current.id, host: edge.hostFor(current.slug) });
+      }
+    } catch (error) {
+      if (error instanceof RedirectMapError) {
+        await noteRedirectFailure(db, current.id, error.message);
+        await db
+          .update(siteSchedule)
+          .set({ status: "skipped", updatedAt: new Date() })
+          .where(eq(siteSchedule.id, id));
+        return "skipped";
+      }
+      await db
+        .update(siteSchedule)
+        .set({ status: "scheduled", updatedAt: new Date() })
+        .where(eq(siteSchedule.id, id));
+      throw error;
     }
   }
   const swapped = await swapLive(db, current.id, previous, target.id);
@@ -175,10 +229,24 @@ export async function revertScheduled(
   return "reverted";
 }
 
+export async function recentPublishedSchedules(db: Database, since: Date) {
+  return db
+    .select({
+      id: siteSchedule.id,
+      updatedAt: siteSchedule.updatedAt,
+      status: siteSchedule.status
+    })
+    .from(siteSchedule)
+    .where(
+      and(inArray(siteSchedule.status, ["live", "reverted"]), gte(siteSchedule.updatedAt, since))
+    );
+}
+
 export async function runDueSchedules(
   db: Database,
   now = new Date(),
-  store?: BlobStore
+  store?: BlobStore,
+  edge?: RedirectEdge
 ): Promise<string[]> {
   const applied: string[] = [];
   const duePublish = await db
@@ -186,7 +254,7 @@ export async function runDueSchedules(
     .from(siteSchedule)
     .where(and(eq(siteSchedule.status, "scheduled"), lte(siteSchedule.publishAt, now)));
   for (const row of duePublish) {
-    const result = await publishScheduled(db, row.id, now, store);
+    const result = await publishScheduled(db, row.id, now, store, edge);
     if (result === "published") applied.push(row.id);
   }
   const dueRevert = await db
