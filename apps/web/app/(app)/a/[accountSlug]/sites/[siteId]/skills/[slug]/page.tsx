@@ -21,6 +21,7 @@ export default async function SiteSkillPage({
   return (
     <SkillEditor
       skill={skill}
+      source={skill.source}
       site={{ name: found.name, status: found.status, host: `${found.slug}.localhost` }}
       backHref={`/a/${accountSlug}/sites/${found.id}/skills`}
       backLabel="Skills"

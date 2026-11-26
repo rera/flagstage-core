@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
-import { can } from "@flagstage/core";
+import { can, skillSourceFromParts } from "@flagstage/core";
 import { accountSkill } from "@flagstage/db";
 
 import { database, requireAccount } from "../../../../../../src/guard";
@@ -33,6 +33,7 @@ export default async function AccountSkillPage({
         description: skill.description,
         body: skill.body
       }}
+      source={skillSourceFromParts(skill)}
       backHref={`/a/${found.slug}/skills`}
       backLabel="Skills"
       scope="The agent follows this skill on every site in this account."

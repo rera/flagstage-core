@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./skill-document": "./src/skill-document.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

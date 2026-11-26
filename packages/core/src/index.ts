@@ -49,8 +49,23 @@ export type {
   SiteRole
 } from "./policy";
 export {
+  normalizeSkillNewlines,
+  parseSkillDocument,
+  serializeSkillDocument,
+  skillFileBytes,
+  skillPartsFromSource,
+  skillSourceFromParts,
+  withAppendedText,
+  withBlockText,
+  withListItemText,
+  withSkillDescription,
+  withSkillName
+} from "./skill-document";
+export type { SkillBlock, SkillDocument, SkillListItem } from "./skill-document";
+export {
   isSkillSlug,
   parseSkillMarkdown,
+  readYamlScalar,
   skillPath,
   skillSlugFromPath,
   writeSkillMarkdown
