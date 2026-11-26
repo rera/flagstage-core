@@ -22,7 +22,7 @@ export function RolePicker({ selected }: { selected: RoleId }) {
                 name="role"
                 value={role.id}
                 defaultChecked={on}
-                className="mt-1"
+                className="mt-1 outline-none focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               />
               <span className="min-w-0 text-sm font-medium">
                 {role.label}

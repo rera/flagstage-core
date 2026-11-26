@@ -5,35 +5,6 @@ import { SiteIdentity } from "../site-nav";
 import { accountLeads, roleLabel, type MockSite, type Person } from "./data";
 import { AddPersonDialog, ChangeRoleDialog, RemovePersonDialog } from "./dialogs";
 
-function SiteTabs({ site, current }: { site: MockSite; current: "people" | "skills" }) {
-  const base = `/a/championships/sites/${site.id}/settings`;
-  const tabs = [
-    { id: "people" as const, href: `${base}/people`, label: "People" },
-    { id: "skills" as const, href: `${base}/skills`, label: "Skills" }
-  ];
-  return (
-    <nav className="flex flex-wrap gap-1" aria-label="Site settings">
-      {tabs.map((tab) => {
-        const on = tab.id === current;
-        return (
-          <a
-            key={tab.id}
-            href={tab.href}
-            aria-current={on ? "page" : undefined}
-            className={
-              on
-                ? "rounded-[10px] bg-[var(--wash)] px-3 py-2 text-sm font-semibold text-foreground"
-                : "rounded-[10px] px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-            }
-          >
-            {tab.label}
-          </a>
-        );
-      })}
-    </nav>
-  );
-}
-
 function PersonRow({ person, siteWide = false }: { person: Person; siteWide?: boolean }) {
   return (
     <li className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
@@ -42,7 +13,7 @@ function PersonRow({ person, siteWide = false }: { person: Person; siteWide?: bo
         <p className="truncate text-sm text-muted-foreground">{person.email}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge>{siteWide ? "Account lead" : roleLabel(person.role)}</Badge>
+        <Badge>{siteWide ? "Account admin" : roleLabel(person.role)}</Badge>
         {siteWide ? (
           <span className="text-xs font-medium text-muted-foreground">Inherited</span>
         ) : (
@@ -91,7 +62,6 @@ export function SitePeopleScreen({
           </a>
         }
       />
-      <SiteTabs site={site} current="people" />
       <section className="space-y-3">
         <div>
           <h3 className="text-sm font-semibold">On this site</h3>
@@ -105,9 +75,9 @@ export function SitePeopleScreen({
       </section>
       <section className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold">Account leads</h3>
+          <h3 className="text-sm font-semibold">Account</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Inherited. Account leads manage every site in Championships.
+            Inherited. Account admins manage every site in Championships.
           </p>
         </div>
         <ul className="divide-y divide-border rounded-xl border border-border bg-card">
@@ -124,5 +94,3 @@ export function SitePeopleScreen({
     </Page>
   );
 }
-
-export { SiteTabs };

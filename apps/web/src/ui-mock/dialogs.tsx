@@ -17,11 +17,24 @@ function DialogFrame({ children }: { children: ReactNode }) {
   );
 }
 
-export function AddPersonDialog() {
+function NameFields() {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Field label="First name" name="firstName" required autoComplete="off" />
+      <Field label="Last name" name="lastName" required autoComplete="off" />
+    </div>
+  );
+}
+
+export function AddPersonDialog({ includeRole = true }: { includeRole?: boolean }) {
   return (
     <DialogFrame>
       <form className="space-y-4" action="#">
         <h2 className="text-lg font-semibold tracking-tight">Add person</h2>
+        {includeRole ? null : (
+          <p className="text-sm text-muted-foreground">They will be an account admin.</p>
+        )}
+        <NameFields />
         <Field
           label="Email"
           name="email"
@@ -30,7 +43,7 @@ export function AddPersonDialog() {
           placeholder="name@example.com"
           autoComplete="off"
         />
-        <RolePicker selected="editor" />
+        {includeRole ? <RolePicker selected="editor" /> : null}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline">
             Cancel
@@ -46,7 +59,13 @@ export function ChangeRoleDialog({ person }: { person: Person }) {
   return (
     <DialogFrame>
       <form className="space-y-4" action="#">
-        <h2 className="text-lg font-semibold tracking-tight">Change role</h2>
+        <h2
+          tabIndex={-1}
+          data-initial-focus
+          className="text-lg font-semibold tracking-tight outline-none"
+        >
+          Change role
+        </h2>
         <p className="text-sm">
           <span className="font-medium">{person.name}</span>
           <span className="text-muted-foreground"> · {person.email}</span>
@@ -67,9 +86,43 @@ export function RemovePersonDialog({ person, siteName }: { person: Person; siteN
   return (
     <DialogFrame>
       <form className="space-y-4" action="#">
-        <h2 className="text-lg font-semibold tracking-tight">Remove {person.name}</h2>
+        <h2
+          tabIndex={-1}
+          data-initial-focus
+          className="text-lg font-semibold tracking-tight outline-none"
+        >
+          Remove {person.name}
+        </h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          {person.name} will lose access to {siteName}. Account leads are unchanged.
+          {person.name} will lose access to {siteName}. Account admins are unchanged.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline">
+            Cancel
+          </Button>
+          <Button type="button" variant="destructive">
+            Remove
+          </Button>
+        </div>
+      </form>
+    </DialogFrame>
+  );
+}
+
+export function RemoveAccountPersonDialog({ person }: { person: Person }) {
+  return (
+    <DialogFrame>
+      <form className="space-y-4" action="#">
+        <h2
+          tabIndex={-1}
+          data-initial-focus
+          className="text-lg font-semibold tracking-tight outline-none"
+        >
+          Remove {person.name}
+        </h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {person.name} will no longer be an account admin. They will lose access to every site in
+          Championships.
         </p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline">

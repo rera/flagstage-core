@@ -3,7 +3,6 @@ import { Button, PageHeader, Textarea } from "@flagstage/ui";
 import { Page } from "../page";
 import { SiteIdentity } from "../site-nav";
 import type { MockSite, Skill } from "./data";
-import { SiteTabs } from "./people-screen";
 
 export function SkillList({
   skills,
@@ -67,11 +66,6 @@ export function SkillEditor({
       ) : null}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(16rem,0.8fr)]">
         <form className="space-y-4" action="#">
-          {skill.file ? (
-            <p className="truncate font-mono text-xs text-muted-foreground" title={skill.file}>
-              {skill.file}
-            </p>
-          ) : null}
           <Textarea
             aria-label={skill.name}
             name="body"
@@ -123,10 +117,9 @@ export function SiteSkillsList({ site, skills }: { site: MockSite; skills: Skill
         title="Skills"
         description={`The agent follows these skills on ${site.name}. It also follows the Championships account skills.`}
       />
-      <SiteTabs site={site} current="skills" />
       <SkillList
         skills={skills}
-        hrefFor={(skill) => `/a/championships/sites/${site.id}/settings/skills/${skill.slug}`}
+        hrefFor={(skill) => `/a/championships/sites/${site.id}/skills/${skill.slug}`}
       />
     </Page>
   );

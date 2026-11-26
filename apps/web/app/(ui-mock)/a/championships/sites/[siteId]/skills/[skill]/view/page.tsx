@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { championshipSites, pgaSkills } from "../../../../../../../../../../src/ui-mock/data";
-import { SkillEditor } from "../../../../../../../../../../src/ui-mock/skills-screen";
+import { championshipSites, pgaSkills } from "../../../../../../../../../src/ui-mock/data";
+import { SkillEditor } from "../../../../../../../../../src/ui-mock/skills-screen";
 
 export default async function MockSiteSkillViewPage({
   params
@@ -18,7 +18,7 @@ export default async function MockSiteSkillViewPage({
       skill={skill}
       site={site}
       readOnly
-      backHref="/a/championships/sites/pga/settings/skills"
+      backHref="/a/championships/sites/pga/skills"
       backLabel="Skills"
       scope="The agent follows this skill on PGA Championship."
     />

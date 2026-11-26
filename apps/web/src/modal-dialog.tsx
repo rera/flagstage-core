@@ -24,6 +24,9 @@ export function ModalDialog({
     const dialog = dialogRef.current;
     if (!dialog || dialog.open) return;
     dialog.showModal();
+    const focusInitial = () => dialog.querySelector<HTMLElement>("[data-initial-focus]")?.focus();
+    focusInitial();
+    requestAnimationFrame(focusInitial);
   }, [dialogRef, mounted, open]);
   if (!mounted) return null;
   return createPortal(

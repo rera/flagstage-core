@@ -22,7 +22,7 @@ export default function MockImportPage() {
         {existing.map((site) => (
           <a
             key={site.id}
-            href={`/a/championships/sites/${site.id}/settings/people`}
+            href={`/a/championships/sites/${site.id}/people`}
             className="grid min-w-0 grid-cols-1 gap-2 rounded-xl border border-border bg-card px-5 py-4 hover:bg-[var(--wash)] sm:grid-cols-[minmax(0,1.4fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-x-4"
           >
             <span className="min-w-0 truncate font-semibold">{site.name}</span>

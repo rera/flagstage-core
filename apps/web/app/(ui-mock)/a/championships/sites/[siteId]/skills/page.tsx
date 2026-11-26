@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { championshipSites, pgaSkills } from "../../../../../../../../src/ui-mock/data";
-import { SiteSkillsList } from "../../../../../../../../src/ui-mock/skills-screen";
+import { championshipSites, pgaSkills } from "../../../../../../../src/ui-mock/data";
+import { SiteSkillsList } from "../../../../../../../src/ui-mock/skills-screen";
 
 export default async function MockSiteSkillsPage({
   params

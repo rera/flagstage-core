@@ -166,6 +166,8 @@ export function AppShell({
   const siteLinks = currentSite
     ? [
         { href: siteBase, label: "Overview", icon: "overview", exact: true },
+        { href: `${siteBase}/people`, label: "People", icon: "people" },
+        { href: `${siteBase}/skills`, label: "Skills", icon: "skills" },
         { href: `${siteBase}/domain`, label: "Domain", icon: "domain" },
         { href: `${siteBase}/forms`, label: "Forms", icon: "forms" },
         { href: `${siteBase}/analytics`, label: "Analytics", icon: "analytics" },
