@@ -1,6 +1,15 @@
 export const ACCOUNT_COOKIE = "fs-account";
 export const SITE_COOKIE = "fs-sites";
 export const SIDEBAR_COOKIE = "fs-sidebar";
+/** Scratch mockups only. Unset keeps the current sidebar. */
+export const IA_COOKIE = "fs-ia";
+
+export type SidebarIa = "current" | "settings" | "setup" | "menu";
+
+export function parseSidebarIa(value: string | undefined): SidebarIa {
+  if (value === "settings" || value === "setup" || value === "menu") return value;
+  return "current";
+}
 
 const SLUG = /^[a-z0-9-]+$/;
 const SITE_ID = /^[A-Za-z0-9-]+$/;

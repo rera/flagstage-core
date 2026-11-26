@@ -16,6 +16,7 @@ import {
   changeSiteRoleAction,
   removeSitePersonAction
 } from "../../../../../../../src/roster-actions";
+import { SiteAdminNav } from "../../../../../../../src/site-admin-nav";
 import { SiteIdentity } from "../../../../../../../src/site-nav";
 
 function isSiteRole(role: string): role is SiteRole {
@@ -63,6 +64,7 @@ export default async function SitePeoplePage({
   return (
     <Page>
       <SiteIdentity name={found.name} status={found.status} host={host} />
+      <SiteAdminNav base={`/a/${accountSlug}/sites/${found.id}`} current="people" />
       <PageHeader
         level={2}
         title="People"

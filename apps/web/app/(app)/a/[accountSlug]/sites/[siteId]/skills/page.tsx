@@ -2,6 +2,7 @@ import { PageHeader } from "@flagstage/ui";
 
 import { requireSite } from "../../../../../../../src/guard";
 import { Page } from "../../../../../../../src/page";
+import { SiteAdminNav } from "../../../../../../../src/site-admin-nav";
 import { SiteIdentity } from "../../../../../../../src/site-nav";
 import { listSiteSkills } from "../../../../../../../src/skill-save";
 import { SkillList } from "../../../../../../../src/skills-ui";
@@ -17,6 +18,7 @@ export default async function SiteSkillsPage({
   return (
     <Page>
       <SiteIdentity name={found.name} status={found.status} host={`${found.slug}.localhost`} />
+      <SiteAdminNav base={`/a/${accountSlug}/sites/${found.id}`} current="skills" />
       <PageHeader
         level={2}
         title="Skills"

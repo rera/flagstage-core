@@ -6,7 +6,7 @@ import { can, loadGrants } from "@flagstage/core";
 import { site, siteDomain } from "@flagstage/db";
 import { eq, inArray } from "drizzle-orm";
 
-import { ACCOUNT_COOKIE, SIDEBAR_COOKIE } from "./account-cookie";
+import { ACCOUNT_COOKIE, IA_COOKIE, SIDEBAR_COOKIE, parseSidebarIa } from "./account-cookie";
 import { AppShell, type ShellAccount, type ShellSite } from "./app-shell";
 import { signOut } from "./actions";
 import { currentSession } from "./auth";
@@ -36,6 +36,7 @@ export async function ShellFrame({ children }: { children: ReactNode }) {
   let people: Array<{ id: string; name: string; email: string }> = [];
   let lastSlug: string | null = null;
   let collapsed = false;
+  let ia = parseSidebarIa(undefined);
   let backHref = "/sites";
   if (session?.user && process.env.NEXT_PHASE !== "phase-production-build") {
     try {
@@ -57,6 +58,7 @@ export async function ShellFrame({ children }: { children: ReactNode }) {
       const jar = await cookies();
       lastSlug = jar.get(ACCOUNT_COOKIE)?.value ?? null;
       collapsed = jar.get(SIDEBAR_COOKIE)?.value === "collapsed";
+      ia = parseSidebarIa(jar.get(IA_COOKIE)?.value);
       const pathname = (await headers()).get("x-pathname") ?? "";
       const fromPath = pathname.match(/^\/a\/([^/]+)/)?.[1];
       const current =
@@ -122,6 +124,7 @@ export async function ShellFrame({ children }: { children: ReactNode }) {
       lastSlug={lastSlug}
       collapsed={collapsed}
       backHref={backHref}
+      ia={ia}
       signOut={signOut}
     >
       {children}

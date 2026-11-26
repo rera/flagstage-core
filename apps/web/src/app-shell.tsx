@@ -5,13 +5,94 @@ import { usePathname } from "next/navigation";
 
 import { Badge, Button, FlagstageMark, buttonVariants, cn } from "@flagstage/ui";
 
-import { SIDEBAR_COOKIE } from "./account-cookie";
+import { SIDEBAR_COOKIE, type SidebarIa } from "./account-cookie";
 import { NavIcon } from "./nav-icon";
 import { NewSiteDialog } from "./new-site-dialog";
 
 function active(pathname: string, href: string, exact = false) {
   if (exact) return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+type SiteLink = {
+  href: string;
+  label: string;
+  icon: string;
+  exact?: boolean;
+  section: "main" | "setup";
+};
+
+function siteItem(
+  siteBase: string,
+  label: string,
+  icon: string,
+  path: string,
+  section: SiteLink["section"],
+  exact = false
+): SiteLink {
+  return { href: path ? `${siteBase}${path}` : siteBase, label, icon, section, exact };
+}
+
+function siteAdminLinks(siteBase: string): SiteLink[] {
+  return [
+    siteItem(siteBase, "People", "people", "/people", "setup"),
+    siteItem(siteBase, "Skills", "skills", "/skills", "setup"),
+    siteItem(siteBase, "Domain", "domain", "/domain", "setup"),
+    siteItem(siteBase, "Settings", "settings", "/settings", "setup")
+  ];
+}
+
+function siteNav(
+  ia: SidebarIa,
+  siteBase: string,
+  canAnalytics: boolean,
+  hasSite: boolean
+): SiteLink[] {
+  if (!hasSite) return [];
+  const overview = siteItem(siteBase, "Overview", "overview", "", "main", true);
+  const forms = siteItem(siteBase, "Forms", "forms", "/forms", "main");
+  const plugins = siteItem(siteBase, "Plugins", "plugins", "/plugins", "main");
+  const analytics = siteItem(siteBase, "Analytics", "analytics", "/analytics", "main");
+  const scheduled = siteItem(siteBase, "Scheduled", "scheduled", "/scheduled", "main");
+  const admin = siteAdminLinks(siteBase);
+  const work = ia === "current" ? forms : plugins;
+  const everyday = [overview, work, ...(canAnalytics ? [analytics] : []), scheduled];
+  if (ia === "settings") {
+    return [...everyday, siteItem(siteBase, "Settings", "settings", "/settings", "main")];
+  }
+  if (ia === "setup" || ia === "menu") return [...everyday, ...admin];
+  return [
+    overview,
+    ...admin.slice(0, 3).map((link) => ({ ...link, section: "main" as const })),
+    forms,
+    ...(canAnalytics ? [analytics] : []),
+    scheduled,
+    ...admin.slice(3).map((link) => ({ ...link, section: "main" as const }))
+  ];
+}
+
+function onSitePath(pathname: string, siteBase: string, suffix: string) {
+  return pathname === `${siteBase}${suffix}` || pathname.startsWith(`${siteBase}${suffix}/`);
+}
+
+function siteLinkCurrent(pathname: string, link: SiteLink, ia: SidebarIa, siteBase: string) {
+  if (
+    ia === "settings" &&
+    link.label === "Settings" &&
+    ["/people", "/skills", "/domain", "/settings"].some((suffix) =>
+      onSitePath(pathname, siteBase, suffix)
+    )
+  ) {
+    return true;
+  }
+  if (
+    ia !== "current" &&
+    link.label === "Plugins" &&
+    ["/plugins", "/forms"].some((suffix) => onSitePath(pathname, siteBase, suffix))
+  ) {
+    return true;
+  }
+  return active(pathname, link.href, Boolean(link.exact));
 }
 
 function rememberCollapsed(next: boolean) {
@@ -91,6 +172,7 @@ export function AppShell({
   lastSlug,
   collapsed: collapsedInitially,
   backHref,
+  ia = "current",
   signOut,
   children
 }: {
@@ -108,6 +190,7 @@ export function AppShell({
   lastSlug?: string | null;
   collapsed?: boolean;
   backHref?: string;
+  ia?: SidebarIa;
   signOut: (formData: FormData) => Promise<void>;
   children: ReactNode;
 }) {
@@ -168,21 +251,13 @@ export function AppShell({
       : admin
         ? "/admin/accounts"
         : "/sites";
+  const rail = collapsed && !open;
   const siteBase = current && currentSite ? `/a/${current.slug}/sites/${currentSite.id}` : "";
-  const siteLinks = currentSite
-    ? [
-        { href: siteBase, label: "Overview", icon: "overview", exact: true },
-        { href: `${siteBase}/people`, label: "People", icon: "people" },
-        { href: `${siteBase}/skills`, label: "Skills", icon: "skills" },
-        { href: `${siteBase}/domain`, label: "Domain", icon: "domain" },
-        { href: `${siteBase}/forms`, label: "Forms", icon: "forms" },
-        ...(canAnalytics
-          ? [{ href: `${siteBase}/analytics`, label: "Analytics", icon: "analytics" }]
-          : []),
-        { href: `${siteBase}/scheduled`, label: "Scheduled", icon: "scheduled" },
-        { href: `${siteBase}/settings`, label: "Settings", icon: "settings" }
-      ]
-    : [];
+  const siteLinks = siteNav(ia, siteBase, canAnalytics, Boolean(currentSite));
+  const mainLinks = siteLinks.filter((link) => link.section === "main");
+  const setupLinks = siteLinks.filter((link) => link.section === "setup");
+  const menuLinks = currentSite ? siteAdminLinks(siteBase) : [];
+  const setupInSidebar = ia === "setup" || (ia === "menu" && rail);
   const accountLinks =
     current && showAccountNav
       ? [
@@ -199,7 +274,6 @@ export function AppShell({
     { href: "/admin/usage", label: "Usage", icon: "usage" },
     { href: "/admin/settings", label: "Settings", icon: "settings" }
   ];
-  const rail = collapsed && !open;
   const siteLabel = currentSite?.name ?? "All sites";
   const close = () => {
     setOpen(false);
@@ -349,7 +423,7 @@ export function AppShell({
             </ul>
           ) : null}
           {!adminMode && menu === "site" && current ? (
-            <div className="absolute top-full right-3 left-3 z-20 mt-1 rounded-xl border border-border bg-background p-1 shadow-sm">
+            <div className="absolute top-full right-3 left-3 z-20 mt-1 max-h-[min(32rem,calc(100dvh-6.5rem))] overflow-auto rounded-xl border border-border bg-background p-1 shadow-sm">
               <ul role="listbox" aria-label="Sites" className="max-h-80 overflow-auto">
                 {sites.map((item) => (
                   <li key={item.id}>
@@ -384,6 +458,31 @@ export function AppShell({
                   </li>
                 ))}
               </ul>
+              {ia === "menu" && currentSite ? (
+                <nav aria-label="This site" className="border-t border-border px-1 pt-1">
+                  <p className="px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">
+                    This site
+                  </p>
+                  {menuLinks.map((link) => {
+                    const on = siteLinkCurrent(pathname, link, ia, siteBase);
+                    return (
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        aria-current={on ? "page" : undefined}
+                        onClick={close}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-[var(--wash)] hover:text-foreground",
+                          on && "bg-[var(--wash)] font-semibold text-foreground"
+                        )}
+                      >
+                        <NavIcon name={link.icon} />
+                        {link.label}
+                      </a>
+                    );
+                  })}
+                </nav>
+              ) : null}
               {canCreate ? (
                 <div className="border-t border-border p-2">
                   <NewSiteDialog
@@ -407,20 +506,45 @@ export function AppShell({
               <span className={rail ? "md:sr-only" : undefined}>Make changes</span>
             </a>
           ) : null}
-          {!adminMode && siteLinks.length > 0 ? (
+          {!adminMode && mainLinks.length > 0 ? (
             <nav className="flex flex-col gap-1" aria-label="Site">
-              {siteLinks.map((link) => (
+              {mainLinks.map((link) => (
                 <NavLink
                   key={link.href}
                   href={link.href}
                   label={link.label}
                   icon={link.icon}
-                  current={active(pathname, link.href, link.exact)}
+                  current={siteLinkCurrent(pathname, link, ia, siteBase)}
                   rail={rail}
                   onNavigate={close}
                 />
               ))}
             </nav>
+          ) : null}
+          {!adminMode && setupInSidebar && setupLinks.length > 0 ? (
+            <div>
+              <p
+                className={cn(
+                  "px-3 pb-1 text-[10px] font-medium tracking-[0.08em] text-muted-foreground",
+                  rail && "md:sr-only"
+                )}
+              >
+                SETUP
+              </p>
+              <nav className="flex flex-col gap-1" aria-label="Setup">
+                {setupLinks.map((link) => (
+                  <NavLink
+                    key={link.href}
+                    href={link.href}
+                    label={link.label}
+                    icon={link.icon}
+                    current={siteLinkCurrent(pathname, link, ia, siteBase)}
+                    rail={rail}
+                    onNavigate={close}
+                  />
+                ))}
+              </nav>
+            </div>
           ) : null}
           {!adminMode && accountLinks.length > 0 ? (
             <div>

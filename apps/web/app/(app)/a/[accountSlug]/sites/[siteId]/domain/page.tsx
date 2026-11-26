@@ -9,6 +9,7 @@ import { addDomainAction, recheckDomainAction } from "../../../../../../../src/a
 import { database, requireSite } from "../../../../../../../src/guard";
 import { Hostname } from "../../../../../../../src/hostname";
 import { Page } from "../../../../../../../src/page";
+import { SiteAdminNav } from "../../../../../../../src/site-admin-nav";
 import { SiteIdentity } from "../../../../../../../src/site-nav";
 
 export default async function DomainPage({
@@ -29,6 +30,7 @@ export default async function DomainPage({
       <div className="space-y-4">
         <SiteIdentity name={found.name} status={found.status} host={`${found.slug}.localhost`} />
       </div>
+      <SiteAdminNav base={`/a/${accountSlug}/sites/${found.id}`} current="domain" />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,32rem)_minmax(16rem,22rem)]">
         <div className="space-y-6">
           <PageHeader level={2} title={t("domains.title")} description={t("domains.lead")} />
