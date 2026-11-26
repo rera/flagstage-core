@@ -4,4 +4,4 @@
 "@flagstage/web": minor
 ---
 
-Overview describes a block that stayed on the page in one plain sentence. History says Imported when an import has no person.
+Overview describes a block that stayed on the page in one plain sentence. History says "From your old site" when an import has no person.

@@ -79,21 +79,18 @@ test("a WordPress address shows the detected importer, then progress, the result
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: "History" }) });
   await expect(history.getByText("Import", { exact: true })).toBeVisible();
-  await expect(history.getByText("Imported", { exact: true })).toBeVisible();
+  await expect(history.getByText("From your old site", { exact: true })).toBeVisible();
   await expect(history.getByText("Someone on the account")).toHaveCount(0);
   await expect(history.locator("time")).toHaveText(/ET/, { timeout: 15_000 });
   const project = testInfo.project.name === "mobile" ? "mobile" : "desktop";
   await callout.scrollIntoViewIfNeeded();
   await page.screenshot({
-    path: `/opt/cursor/artifacts/overview_callout_${project}.png`,
+    path: testInfo.outputPath(`overview-${project}.png`),
     fullPage: true
-  });
-  await callout.screenshot({
-    path: `/opt/cursor/artifacts/overview_callout_${project}_detail.png`
   });
   await history.scrollIntoViewIfNeeded();
   await history.screenshot({
-    path: `/opt/cursor/artifacts/history_card_${project}.png`
+    path: testInfo.outputPath(`history-${project}.png`)
   });
   await page.getByRole("button", { name: "Go live" }).click();
   await expect(page.getByRole("button", { name: "Go live" })).toHaveCount(0, { timeout: 60_000 });
