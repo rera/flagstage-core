@@ -108,7 +108,7 @@ export function ImportResultPanel({
                 key={`${flag.detail}\0${flag.pagePath}`}
                 className="flex items-baseline justify-between gap-3 border-b border-warning/30 py-2 last:border-b-0"
               >
-                <span>{flag.detail}</span>
+                <span className="min-w-0 flex-1">{flag.detail}</span>
                 <a href={flag.href} className="shrink-0 font-medium text-primary">
                   {flag.label}
                 </a>

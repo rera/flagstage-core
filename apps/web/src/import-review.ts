@@ -1,3 +1,9 @@
+import {
+  fallbackBlockExplanation,
+  isCustomerSentence,
+  sectionFromBlockDetail
+} from "@flagstage/ai";
+
 /**
  * One adapter from an import row and the stored snapshot files to the
  * Overview screens. Progress counts are whatever the crawl has written.
@@ -182,10 +188,12 @@ function readFlagGroups(report: unknown): Array<{ detail: string; pagePath: stri
   const groups = new Map<string, string[]>();
   for (const entry of uncertain) {
     const row = recordOf(entry);
-    if (typeof row.detail !== "string" || typeof row.page !== "string" || !row.page) continue;
-    const list = groups.get(row.detail);
+    if (typeof row.page !== "string" || !row.page) continue;
+    const detail = customerDetail(row);
+    if (!detail) continue;
+    const list = groups.get(detail);
     if (list) list.push(row.page);
-    else groups.set(row.detail, [row.page]);
+    else groups.set(detail, [row.page]);
   }
   return [...groups.entries()]
     .sort((left, right) => left[0].localeCompare(right[0]))
@@ -194,6 +202,16 @@ function readFlagGroups(report: unknown): Array<{ detail: string; pagePath: stri
       pagePath: [...pages].sort((left, right) => left.localeCompare(right))[0] ?? ""
     }))
     .filter((flag) => flag.pagePath);
+}
+
+/** The sentence a site owner reads. A shared-block debug note never reaches the page. */
+function customerDetail(row: Record<string, unknown>): string {
+  const explanation = typeof row.explanation === "string" ? row.explanation.trim() : "";
+  if (isCustomerSentence(explanation)) return explanation;
+  const detail = typeof row.detail === "string" ? row.detail : "";
+  const section = sectionFromBlockDetail(detail);
+  if (section) return fallbackBlockExplanation(section);
+  return detail;
 }
 
 function sectionName(virtual: string): string {
@@ -221,7 +239,10 @@ function typeName(kind: string): string {
   if (kind === "article") return "Article";
   if (kind === "listing") return "Listing";
   if (kind === "page") return "Page";
-  const words = kind.split(/[\s-]+/).filter(Boolean).join(" ");
+  const words = kind
+    .split(/[\s-]+/)
+    .filter(Boolean)
+    .join(" ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 

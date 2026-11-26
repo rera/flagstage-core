@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { friendlyWhen, monthKey } from "./time";
+import { friendlyWhen, historyActor, monthKey } from "./time";
 
 describe("friendlyWhen", () => {
   it("uses the site zone, so a Pacific afternoon is not an evening UTC clock", () => {
@@ -20,6 +20,15 @@ describe("friendlyWhen", () => {
     const now = new Date("2026-11-12T18:00:00.000Z");
     const later = new Date("2026-11-14T17:00:00.000Z");
     expect(friendlyWhen(later, "America/Los_Angeles", now)).toBe("Nov 14, 9:00 AM PT");
+  });
+
+  it("says Imported when an import has no person", () => {
+    expect(historyActor("import", null)).toBe("Imported");
+    expect(historyActor("import", { name: "  ", email: "" })).toBe("Imported");
+    expect(historyActor("import", { name: "Ada", email: "ada@example.com" })).toBe("Ada");
+    expect(historyActor("import", { name: "", email: "ada@example.com" })).toBe("ada@example.com");
+    expect(historyActor("publish", null)).toBe("Someone on the account");
+    expect(historyActor("edit", undefined)).toBe("Someone on the account");
   });
 
   it("keys the month in the same zone", () => {

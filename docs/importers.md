@@ -99,13 +99,13 @@ The WordPress detector requests `/wp-json` on the origin of the entered URL. It 
 
 `report` is the fidelity report.
 
-| Field            | What it holds                                           |
-| ---------------- | ------------------------------------------------------- |
-| `forms`          | `{ page, kind, detail }` for a form that was found      |
-| `plugins`        | `{ page, kind, detail }` for something left behind      |
-| `missingAssets`  | Paths that did not answer                               |
-| `cssBackgrounds` | Missing files that were referenced from CSS             |
-| `uncertain`      | `{ page, kind, detail }` for a shared block left inline |
+| Field            | What it holds                                                       |
+| ---------------- | ------------------------------------------------------------------- |
+| `forms`          | `{ page, kind, detail }` for a form that was found                  |
+| `plugins`        | `{ page, kind, detail }` for something left behind                  |
+| `missingAssets`  | Paths that did not answer                                           |
+| `cssBackgrounds` | Missing files that were referenced from CSS                         |
+| `uncertain`      | `{ page, kind, detail, explanation? }` for a block left on the page |
 
 Return the pages as imported. `runImport` extracts shared blocks after `run` returns. See [Shared blocks](#shared-blocks). Set `uncertain` to `[]` unless the source already knows about a block it left inline.
 
@@ -153,7 +153,7 @@ Contact Form 7 and Gravity Forms markup is mapped to lead forms. Comment forms (
 
 ## Shared blocks
 
-After `run` returns, `runImport` looks for blocks that repeat across the HTML pages: header, nav, footer, alert bar, newsletter, cookie banner, sidebar, and head tags that are the same on every page. It does not call a model.
+After `run` returns, `runImport` looks for blocks that repeat across the HTML pages: header, nav, footer, alert bar, newsletter, cookie banner, sidebar, and head tags that are the same on every page. Finding those blocks does not call a model.
 
 A block is extracted only when the same bytes, after the current-page nav marker is removed, occur on more than half of the pages. The marker is `active`, `current`, `selected`, `is-active`, `is-current`, or `open` on a class, or an `aria-current` attribute. The block is written to `_inc/`, and the page span is replaced with:
 
@@ -163,7 +163,7 @@ A block is extracted only when the same bytes, after the current-page nav marker
 
 `active` is the href that had the marker. `@flagstage/sitebuild` puts `class="active" aria-current="page"` back on the first `<a href="/news">` when it builds the page. Other marker spellings are not written back. The publish check compares visible text, links, and images after splicing those markers out of the tags. It does not parse the page and write it back out.
 
-A copy that is only close, or a cluster of similar copies where no one version is on most pages, stays in the page. `report.uncertain` lists it. A miss is a missed include. The page is still the original bytes outside any span that was replaced.
+A copy that is only close, or a cluster of similar copies where no one version is on most pages, stays in the page. `report.uncertain` lists it. `detail` is the internal note. One call to the importer decision model (Admin, Settings, Importer) then writes `explanation`, a single plain sentence for the site owner, for every flagged block together. The model id is the stored setting. There is no environment variable. When the model is off, missing, or the reply is not one plain sentence, `explanation` is `This page's {section} is a little different from the shared one, so we kept it on the page.` `{section}` is a plain name such as footer, header, sidebar, or navigation, and `section` when the block has no plain name. A miss is a missed include. The page is still the original bytes outside any span that was replaced.
 
 One page is left unchanged. Files under `_inc/`, `_templates/`, and `.flagstage/` are not scanned. Assets, redirects, forms, and the other report fields are left as the source returned them.
 

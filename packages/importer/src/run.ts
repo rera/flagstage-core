@@ -9,6 +9,7 @@ import { importPrefix, type BlobStore } from "@flagstage/storage";
 import { withImportBaseline } from "./baseline";
 import { readImportCaps } from "./caps";
 import { deleteCapture, hydrateCaptured } from "./capture";
+import { explainUncertainBlocks } from "./explain";
 import { extractSharedBlocks } from "./extract";
 import { defaultFetch } from "./fetch-page";
 import { scaffoldSite } from "./templates";
@@ -103,13 +104,17 @@ export async function runImport(input: {
         }
       })
     );
+    const scaffolded = await scaffoldSite(extractSharedBlocks(imported), {
+      decide: bedrockListingDecide({
+        region: input.region ?? "",
+        settings
+      }),
+      confidenceThreshold: settings.decisionConfidenceThreshold
+    });
     const result = withImportBaseline(
-      await scaffoldSite(extractSharedBlocks(imported), {
-        decide: bedrockListingDecide({
-          region: input.region ?? "",
-          settings
-        }),
-        confidenceThreshold: settings.decisionConfidenceThreshold
+      await explainUncertainBlocks(scaffolded, {
+        region: input.region ?? "",
+        settings
       }),
       imported.pages
     );

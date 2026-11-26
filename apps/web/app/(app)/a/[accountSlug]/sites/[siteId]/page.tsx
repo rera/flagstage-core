@@ -29,7 +29,7 @@ import { Hostname } from "../../../../../../src/hostname";
 import { LocalTime } from "../../../../../../src/local-time";
 import { Page } from "../../../../../../src/page";
 import { SiteIdentity } from "../../../../../../src/site-nav";
-import { versionLabel } from "../../../../../../src/time";
+import { historyActor, versionLabel } from "../../../../../../src/time";
 
 export default async function SiteOverviewPage({
   params
@@ -232,7 +232,7 @@ function HistoryCard({ history, found, byId, canPublish }: Cards) {
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{shown}</span>
                   <span className="block truncate text-muted-foreground">
-                    {who?.name || who?.email || "Someone on the account"}
+                    {historyActor(item.kind, who)}
                   </span>
                 </span>
                 <span className="shrink-0 text-muted-foreground">
