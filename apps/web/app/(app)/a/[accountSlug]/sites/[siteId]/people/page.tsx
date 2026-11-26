@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+
 import { eq, inArray } from "drizzle-orm";
 
 import { can, SITE_ROLE_LABEL, SITE_ROLES, type SiteRole } from "@flagstage/core";
@@ -16,6 +18,7 @@ import {
   changeSiteRoleAction,
   removeSitePersonAction
 } from "../../../../../../../src/roster-actions";
+import { IA_COOKIE, parseSidebarIa } from "../../../../../../../src/account-cookie";
 import { SiteAdminNav } from "../../../../../../../src/site-admin-nav";
 import { SiteIdentity } from "../../../../../../../src/site-nav";
 
@@ -58,6 +61,24 @@ export default async function SitePeoplePage({
     })
     .sort((left, right) => left.name.localeCompare(right.name));
   const canManage = can(principal, "site.people", { accountId: found.accountId, siteId: found.id });
+  const settingsMock =
+    parseSidebarIa((await cookies()).get(IA_COOKIE)?.value) === "settings" && onSite.length === 0;
+  const sitePeople = settingsMock
+    ? [
+        {
+          id: "sample-owner",
+          name: "Mia Alvarez",
+          email: "mia@example.com",
+          role: "owner" as const
+        },
+        {
+          id: "sample-editor",
+          name: "Lee Park",
+          email: "lee@example.com",
+          role: "editor" as const
+        }
+      ]
+    : onSite;
   const selected = onSite.find((person) => person.email === query.person) ?? onSite[0];
   const closeHref = `/a/${accountSlug}/sites/${found.id}/people`;
   const host = `${found.slug}.localhost`;
@@ -86,7 +107,7 @@ export default async function SitePeoplePage({
           <p className="mt-1 text-sm text-muted-foreground">Roles apply to {found.name} only.</p>
         </div>
         <ul className="divide-y divide-border rounded-xl border border-border bg-card">
-          {onSite.map((person) => (
+          {sitePeople.map((person) => (
             <li
               key={person.email}
               className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center"

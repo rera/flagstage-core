@@ -424,7 +424,39 @@ export function AppShell({
           ) : null}
           {!adminMode && menu === "site" && current ? (
             <div className="absolute top-full right-3 left-3 z-20 mt-1 max-h-[min(32rem,calc(100dvh-6.5rem))] overflow-auto rounded-xl border border-border bg-background p-1 shadow-sm">
-              <ul role="listbox" aria-label="Sites" className="max-h-80 overflow-auto">
+              {ia === "settings" && currentSite ? (
+                <nav aria-label="Account" className="px-1 pb-1">
+                  <p className="px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">
+                    {current.name}
+                  </p>
+                  {accountLinks.map((link) => {
+                    const on = active(pathname, link.href, link.exact);
+                    return (
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        aria-current={on ? "page" : undefined}
+                        onClick={close}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-[var(--wash)] hover:text-foreground",
+                          on && "bg-[var(--wash)] font-semibold text-foreground"
+                        )}
+                      >
+                        <NavIcon name={link.icon} />
+                        {link.label}
+                      </a>
+                    );
+                  })}
+                </nav>
+              ) : null}
+              <ul
+                role="listbox"
+                aria-label="Sites"
+                className={cn(
+                  "max-h-80 overflow-auto",
+                  ia === "settings" && currentSite && "border-t border-border"
+                )}
+              >
                 {sites.map((item) => (
                   <li key={item.id}>
                     <a
@@ -546,7 +578,7 @@ export function AppShell({
               </nav>
             </div>
           ) : null}
-          {!adminMode && accountLinks.length > 0 ? (
+          {!adminMode && accountLinks.length > 0 && !(ia === "settings" && currentSite) ? (
             <div>
               <p
                 className={cn(
