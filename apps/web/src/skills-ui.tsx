@@ -119,6 +119,7 @@ export function SkillEditor({
           ) : (
             <SkillDocumentEditor
               source={skillSource(skill)}
+              name={skill.name}
               label={skill.name}
               readOnly={readOnly}
             />

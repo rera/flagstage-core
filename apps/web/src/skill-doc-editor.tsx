@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 
-type Prop = { key: string; value: string };
+import { Field } from "@flagstage/ui";
+
 type Block =
   | { id: string; kind: "h1" | "h2" | "h3"; text: string }
   | { id: string; kind: "p"; text: string }
@@ -19,19 +20,16 @@ function unquote(value: string): string {
   return trimmed;
 }
 
-function parseDocument(source: string): { props: Prop[]; blocks: Block[] } {
+function parseDocument(source: string): { description: string; blocks: Block[] } {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(source);
-  const props: Prop[] = [];
+  let description = "";
   let markdown = source;
   if (match) {
-    for (const line of (match[1] ?? "").split(/\r?\n/)) {
-      const found = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
-      if (!found?.[1]) continue;
-      props.push({ key: found[1], value: unquote(found[2] ?? "") });
-    }
+    const front = match[1] ?? "";
+    description = unquote(/^description:\s*(.*)$/m.exec(front)?.[1] ?? "");
     markdown = match[2] ?? "";
   }
-  return { props, blocks: parseBlocks(markdown) };
+  return { description, blocks: parseBlocks(markdown) };
 }
 
 function parseBlocks(markdown: string): Block[] {
@@ -78,16 +76,9 @@ function parseBlocks(markdown: string): Block[] {
   return blocks;
 }
 
-function serialize(props: Prop[], blocks: Block[]): string {
-  const front = props
-    .map((prop) => {
-      const value =
-        prop.key === "name" || prop.key === "description"
-          ? `"${prop.value.replace(/"/g, "'")}"`
-          : prop.value;
-      return `${prop.key}: ${value}`;
-    })
-    .join("\n");
+function serialize(name: string, description: string, blocks: Block[]): string {
+  const safeName = name.replace(/"/g, "'").replace(/\s+/g, " ").trim() || "Skill";
+  const safeDescription = description.replace(/"/g, "'");
   const body = blocks
     .map((block) => {
       if (block.kind === "ul") return block.items.map((item) => `- ${item}`).join("\n");
@@ -102,8 +93,7 @@ function serialize(props: Prop[], blocks: Block[]): string {
       return `${marks}${block.text}`;
     })
     .join("\n\n");
-  if (!front) return `${body}\n`;
-  return `---\n${front}\n---\n\n${body}\n`;
+  return `---\nname: "${safeName}"\ndescription: "${safeDescription}"\n---\n\n${body}\n`;
 }
 
 function promote(block: Block): Block {
@@ -120,37 +110,30 @@ function promote(block: Block): Block {
   return block;
 }
 
-const propLabel: Record<string, string> = {
-  name: "Name",
-  description: "Description"
-};
-
 export function SkillDocumentEditor({
   source,
+  name,
   label,
   readOnly = false
 }: {
   source: string;
+  name: string;
   label: string;
   readOnly?: boolean;
 }) {
   const initial = parseDocument(source);
   const field = useRef<HTMLTextAreaElement>(null);
   const surface = useRef<HTMLDivElement>(null);
-  const [props, setProps] = useState(initial.props);
+  const [description, setDescription] = useState(initial.description);
   const [blocks, setBlocks] = useState(initial.blocks);
 
-  function write(nextProps: Prop[], nextBlocks: Block[]) {
-    if (field.current) field.current.value = serialize(nextProps, nextBlocks);
+  function write(nextDescription: string, nextBlocks: Block[]) {
+    if (field.current) field.current.value = serialize(name, nextDescription, nextBlocks);
   }
 
-  function readSurface(): { props: Prop[]; blocks: Block[] } | null {
+  function readBlocks(): Block[] | null {
     const root = surface.current;
     if (!root) return null;
-    const nextProps = props.map((prop) => {
-      const node = root.querySelector(`[data-prop="${prop.key}"]`);
-      return { key: prop.key, value: node?.textContent ?? prop.value };
-    });
     const nextBlocks: Block[] = [];
     for (const node of root.querySelectorAll<HTMLElement>("[data-kind]")) {
       const id = node.dataset.block ?? "";
@@ -166,32 +149,41 @@ export function SkillDocumentEditor({
         nextBlocks.push({ id, kind, text: node.textContent ?? "" });
       }
     }
-    return { props: nextProps, blocks: nextBlocks };
+    return nextBlocks;
   }
 
   function onEdit() {
-    const current = readSurface();
+    const current = readBlocks();
     if (!current) return;
-    const promoted = current.blocks.map(promote);
-    const changed = promoted.some((block, index) => block.kind !== current.blocks[index]?.kind);
-    write(current.props, promoted);
-    if (changed) {
-      setProps(current.props);
-      setBlocks(promoted);
-    }
+    const promoted = current.map(promote);
+    const changed = promoted.some((block, index) => block.kind !== current[index]?.kind);
+    write(description, promoted);
+    if (changed) setBlocks(promoted);
   }
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-white">
-      <div ref={surface} onInput={readOnly ? undefined : onEdit} className="min-w-0">
-        {props.length > 0 ? (
-          <div className="grid grid-cols-[5.75rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 border-b border-[var(--line)] bg-[var(--wash)] px-5 py-3.5 sm:grid-cols-[6.5rem_minmax(0,1fr)]">
-            {props.map((prop) => (
-              <PropRow key={prop.key} prop={prop} readOnly={readOnly} />
-            ))}
-          </div>
-        ) : null}
-        <div aria-label={label} className="flex flex-col gap-2.5 px-5 py-4">
+    <div className="min-w-0 space-y-4">
+      <Field
+        id="skill-description"
+        label="Description"
+        value={description}
+        readOnly={readOnly}
+        autoComplete="off"
+        spellCheck={false}
+        className="max-sm:text-[13px]"
+        onChange={(event) => {
+          const next = event.target.value;
+          setDescription(next);
+          write(next, readBlocks() ?? blocks);
+        }}
+      />
+      <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-white">
+        <div
+          ref={surface}
+          aria-label={label}
+          onInput={readOnly ? undefined : onEdit}
+          className="flex min-w-0 flex-col gap-2.5 px-5 py-4"
+        >
           {blocks.map((block) => (
             <BlockView key={block.id} block={block} readOnly={readOnly} />
           ))}
@@ -200,35 +192,13 @@ export function SkillDocumentEditor({
       <textarea
         ref={field}
         name="body"
-        defaultValue={source}
+        defaultValue={serialize(name, initial.description, initial.blocks)}
         tabIndex={-1}
         aria-hidden
         readOnly
         className="sr-only"
       />
     </div>
-  );
-}
-
-function PropRow({ prop, readOnly }: { prop: Prop; readOnly: boolean }) {
-  const title = propLabel[prop.key] ?? prop.key;
-  return (
-    <>
-      <span className="text-xs font-medium text-muted-foreground" id={`skill-prop-${prop.key}`}>
-        {title}
-      </span>
-      <span
-        role="textbox"
-        aria-labelledby={`skill-prop-${prop.key}`}
-        data-prop={prop.key}
-        contentEditable={readOnly ? false : "plaintext-only"}
-        suppressContentEditableWarning
-        spellCheck={false}
-        className="min-w-0 text-sm leading-5 break-words text-foreground outline-none"
-      >
-        {prop.value}
-      </span>
-    </>
   );
 }
 

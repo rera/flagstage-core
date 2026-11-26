@@ -5,9 +5,7 @@ import type { SkillCard } from "./skills-ui";
  * The page title and the scope line stay outside it.
  */
 const bodies: Record<string, string> = {
-  "event-facts": `# Event facts
-
-Use these facts when a page mentions the event. Do not invent a date, a course, or a winner.
+  "event-facts": `Use these facts when a page mentions the event. Do not invent a date, a course, or a winner.
 
 ## This championship
 
@@ -26,9 +24,7 @@ Use these facts when a page mentions the event. Do not invent a date, a course, 
 
 - Do not guess a tee time.
 - Do not name a player unless the page is a player page.`,
-  "brand-voice": `# Brand voice
-
-Short sentences. The account sounds calm and specific.
+  "brand-voice": `Short sentences. The account sounds calm and specific.
 
 ## Headlines
 
