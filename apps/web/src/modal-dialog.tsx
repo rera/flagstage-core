@@ -8,14 +8,23 @@ import { cn } from "@flagstage/ui";
 export function ModalDialog({
   dialogRef,
   children,
-  cardClassName
+  cardClassName,
+  open = false
 }: {
   dialogRef: RefObject<HTMLDialogElement | null>;
   children: ReactNode;
   cardClassName?: string;
+  /** Opens the dialog after it is mounted. Closed dialogs stay unchanged. */
+  open?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!mounted || !open) return;
+    const dialog = dialogRef.current;
+    if (!dialog || dialog.open) return;
+    dialog.showModal();
+  }, [dialogRef, mounted, open]);
   if (!mounted) return null;
   return createPortal(
     <dialog ref={dialogRef} className="modal-surface">

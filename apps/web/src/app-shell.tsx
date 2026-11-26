@@ -177,6 +177,7 @@ export function AppShell({
     ? [
         { href: `/a/${current.slug}/sites`, label: "All sites", icon: "sites", exact: true },
         { href: `/a/${current.slug}/people`, label: "People", icon: "people" },
+        { href: `/a/${current.slug}/skills`, label: "Skills", icon: "skills" },
         { href: `/a/${current.slug}/usage`, label: "Usage", icon: "usage" }
       ]
     : [];
