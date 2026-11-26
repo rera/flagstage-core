@@ -8,9 +8,12 @@ import {
   can,
   isSkillSlug,
   parseSkillMarkdown,
+  normalizeSkillNewlines,
+  skillFileBytes,
+  skillPartsFromSource,
   skillPath,
   skillSlugFromPath,
-  writeSkillMarkdown,
+  withSkillName,
   type Principal,
   type SkillFile
 } from "@flagstage/core";
@@ -19,7 +22,9 @@ import { createBlobStore } from "@flagstage/storage";
 
 import { database } from "./guard";
 
-export type ListedSkill = SkillFile & { slug: string };
+export type ListedSkill = SkillFile & { slug: string; source: string };
+
+const skillDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
 
 export async function listSiteSkills(siteId: string): Promise<ListedSkill[]> {
   const files = await readSiteFiles(database(), createBlobStore(loadConfig()), siteId);
@@ -28,9 +33,9 @@ export async function listSiteSkills(siteId: string): Promise<ListedSkill[]> {
   for (const [path, body] of files) {
     const slug = skillSlugFromPath(path);
     if (!slug) continue;
-    const text = new TextDecoder().decode(body);
+    const text = skillDecoder.decode(body);
     const parsed = parseSkillMarkdown(text, slug);
-    skills.push({ slug, ...parsed });
+    skills.push({ slug, source: text, ...parsed });
   }
   return skills.sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -91,19 +96,18 @@ export async function saveSiteSkill(input: {
   ) {
     return "denied";
   }
-  const current = await readSiteSkill(found.id, input.slug);
-  if (!current) return "missing";
-  const next = writeSkillMarkdown({
-    name: current.name,
-    description: current.description,
-    body: input.body
-  });
+  const files = await readSiteFiles(db, createBlobStore(loadConfig()), found.id);
+  const path = skillPath(input.slug);
+  const original = files?.get(path);
+  if (!original) return "missing";
+  const current = parseSkillMarkdown(skillDecoder.decode(original), input.slug);
+  const next = skillFileBytes(original, input.body, current.name);
   await commitSiteFiles({
     db,
     store: createBlobStore(loadConfig()),
     siteId: found.id,
     userId: input.principal.id,
-    updates: new Map([[skillPath(input.slug), new TextEncoder().encode(next)]])
+    updates: new Map([[path, next]])
   });
   await db.insert(skillRevision).values({
     id: randomUUID(),
@@ -131,9 +135,11 @@ export async function saveAccountSkill(input: {
     .limit(1);
   const current = rows[0];
   if (!current) return "missing";
+  const submitted = withSkillName(normalizeSkillNewlines(input.body), current.name);
+  const parts = skillPartsFromSource(submitted, current.name);
   await db
     .update(accountSkill)
-    .set({ body: input.body.replace(/\s+$/, ""), updatedAt: new Date() })
+    .set({ description: parts.description, body: parts.body, updatedAt: new Date() })
     .where(eq(accountSkill.id, current.id));
   await db.insert(skillRevision).values({
     id: randomUUID(),

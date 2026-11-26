@@ -48,8 +48,9 @@ test("an owner adds an editor, who edits a skill and publishes, while a viewer i
   await signIn(page, "casey.nguyen@example.com");
   await page.goto(`${sitePath}/skills/event-facts`);
   await expect(page.getByRole("heading", { name: "Event facts" })).toBeVisible();
-  const body = page.getByRole("textbox", { name: "Event facts" });
-  await body.fill("Event: PGA Championship\nDates: May 14–17, 2026\n\nUse these facts.");
+  await page.getByLabel("Description").fill("Dates and the course for this championship.");
+  const paragraph = page.getByRole("textbox", { name: "Paragraph" }).first();
+  await paragraph.fill("Event: PGA Championship. Dates: May 14–17, 2026. Use these facts.");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText(/Casey Nguyen · Saved/).first()).toBeVisible();
   await page.goto(`${sitePath}/edit`);
@@ -63,7 +64,11 @@ test("an owner adds an editor, who edits a skill and publishes, while a viewer i
   await page.goto(`${sitePath}/skills/event-facts`);
   await expect(page.getByText("View only. You can read this skill and its history.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
-  await expect(page.getByRole("textbox", { name: "Event facts" })).toHaveAttribute("readonly", "");
+  await expect(page.getByLabel("Description")).toHaveAttribute("readonly", "");
+  await expect(page.getByRole("textbox", { name: "Paragraph" }).first()).toHaveAttribute(
+    "contenteditable",
+    "false"
+  );
   const save = await page.request.post(`/api/sites/${siteId}/skills/event-facts`, {
     form: { body: "Viewer rewrite" }
   });

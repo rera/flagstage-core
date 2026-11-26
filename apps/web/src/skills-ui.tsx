@@ -1,8 +1,9 @@
-import { Button, PageHeader, Textarea } from "@flagstage/ui";
+import { Button, PageHeader } from "@flagstage/ui";
 
 import { LocalTime } from "./local-time";
 import { Page } from "./page";
 import { SiteIdentity } from "./site-nav";
+import { SkillDocumentEditor } from "./skill-doc-editor";
 
 export type SkillCard = {
   slug: string;
@@ -51,6 +52,7 @@ export function SkillList({
 
 export function SkillEditor({
   skill,
+  source,
   backHref,
   backLabel,
   scope,
@@ -60,6 +62,8 @@ export function SkillEditor({
   site
 }: {
   skill: SkillCard;
+  /** The skill file, front matter included. */
+  source: string;
   backHref: string;
   backLabel: string;
   scope: string;
@@ -85,18 +89,12 @@ export function SkillEditor({
         </p>
       ) : null}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(16rem,0.8fr)]">
-        <form className="space-y-4" action={readOnly ? undefined : saveAction} method="post">
-          <Textarea
-            aria-label={skill.name}
-            name="body"
-            readOnly={readOnly}
-            defaultValue={skill.body}
-            className={
-              readOnly
-                ? "min-h-72 bg-[var(--wash)] font-mono text-[13px] leading-relaxed"
-                : "min-h-72 font-mono text-[13px] leading-relaxed"
-            }
-          />
+        <form
+          className="min-w-0 space-y-4"
+          action={readOnly ? undefined : saveAction}
+          method="post"
+        >
+          <SkillDocumentEditor source={source} label={skill.name} readOnly={readOnly} />
           {readOnly ? null : (
             <div className="flex justify-end gap-2">
               <a
