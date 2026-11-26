@@ -6,14 +6,17 @@ import { accountSkill } from "@flagstage/db";
 
 import { database, requireAccount } from "../../../../../../src/guard";
 import { skillHistory } from "../../../../../../src/skill-save";
-import { SkillEditor } from "../../../../../../src/skills-ui";
+import { SkillEditor, skillEditorStyle } from "../../../../../../src/skills-ui";
 
 export default async function AccountSkillPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ accountSlug: string; slug: string }>;
+  searchParams: Promise<{ editor?: string }>;
 }) {
   const { accountSlug, slug } = await params;
+  const { editor } = await searchParams;
   const { principal, account: found } = await requireAccount(accountSlug);
   if (!can(principal, "skill.read", { accountId: found.id })) notFound();
   const rows = await database()
@@ -39,6 +42,7 @@ export default async function AccountSkillPage({
       readOnly={!canEdit}
       saveAction={canEdit ? `/api/accounts/${found.id}/skills/${skill.slug}` : undefined}
       history={history}
+      editor={skillEditorStyle(editor)}
     />
   );
 }

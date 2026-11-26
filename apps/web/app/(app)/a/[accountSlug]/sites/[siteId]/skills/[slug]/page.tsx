@@ -4,14 +4,17 @@ import { can } from "@flagstage/core";
 
 import { requireSite } from "../../../../../../../../src/guard";
 import { readSiteSkill, skillHistory } from "../../../../../../../../src/skill-save";
-import { SkillEditor } from "../../../../../../../../src/skills-ui";
+import { SkillEditor, skillEditorStyle } from "../../../../../../../../src/skills-ui";
 
 export default async function SiteSkillPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ accountSlug: string; siteId: string; slug: string }>;
+  searchParams: Promise<{ editor?: string }>;
 }) {
   const { accountSlug, siteId, slug } = await params;
+  const { editor } = await searchParams;
   const { principal, site: found } = await requireSite(accountSlug, siteId);
   if (!can(principal, "skill.read", { accountId: found.accountId, siteId: found.id })) notFound();
   const skill = await readSiteSkill(found.id, slug);
@@ -28,6 +31,7 @@ export default async function SiteSkillPage({
       readOnly={!canEdit}
       saveAction={canEdit ? `/api/sites/${found.id}/skills/${skill.slug}` : undefined}
       history={history}
+      editor={skillEditorStyle(editor)}
     />
   );
 }

@@ -1,5 +1,8 @@
 import { Button, PageHeader, Textarea } from "@flagstage/ui";
 
+import { SkillCodeEditor } from "./skill-code-editor";
+import { SkillDocumentEditor } from "./skill-doc-editor";
+import { skillSource } from "./skill-source";
 import { LocalTime } from "./local-time";
 import { Page } from "./page";
 import { SiteIdentity } from "./site-nav";
@@ -49,6 +52,13 @@ export function SkillList({
   );
 }
 
+export type SkillEditorStyle = "plain" | "code" | "document";
+
+export function skillEditorStyle(value: string | undefined): SkillEditorStyle {
+  if (value === "code" || value === "document") return value;
+  return "plain";
+}
+
 export function SkillEditor({
   skill,
   backHref,
@@ -57,7 +67,8 @@ export function SkillEditor({
   readOnly = false,
   saveAction,
   history,
-  site
+  site,
+  editor = "plain"
 }: {
   skill: SkillCard;
   backHref: string;
@@ -67,6 +78,7 @@ export function SkillEditor({
   saveAction?: string;
   history: SkillHistoryItem[];
   site?: { name: string; status: string; host: string };
+  editor?: SkillEditorStyle;
 }) {
   return (
     <Page>
@@ -84,19 +96,33 @@ export function SkillEditor({
           View only. You can read this skill and its history.
         </p>
       ) : null}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(16rem,0.8fr)]">
-        <form className="space-y-4" action={readOnly ? undefined : saveAction} method="post">
-          <Textarea
-            aria-label={skill.name}
-            name="body"
-            readOnly={readOnly}
-            defaultValue={skill.body}
-            className={
-              readOnly
-                ? "min-h-72 bg-[var(--wash)] font-mono text-[13px] leading-relaxed"
-                : "min-h-72 font-mono text-[13px] leading-relaxed"
-            }
-          />
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(15rem,0.62fr)]">
+        <form
+          className="min-w-0 space-y-4"
+          action={readOnly ? undefined : saveAction}
+          method="post"
+        >
+          {editor === "plain" ? (
+            <Textarea
+              aria-label={skill.name}
+              name="body"
+              readOnly={readOnly}
+              defaultValue={skill.body}
+              className={
+                readOnly
+                  ? "min-h-72 bg-[var(--wash)] font-mono text-[13px] leading-relaxed"
+                  : "min-h-72 font-mono text-[13px] leading-relaxed"
+              }
+            />
+          ) : editor === "code" ? (
+            <SkillCodeEditor source={skillSource(skill)} label={skill.name} readOnly={readOnly} />
+          ) : (
+            <SkillDocumentEditor
+              source={skillSource(skill)}
+              label={skill.name}
+              readOnly={readOnly}
+            />
+          )}
           {readOnly ? null : (
             <div className="flex justify-end gap-2">
               <a
@@ -109,7 +135,7 @@ export function SkillEditor({
             </div>
           )}
         </form>
-        <aside className="rounded-xl border border-border bg-card">
+        <aside className="min-w-0 rounded-xl border border-border bg-card">
           <h2 className="border-b border-border px-4 py-3 text-sm font-semibold">History</h2>
           <ol className="divide-y divide-border">
             {history.map((entry) => (
