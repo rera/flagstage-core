@@ -24,7 +24,7 @@
     "@flagstage/publish": "workspace:*",
     "@flagstage/storage": "workspace:*",
     "@flagstage/ui": "workspace:*",
-    "better-auth": "1.7.21",
+    "better-auth": "1.7.25",
     "drizzle-orm": "^0.45.1",
     "@aws-sdk/client-ecs": "3.940.0",
     "@aws-sdk/client-lambda": "3.940.0",
