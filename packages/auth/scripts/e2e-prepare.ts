@@ -305,7 +305,7 @@ if (!pgaId) {
       "event-facts",
       "Event facts",
       "Dates, course, and other facts for this championship.",
-      "Event: PGA Championship\nSite: pgachampionship.com\nDates: May 14–17, 2026\nCourse: Aronimink Golf Club\n\nUse these facts when a page mentions the event.\nDo not invent a date, a course, or a winner."
+      "Use these facts when a page mentions the event. Do not invent a date, a course, or a winner.\n\n## This championship\n\n- Event: PGA Championship\n- Site: pgachampionship.com\n- Dates: May 14–17, 2026\n- Course: Aronimink Golf Club\n\n## How to use them\n\n- Name the course the first time it appears on a page.\n- Keep the dates together on one line.\n- Do not add a winner, a purse, or a weather line.\n\n## Leave out\n\n- Do not guess a tee time.\n- Do not name a player unless the page is a player page."
     );
     skill(
       "page-structure",
@@ -370,7 +370,26 @@ await ensureAccountSkill({
   slug: "brand-voice",
   name: "Brand voice",
   description: "How the account sounds in headlines and body text.",
-  body: 'Use short sentences.\n\nHeadlines name the event. They do not use an exclamation mark.\n\nSay "championship" in headlines. Do not say "tournament" there.\n\nDo not name a player unless the page is a player page.\n\nUse the official event names in Naming rules.',
+  body: `Short sentences. The account sounds calm and specific.
+
+## Headlines
+
+- Headlines name the event.
+- Say "championship" in a headline. Do not say "tournament" there.
+- Do not use an exclamation mark.
+
+## Names
+
+- Use the official event names in Naming rules.
+- Write the apostrophe in Women's. Do not write Womens.
+- Do not shorten PGA Championship to PGA in a headline.
+- Do not name a player unless the page is a player page.
+
+## Body
+
+- Lead with the fact, then the detail.
+- Do not open a page with "Welcome" or "We're excited".
+- Keep each sponsor line with the sponsor it belongs to.`,
   history: [
     {
       userId: averyId,

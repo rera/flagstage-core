@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type KeyboardEvent,
   type MutableRefObject,
   type RefObject
 } from "react";
@@ -213,19 +214,23 @@ function DocumentSurface({
   const [blocks, setBlocks] = useState(initialBlocks);
   const shapeRef = useRef(shape(initialBlocks));
   const pending = useRef<Caret | null>(null);
+  const draft = useRef("");
 
   useLayoutEffect(() => {
-    const caret = pending.current;
     const root = surface.current;
-    if (!caret || !root) return;
+    if (!root) return;
+    const caret = pending.current;
     pending.current = null;
+    const append = root.querySelector<HTMLElement>('[data-block="append"]');
+    if (append && caret?.id !== "append") append.textContent = "";
+    if (!caret) return;
     const host =
       caret.itemIndex == null
-        ? root.querySelector<HTMLElement>(`[data-block="${caret.id}"]`)
+        ? root.querySelector<HTMLElement>(`[data-block="${CSS.escape(caret.id)}"]`)
         : root.querySelector<HTMLElement>(
-            `[data-block="${caret.id}"] [data-index="${caret.itemIndex}"]`
+            `[data-block="${CSS.escape(caret.id)}"] [data-index="${caret.itemIndex}"]`
           );
-    if (!host) return;
+    if (!host || host === append) return;
     placeCaret(host, caret.offset);
   }, [blocks, surface]);
 
@@ -246,7 +251,14 @@ function DocumentSurface({
     const cursor = caretOffset(node);
     if (node.dataset.block === "append") {
       if (!text) return;
-      const next = withAppendedText(sourceRef.current, text);
+      const base =
+        draft.current && sourceRef.current.endsWith(draft.current)
+          ? sourceRef.current.slice(0, -draft.current.length)
+          : sourceRef.current;
+      const next = withAppendedText(base, text);
+      const addition = next.slice(base.length);
+      const promoted = shape(parseSkillDocument(next).blocks) !== shapeRef.current;
+      draft.current = promoted ? "" : addition;
       commit(next, text, parseSkillDocument(next).blocks.at(-1)?.id ?? "append", text.length);
       return;
     }
@@ -261,6 +273,21 @@ function DocumentSurface({
       return;
     }
     commit(withBlockText(sourceRef.current, blockId, text), text, blockId, cursor);
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (readOnly || event.key !== "Enter" || event.shiftKey) return;
+    const node = event.currentTarget;
+    if (node.dataset.block === "append" || node.dataset.item != null) return;
+    const root = surface.current;
+    const blockId = node.dataset.block;
+    if (!root || !blockId) return;
+    const last = [...root.querySelectorAll<HTMLElement>("[data-kind]")]
+      .filter((item) => item.dataset.item == null)
+      .at(-1);
+    if (last?.dataset.block !== blockId) return;
+    event.preventDefault();
+    root.querySelector<HTMLElement>('[data-block="append"]')?.focus();
   }
 
   useEffect(() => {
@@ -315,21 +342,29 @@ function DocumentSurface({
   return (
     <div ref={surface} aria-label={label} className="flex min-w-0 flex-col gap-2.5 px-5 py-4">
       {visible.map((block) => (
-        <BlockView key={block.id} block={block} editable={editable} onInput={onBlock} />
+        <BlockView
+          key={block.id}
+          block={block}
+          editable={editable}
+          onInput={onBlock}
+          onKeyDown={onKeyDown}
+        />
       ))}
-      {visible.length === 0 && !readOnly ? (
+      {readOnly ? null : (
         <div
           role="textbox"
           aria-label="Paragraph"
           aria-multiline="true"
           data-block="append"
           contentEditable={editable}
+          tabIndex={0}
           suppressContentEditableWarning
           spellCheck={false}
           onInput={onBlock}
+          onKeyDown={onKeyDown}
           className={`min-h-7 text-[15px] leading-7 break-words whitespace-pre-wrap ${focusRing}`}
         />
-      ) : null}
+      )}
     </div>
   );
 }
@@ -337,11 +372,13 @@ function DocumentSurface({
 function BlockView({
   block,
   editable,
-  onInput
+  onInput,
+  onKeyDown
 }: {
   block: SkillBlock;
   editable: false | "plaintext-only";
   onInput: (event: FormEvent<HTMLElement>) => void;
+  onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
 }) {
   if (block.kind === "blank") return null;
   if (block.kind === "list") {
@@ -365,9 +402,11 @@ function BlockView({
               data-index={index}
               data-block={block.id}
               contentEditable={editable}
+              tabIndex={editable ? 0 : -1}
               suppressContentEditableWarning
               spellCheck={false}
               onInput={onInput}
+              onKeyDown={onKeyDown}
               className={`min-h-7 min-w-0 flex-1 text-[15px] leading-7 break-words whitespace-pre-wrap ${focusRing}`}
             >
               {item.text}
@@ -393,10 +432,12 @@ function BlockView({
       data-kind={block.kind}
       data-block={block.id}
       contentEditable={editable}
+      tabIndex={editable ? 0 : -1}
       suppressHydrationWarning
       suppressContentEditableWarning
       spellCheck={false}
       onInput={onInput}
+      onKeyDown={onKeyDown}
       className={`${className} ${focusRing}`}
     >
       {block.text}
