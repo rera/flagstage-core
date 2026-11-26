@@ -5,6 +5,7 @@ import { can } from "@flagstage/core";
 import { updateSiteTimeZoneAction } from "../../../../../../../src/actions";
 import { requireSite } from "../../../../../../../src/guard";
 import { Page } from "../../../../../../../src/page";
+import { SiteSettingsNav } from "../../../../../../../src/site-settings-nav";
 import { SiteIdentity } from "../../../../../../../src/site-nav";
 
 const ZONES = [
@@ -44,6 +45,7 @@ export default async function SiteSettingsPage({
       <div className="space-y-4">
         <SiteIdentity name={found.name} status={found.status} host={`${found.slug}.localhost`} />
       </div>
+      <SiteSettingsNav base={`/a/${accountSlug}/sites/${found.id}`} current="settings" />
       <PageHeader
         level={2}
         title="Site settings"

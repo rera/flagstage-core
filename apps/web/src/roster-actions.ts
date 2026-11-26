@@ -31,7 +31,7 @@ async function sitePath(siteId: string) {
     .limit(1);
   const slug = rows[0] ? await accountSlug(rows[0].accountId) : undefined;
   if (!slug) return "/";
-  return `/a/${slug}/sites/${siteId}/people`;
+  return `/a/${slug}/sites/${siteId}/settings/people`;
 }
 
 function withError(path: string, error?: string) {

@@ -21,12 +21,12 @@ An account admin does not need a site role. The check treats them as allowed on 
 
 A site keeps at least one Owner. The last Owner can be removed or given another role only when the account already has an account admin. Removing the last account admin is refused when any site in the account has no Owner. A platform admin does not count as that cover.
 
-The sidebar follows the same split. People and Skills are their own items. Settings has no tabs for them.
+The sidebar follows the same split. A selected site shows Make changes, Overview, Plugins, Analytics, Scheduled, and Settings. People, Skills, and Domain are tabs on that site's Settings. Forms opens from Plugins. With no site selected, the account section is All sites, People, Skills, and Usage. With a site selected, those account pages open from the site picker, under the account name.
 
 | Who            | Sidebar                                                                                                            |
 | -------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Site role      | That site. People and Skills are in the site section. No account section unless they also belong to the account    |
-| Account member | One account. Site sections when a site is open, plus All sites, People, Skills, and Usage. Read only               |
+| Site role      | That site. No account section unless they also belong to the account                                               |
+| Account member | One account. Account pages in the sidebar, or in the site picker when a site is open. Read only                    |
 | Account admin  | The same, and they can change it. Site switcher includes New site. Account switcher only with two or more accounts |
 | Org admin      | That account, plus Admin: Accounts, Sites, People, Usage, Settings, and the account switcher                       |
 

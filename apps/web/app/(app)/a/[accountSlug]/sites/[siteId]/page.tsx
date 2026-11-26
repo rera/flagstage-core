@@ -2,7 +2,7 @@ import { eq, inArray } from "drizzle-orm";
 
 import { visitsInRange } from "@flagstage/analytics";
 import { loadConfig } from "@flagstage/config";
-import { can } from "@flagstage/core";
+import { can, SITE_ROLE_LABEL, SITE_ROLES, type SiteRole } from "@flagstage/core";
 import {
   analyticsDaily,
   analyticsEvent,
@@ -11,6 +11,7 @@ import {
   leadForm,
   membership,
   siteDomain,
+  siteMembership,
   siteSchedule,
   snapshot,
   user
@@ -30,6 +31,18 @@ import { LocalTime } from "../../../../../../src/local-time";
 import { Page } from "../../../../../../src/page";
 import { SiteIdentity } from "../../../../../../src/site-nav";
 import { historyActor, versionLabel } from "../../../../../../src/time";
+
+function isSiteRole(role: string): role is SiteRole {
+  return (SITE_ROLES as readonly string[]).includes(role);
+}
+
+const ROLE_RANK: Record<string, number> = {
+  Owner: 0,
+  Editor: 1,
+  Viewer: 2,
+  Analyst: 3,
+  "Account admin": 4
+};
 
 export default async function SiteOverviewPage({
   params
@@ -84,15 +97,36 @@ export default async function SiteOverviewPage({
     .select()
     .from(membership)
     .where(eq(membership.accountId, found.accountId));
+  const grants = await db.select().from(siteMembership).where(eq(siteMembership.siteId, siteId));
   const personIds = [
     ...new Set([
       ...members.map((member) => member.userId),
+      ...grants.map((grant) => grant.userId),
       ...snaps.map((item) => item.createdBy).filter((id): id is string => Boolean(id))
     ])
   ];
   const people =
     personIds.length === 0 ? [] : await db.select().from(user).where(inArray(user.id, personIds));
   const byId = new Map(people.map((person) => [person.id, person]));
+  const seen = new Set<string>();
+  const access = grants.flatMap((grant) => {
+    if (!isSiteRole(grant.role)) return [];
+    const email = byId.get(grant.userId)?.email;
+    if (!email) return [];
+    seen.add(grant.userId);
+    return [{ id: grant.id, email, role: SITE_ROLE_LABEL[grant.role] }];
+  });
+  for (const member of members) {
+    if (member.role !== "account_admin" || seen.has(member.userId)) continue;
+    const email = byId.get(member.userId)?.email;
+    if (!email) continue;
+    access.push({ id: member.id, email, role: "Account admin" });
+  }
+  access.sort(
+    (left, right) =>
+      (ROLE_RANK[left.role] ?? 9) - (ROLE_RANK[right.role] ?? 9) ||
+      left.email.localeCompare(right.email)
+  );
   const history = snaps.slice(0, 3);
   const canPublish = can(principal, "site.publish", {
     accountId: found.accountId,
@@ -135,7 +169,7 @@ export default async function SiteOverviewPage({
     submissions,
     pageviews,
     visitors,
-    members,
+    access,
     accountSlug
   };
   return (
@@ -214,7 +248,7 @@ type Cards = {
   submissions: Array<{ id: string }>;
   pageviews: number;
   visitors: number;
-  members: Array<{ id: string; userId: string; role: string }>;
+  access: Array<{ id: string; email: string; role: string }>;
   accountSlug: string;
 };
 
@@ -295,7 +329,7 @@ function DomainCard({ domains, base, host }: Cards) {
     <section className="rounded-xl border border-border bg-card px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">Domain</h2>
-        <a href={`${base}/domain`} className="text-sm font-medium text-primary">
+        <a href={`${base}/settings/domain`} className="text-sm font-medium text-primary">
           Domain settings
         </a>
       </div>
@@ -305,7 +339,10 @@ function DomainCard({ domains, base, host }: Cards) {
             No custom domain yet. It still answers on{" "}
             <Hostname value={host} className="font-mono" />.
           </p>
-          <a href={`${base}/domain`} className="mt-2 inline-block text-sm font-medium text-primary">
+          <a
+            href={`${base}/settings/domain`}
+            className="mt-2 inline-block text-sm font-medium text-primary"
+          >
             Add a domain
           </a>
         </>
@@ -373,29 +410,23 @@ function AnalyticsCard({ pageviews, visitors, base }: Cards) {
   );
 }
 
-function PeopleCard({ members, byId, base }: Cards) {
+function PeopleCard({ access, base }: Cards) {
   return (
     <section className="rounded-xl border border-border bg-card px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">People</h2>
-        <a href={`${base}/people`} className="text-sm font-medium text-primary">
+        <a href={`${base}/settings/people`} className="text-sm font-medium text-primary">
           Manage access
         </a>
       </div>
-      {members.length === 0 ? (
+      {access.length === 0 ? (
         <EmptyState title="No one has access yet" description="Invite someone from the account." />
       ) : (
         <ul className="mt-3 space-y-2 text-sm">
-          {members.map((member) => (
-            <li key={member.id} className="flex items-center justify-between gap-3">
-              <span>{byId.get(member.userId)?.email ?? member.userId}</span>
-              <span className="text-muted-foreground">
-                {member.role === "account_admin"
-                  ? "Account admin"
-                  : member.role === "member"
-                    ? "Member"
-                    : member.role}
-              </span>
+          {access.map((person) => (
+            <li key={person.id} className="flex items-center justify-between gap-3">
+              <span className="min-w-0 truncate">{person.email}</span>
+              <span className="shrink-0 text-muted-foreground">{person.role}</span>
             </li>
           ))}
         </ul>

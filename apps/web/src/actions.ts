@@ -588,7 +588,7 @@ export async function addDomainAction(formData: FormData) {
   if (!(await allowedSite(principal, siteId, "domain.manage"))) redirect("/no-access");
   const config = loadConfig();
   const hostname = normalizeHostname(String(formData.get("hostname") ?? ""));
-  if (!isValidHostname(hostname)) redirect(await siteHref(siteId, "/domain"));
+  if (!isValidHostname(hostname)) redirect(await siteHref(siteId, "/settings/domain"));
   const driver = await selectDomainsDriver(config);
   const existing = await database()
     .select()
@@ -596,7 +596,7 @@ export async function addDomainAction(formData: FormData) {
     .where(eq(siteDomain.hostname, hostname))
     .limit(1);
   const current = existing[0];
-  if (current && current.siteId !== siteId) redirect(await siteHref(siteId, "/domain"));
+  if (current && current.siteId !== siteId) redirect(await siteHref(siteId, "/settings/domain"));
   const provisioned = current?.cloudfrontTenantId
     ? await driver.update(current.cloudfrontTenantId, hostname)
     : await driver.provision(hostname);
@@ -620,7 +620,7 @@ export async function addDomainAction(formData: FormData) {
       status: "pending"
     });
   }
-  redirect(await siteHref(siteId, "/domain"));
+  redirect(await siteHref(siteId, "/settings/domain"));
 }
 
 export async function saveImporterSettingsAction(formData: FormData) {
@@ -684,7 +684,7 @@ export async function recheckDomainAction(formData: FormData) {
     .where(eq(siteDomain.id, domainId))
     .limit(1);
   const found = rows[0];
-  if (!found) redirect(await siteHref(siteId, "/domain"));
+  if (!found) redirect(await siteHref(siteId, "/settings/domain"));
   const config = loadConfig();
   const driver = await selectDomainsDriver(config);
   const refreshed =
@@ -704,5 +704,5 @@ export async function recheckDomainAction(formData: FormData) {
     .update(siteDomain)
     .set({ records, status, lastCheckedAt: new Date() })
     .where(eq(siteDomain.id, domainId));
-  redirect(await siteHref(siteId, "/domain"));
+  redirect(await siteHref(siteId, "/settings/domain"));
 }

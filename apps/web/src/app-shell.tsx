@@ -14,6 +14,32 @@ function active(pathname: string, href: string, exact = false) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function onSitePath(pathname: string, siteBase: string, suffix: string) {
+  return pathname === `${siteBase}${suffix}` || pathname.startsWith(`${siteBase}${suffix}/`);
+}
+
+function siteCurrent(
+  pathname: string,
+  siteBase: string,
+  link: { href: string; label: string; exact?: boolean }
+) {
+  if (
+    link.label === "Settings" &&
+    ["/settings", "/people", "/skills", "/domain"].some((suffix) =>
+      onSitePath(pathname, siteBase, suffix)
+    )
+  ) {
+    return true;
+  }
+  if (
+    link.label === "Plugins" &&
+    ["/plugins", "/forms"].some((suffix) => onSitePath(pathname, siteBase, suffix))
+  ) {
+    return true;
+  }
+  return active(pathname, link.href, Boolean(link.exact));
+}
+
 function rememberCollapsed(next: boolean) {
   document.cookie = `${SIDEBAR_COOKIE}=${next ? "collapsed" : "expanded"}; Path=/; Max-Age=31536000; SameSite=Lax`;
 }
@@ -172,10 +198,7 @@ export function AppShell({
   const siteLinks = currentSite
     ? [
         { href: siteBase, label: "Overview", icon: "overview", exact: true },
-        { href: `${siteBase}/people`, label: "People", icon: "people" },
-        { href: `${siteBase}/skills`, label: "Skills", icon: "skills" },
-        { href: `${siteBase}/domain`, label: "Domain", icon: "domain" },
-        { href: `${siteBase}/forms`, label: "Forms", icon: "forms" },
+        { href: `${siteBase}/plugins`, label: "Plugins", icon: "plugins" },
         ...(canAnalytics
           ? [{ href: `${siteBase}/analytics`, label: "Analytics", icon: "analytics" }]
           : []),
@@ -192,6 +215,7 @@ export function AppShell({
           { href: `/a/${current.slug}/usage`, label: "Usage", icon: "usage" }
         ]
       : [];
+  const accountInPicker = Boolean(currentSite) && accountLinks.length > 0;
   const adminLinks = [
     { href: "/admin/accounts", label: "Accounts", icon: "accounts" },
     { href: "/admin/sites", label: "Sites", icon: "sites" },
@@ -349,8 +373,45 @@ export function AppShell({
             </ul>
           ) : null}
           {!adminMode && menu === "site" && current ? (
-            <div className="absolute top-full right-3 left-3 z-20 mt-1 rounded-xl border border-border bg-background p-1 shadow-sm">
-              <ul role="listbox" aria-label="Sites" className="max-h-80 overflow-auto">
+            <div
+              className={cn(
+                "absolute top-full right-3 left-3 z-20 mt-1 rounded-xl border border-border bg-background p-1 shadow-sm",
+                accountInPicker && "max-h-[min(32rem,calc(100dvh-6.5rem))] overflow-auto"
+              )}
+            >
+              {accountInPicker ? (
+                <nav aria-label="Account" className="px-1 pb-1">
+                  <p className="truncate px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">
+                    {current.name}
+                  </p>
+                  {accountLinks.map((link) => {
+                    const on = active(pathname, link.href, link.exact);
+                    return (
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        aria-current={on ? "page" : undefined}
+                        onClick={close}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-[var(--wash)] hover:text-foreground",
+                          on && "bg-[var(--wash)] font-semibold text-foreground"
+                        )}
+                      >
+                        <NavIcon name={link.icon} />
+                        {link.label}
+                      </a>
+                    );
+                  })}
+                </nav>
+              ) : null}
+              <ul
+                role="listbox"
+                aria-label="Sites"
+                className={cn(
+                  "max-h-80 overflow-auto",
+                  accountInPicker && "border-t border-border"
+                )}
+              >
                 {sites.map((item) => (
                   <li key={item.id}>
                     <a
@@ -415,14 +476,14 @@ export function AppShell({
                   href={link.href}
                   label={link.label}
                   icon={link.icon}
-                  current={active(pathname, link.href, link.exact)}
+                  current={siteCurrent(pathname, siteBase, link)}
                   rail={rail}
                   onNavigate={close}
                 />
               ))}
             </nav>
           ) : null}
-          {!adminMode && accountLinks.length > 0 ? (
+          {!adminMode && accountLinks.length > 0 && !currentSite ? (
             <div>
               <p
                 className={cn(
