@@ -15,7 +15,7 @@ export async function GET(_request: Request, context: { params: Promise<{ siteId
   const db = database();
   const sites = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
   const found = sites[0];
-  if (!found || !can(principal, "site.read", { accountId: found.accountId })) {
+  if (!found || !can(principal, "site.read", { accountId: found.accountId, siteId: found.id })) {
     return new Response("Not found", { status: 404 });
   }
   const encoder = new TextEncoder();

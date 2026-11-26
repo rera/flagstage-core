@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { buildPrompt } from "./prompt";
+import { buildPrompt, formatAccountSkills } from "./prompt";
 import { buildAgentEnv } from "./runner";
 import { HAND_EDIT_GUIDANCE } from "./site-tools/guard";
 import { assistantReply, runSubprocessEdit, skillsDirectory } from "./subprocess";
@@ -18,6 +18,30 @@ describe("subprocess editor", () => {
     expect(untrusted).toContain("Change the footer");
     expect(untrusted).not.toContain("find_pages");
     expect(prompt).toContain(HAND_EDIT_GUIDANCE);
+  });
+
+  it("puts account skills beside the site skill, outside the untrusted request", () => {
+    const accountSkills = formatAccountSkills([
+      { name: "Brand voice", body: "Headlines name the event." },
+      { name: "Legal lines", body: "Keep the footer legal line on every page." }
+    ]);
+    const prompt = buildPrompt(
+      "Change the footer",
+      "Use the site skill for includes.",
+      undefined,
+      accountSkills
+    );
+    const start = prompt.indexOf("<untrusted>");
+    const trusted = prompt.slice(0, start);
+    const untrusted = prompt.slice(start, prompt.indexOf("</untrusted>"));
+    expect(trusted).toContain("Headlines name the event.");
+    expect(trusted).toContain("Keep the footer legal line on every page.");
+    expect(trusted).toContain("Use the site skill for includes.");
+    expect(trusted.indexOf("Headlines name the event.")).toBeLessThan(
+      trusted.indexOf("Use the site skill for includes.")
+    );
+    expect(untrusted).not.toContain("Headlines name the event.");
+    expect(untrusted).toContain("Change the footer");
   });
 
   it("reads the assistant note from opencode json and skips tool events", () => {

@@ -17,7 +17,7 @@ export default async function FormsPage({
 }) {
   const { accountSlug, siteId } = await params;
   const { principal, site: found } = await requireSite(accountSlug, siteId);
-  if (!can(principal, "form.read", { accountId: found.accountId })) notFound();
+  if (!can(principal, "form.read", { accountId: found.accountId, siteId: found.id })) notFound();
   const db = database();
   const base = "/a/" + accountSlug + "/sites/" + found.id;
   const forms = await db.select().from(leadForm).where(eq(leadForm.siteId, siteId));

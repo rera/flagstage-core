@@ -35,7 +35,10 @@ export default async function SiteSettingsPage({
   const query = await searchParams;
   const { principal, site: found } = await requireSite(accountSlug, siteId);
   const zones = ZONES.includes(found.timeZone) ? ZONES : [found.timeZone, ...ZONES];
-  const canManage = can(principal, "site.manage", { accountId: found.accountId });
+  const canManage = can(principal, "site.manage", {
+    accountId: found.accountId,
+    siteId: found.id
+  });
   return (
     <Page>
       <div className="space-y-4">

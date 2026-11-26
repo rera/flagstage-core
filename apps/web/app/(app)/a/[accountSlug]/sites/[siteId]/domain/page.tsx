@@ -20,7 +20,10 @@ export default async function DomainPage({
   const { principal, site: found } = await requireSite(accountSlug, siteId);
   const db = database();
   const domains = await db.select().from(siteDomain).where(eq(siteDomain.siteId, siteId));
-  const canManage = can(principal, "domain.manage", { accountId: found.accountId });
+  const canManage = can(principal, "domain.manage", {
+    accountId: found.accountId,
+    siteId: found.id
+  });
   return (
     <Page>
       <div className="space-y-4">

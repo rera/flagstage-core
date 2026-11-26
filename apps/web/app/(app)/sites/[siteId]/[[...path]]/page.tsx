@@ -19,7 +19,8 @@ export default async function LegacySiteRedirect({
   const db = database();
   const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
   const found = rows[0];
-  if (!found || !can(principal, "site.read", { accountId: found.accountId })) notFound();
+  if (!found || !can(principal, "site.read", { accountId: found.accountId, siteId: found.id }))
+    notFound();
   const accounts = await db.select().from(account).where(eq(account.id, found.accountId)).limit(1);
   const slug = accounts[0]?.slug;
   if (!slug) notFound();

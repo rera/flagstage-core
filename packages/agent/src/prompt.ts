@@ -1,12 +1,30 @@
 import { frameUntrusted } from "@flagstage/ai";
 
+export function formatAccountSkills(skills: Array<{ name: string; body: string }>): string {
+  const blocks = skills
+    .map((skill) => {
+      const body = skill.body.trim();
+      if (!body) return "";
+      return `## ${skill.name.trim() || "Skill"}\n\n${body}`;
+    })
+    .filter(Boolean);
+  if (blocks.length === 0) return "";
+  return `Account skills apply on every site in this account. Follow them in addition to the site skills.\n\n${blocks.join("\n\n")}`;
+}
+
 /** Rewritten from the commercial harness prompt. Customer names and commercial URLs are not included. */
-export function buildPrompt(request: string, siteSkill?: string, guidance?: string): string {
+export function buildPrompt(
+  request: string,
+  siteSkill?: string,
+  guidance?: string,
+  accountSkills?: string
+): string {
+  const account = accountSkills?.trim() ? `${accountSkills.trim()}\n\n` : "";
   const skill = siteSkill?.trim() ? `${siteSkill.trim()}\n\n` : "";
   const retry = guidance?.trim() ? `\n${guidance.trim()}\n` : "";
   return `You are editing a static website in this directory.
 
-${skill}Tools: find_pages, read_page, edit_include, set_meta, retag, replace_text, list_links.
+${account}${skill}Tools: find_pages, read_page, edit_include, set_meta, retag, replace_text, list_links.
 Prefer edit_include when the same block is on many pages. A tool previews until you pass its apply id.
 
 ${frameUntrusted(request, "change request")}

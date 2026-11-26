@@ -24,7 +24,8 @@ export interface AgentRunner {
   edit(
     files: Map<string, Uint8Array>,
     request: string,
-    guidance?: string
+    guidance?: string,
+    context?: { accountSkills?: string }
   ): Promise<{
     changed: boolean;
     files: Map<string, Uint8Array>;
@@ -52,6 +53,8 @@ export async function runSubprocessEdit(input: {
   request: string;
   /** Trusted note for the editor. Kept outside the untrusted request. */
   guidance?: string;
+  /** Account-wide skills. Kept outside the untrusted request, beside the site skill. */
+  accountSkills?: string;
   env: Record<string, string>;
   timeoutMs: number;
   skillsDir?: string;
@@ -91,7 +94,7 @@ export async function runSubprocessEdit(input: {
     }
     // Import writes this file. Package skills are copied beside it and do not replace it.
     const siteSkill = readSiteSkill(dir);
-    const prompt = buildPrompt(input.request, siteSkill, input.guidance);
+    const prompt = buildPrompt(input.request, siteSkill, input.guidance, input.accountSkills);
     writeFileSync(join(dir, ".flagstage", "request.md"), prompt);
     tools = await startSiteToolServer(dir);
     writeFileSync(
@@ -224,12 +227,13 @@ export function subprocessRunner(options: {
 }): AgentRunner {
   return {
     name: "subprocess",
-    edit(files, request, guidance) {
+    edit(files, request, guidance, context) {
       return runSubprocessEdit({
         bin: options.bin ?? "opencode",
         files,
         request,
         guidance,
+        accountSkills: context?.accountSkills,
         env: options.env,
         timeoutMs: options.timeoutMs,
         skillsDir: options.skillsDir

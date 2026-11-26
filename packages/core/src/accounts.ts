@@ -1,9 +1,24 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
-import { and, eq } from "drizzle-orm";
-import { account, invitation, membership, orgSettings, user, type Database } from "@flagstage/db";
+import { and, eq, inArray } from "drizzle-orm";
+import {
+  account,
+  invitation,
+  membership,
+  orgSettings,
+  site,
+  siteMembership,
+  user,
+  type Database
+} from "@flagstage/db";
 
-import { MEMBERSHIP_ROLES, type MembershipRole, type OrgRole } from "./policy";
+import {
+  MEMBERSHIP_ROLES,
+  SITE_ROLES,
+  type MembershipRole,
+  type OrgRole,
+  type SiteRole
+} from "./policy";
 
 export type StoredMembership = {
   accountId: string;
@@ -37,7 +52,14 @@ export function hashToken(token: string): string {
 
 export async function createInvitation(
   db: Database,
-  input: { accountId: string; email: string; role: MembershipRole; ttlMs?: number }
+  input: {
+    accountId: string;
+    email: string;
+    role: MembershipRole | SiteRole;
+    ttlMs?: number;
+    siteId?: string;
+    personName?: string;
+  }
 ) {
   const token = randomBytes(24).toString("base64url");
   const id = randomUUID();
@@ -49,7 +71,9 @@ export async function createInvitation(
     role: input.role,
     tokenHash: hashToken(token),
     expiresAt,
-    status: "pending"
+    status: "pending",
+    siteId: input.siteId,
+    personName: input.personName?.trim() || null
   });
   return { id, token, expiresAt };
 }
@@ -67,16 +91,38 @@ export async function acceptInvitation(db: Database, token: string, userId: stri
   if (invite.email !== email.toLowerCase()) {
     throw new Error("This invitation is for a different email address.");
   }
-  await db
-    .insert(membership)
-    .values({
-      id: randomUUID(),
-      accountId: invite.accountId,
-      userId,
-      role: invite.role,
-      source: "manual"
-    })
-    .onConflictDoNothing();
+  if (invite.siteId && (SITE_ROLES as readonly string[]).includes(invite.role)) {
+    await db
+      .insert(siteMembership)
+      .values({
+        id: randomUUID(),
+        siteId: invite.siteId,
+        userId,
+        role: invite.role
+      })
+      .onConflictDoNothing();
+  } else if ((MEMBERSHIP_ROLES as readonly string[]).includes(invite.role)) {
+    await db
+      .insert(membership)
+      .values({
+        id: randomUUID(),
+        accountId: invite.accountId,
+        userId,
+        role: invite.role,
+        source: "manual"
+      })
+      .onConflictDoNothing();
+  }
+  if (invite.personName) {
+    const people = await db.select().from(user).where(eq(user.id, userId)).limit(1);
+    const current = people[0];
+    if (current && (current.name === current.email || current.name.trim() === "")) {
+      await db
+        .update(user)
+        .set({ name: invite.personName, updatedAt: new Date() })
+        .where(eq(user.id, userId));
+    }
+  }
   await db.update(invitation).set({ status: "accepted" }).where(eq(invitation.id, invite.id));
   return invite;
 }
@@ -89,11 +135,17 @@ export async function loadGrants(
   orgRoleSource: string;
   disabled: boolean;
   memberships: StoredMembership[];
+  siteGrants: Array<{ siteId: string; accountId: string; role: SiteRole }>;
 }> {
   const rows = await db.select().from(user).where(eq(user.id, userId)).limit(1);
   const found = rows[0];
   if (!found) throw new Error("User not found.");
   const grants = await db.select().from(membership).where(eq(membership.userId, userId));
+  const sites = await db.select().from(siteMembership).where(eq(siteMembership.userId, userId));
+  const siteIds = sites.map((row) => row.siteId);
+  const siteRows =
+    siteIds.length === 0 ? [] : await db.select().from(site).where(inArray(site.id, siteIds));
+  const accountBySite = new Map(siteRows.map((row) => [row.id, row.accountId]));
   return {
     orgRole: found.org_role === "admin" ? "admin" : "none",
     orgRoleSource: found.org_role_source,
@@ -106,7 +158,12 @@ export async function loadGrants(
         accountId: grant.accountId,
         role: grant.role,
         source: grant.source
-      }))
+      })),
+    siteGrants: sites.flatMap((row) => {
+      const accountId = accountBySite.get(row.siteId);
+      if (!accountId || !(SITE_ROLES as readonly string[]).includes(row.role)) return [];
+      return [{ siteId: row.siteId, accountId, role: row.role as SiteRole }];
+    })
   };
 }
 

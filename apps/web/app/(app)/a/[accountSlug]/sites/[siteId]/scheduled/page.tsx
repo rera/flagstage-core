@@ -26,7 +26,10 @@ export default async function ScheduledPage({
     await db.select().from(siteSchedule).where(eq(siteSchedule.siteId, siteId))
   ).sort((left, right) => right.publishAt.getTime() - left.publishAt.getTime());
   const zone = found.timeZone || "UTC";
-  const canPublish = can(principal, "site.publish", { accountId: found.accountId });
+  const canPublish = can(principal, "site.publish", {
+    accountId: found.accountId,
+    siteId: found.id
+  });
   return (
     <Page>
       <div className="space-y-4">

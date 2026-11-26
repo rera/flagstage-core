@@ -31,10 +31,11 @@ export async function GET(
         id: authSession.user.id,
         orgRole: grants.orgRole,
         disabled: grants.disabled,
-        memberships: grants.memberships
+        memberships: grants.memberships,
+        siteGrants: grants.siteGrants
       },
       "site.read",
-      { accountId }
+      { accountId, siteId: session.siteId }
     );
   if (!allowed) return new Response("Not found", { status: 404 });
   const snaps = await db

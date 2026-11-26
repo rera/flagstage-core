@@ -5,6 +5,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { getEditSettings } from "@flagstage/core";
 import type { Database } from "@flagstage/db";
 import {
+  accountSkill,
   changeRequest,
   message,
   previewSession,
@@ -31,6 +32,7 @@ import { outputPrefix, snapshotPrefix, sourcePrefix, type BlobStore } from "@fla
 import { injectAnalytics } from "@flagstage/analytics";
 
 import { maybeAlertBudget } from "./budget";
+import { formatAccountSkills } from "./prompt";
 import { checkTrust } from "./runner";
 import { customerReply } from "./site-tools/guard";
 import { editWithinHandLimit } from "./site-tools/retry";
@@ -132,12 +134,24 @@ async function readSnapshot(
   return files;
 }
 
+async function loadAccountSkills(db: Database, accountId: string | undefined): Promise<string> {
+  if (!accountId) return "";
+  const rows = await db.select().from(accountSkill).where(eq(accountSkill.accountId, accountId));
+  return formatAccountSkills(
+    rows
+      .slice()
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .map((row) => ({ name: row.name, body: row.body }))
+  );
+}
+
 async function writeSnapshot(input: {
   db: Database;
   store: BlobStore;
   siteId: string;
   parentSnapshotId: string;
   files: Map<string, Uint8Array>;
+  createdBy?: string;
 }): Promise<string> {
   const snapshotId = randomUUID();
   const prefix = snapshotPrefix(input.siteId, snapshotId);
@@ -164,9 +178,66 @@ async function writeSnapshot(input: {
     kind: "edit",
     storagePrefix: prefix,
     fileCount: input.files.size,
-    bytes
+    bytes,
+    createdBy: input.createdBy
   });
   return snapshotId;
+}
+
+/**
+ * Write a new snapshot the same way a chat edit does, then point the draft at it.
+ * Site skill saves use this so the file change shows up in version history.
+ */
+export async function commitSiteFiles(input: {
+  db: Database;
+  store: BlobStore;
+  siteId: string;
+  userId: string;
+  updates: Map<string, Uint8Array>;
+}): Promise<string> {
+  const sites = await input.db.select().from(site).where(eq(site.id, input.siteId)).limit(1);
+  const currentSite = sites[0];
+  const listed = await input.db.select().from(snapshot).where(eq(snapshot.siteId, input.siteId));
+  const baseId =
+    currentSite?.draftSnapshotId ||
+    currentSite?.currentSnapshotId ||
+    listed.sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime()).at(-1)?.id;
+  if (!baseId) throw new Error("Import the site before editing skills.");
+  const snaps = await input.db.select().from(snapshot).where(eq(snapshot.id, baseId)).limit(1);
+  const prefix = snaps[0]?.storagePrefix;
+  if (!prefix) throw new Error("Draft snapshot is missing.");
+  const files = await readSnapshot(input.store, prefix);
+  for (const [path, body] of input.updates) {
+    if (path.split("/").some((part) => part === ".." || part === "")) {
+      throw new Error("Unsafe skill path.");
+    }
+    files.set(path, body);
+  }
+  const snapshotId = await writeSnapshot({
+    db: input.db,
+    store: input.store,
+    siteId: input.siteId,
+    parentSnapshotId: baseId,
+    files,
+    createdBy: input.userId
+  });
+  await input.db.update(site).set({ draftSnapshotId: snapshotId }).where(eq(site.id, input.siteId));
+  return snapshotId;
+}
+
+export async function readSiteFiles(
+  db: Database,
+  store: BlobStore,
+  siteId: string
+): Promise<Map<string, Uint8Array> | null> {
+  const sites = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
+  const currentSite = sites[0];
+  const baseId = currentSite?.draftSnapshotId || currentSite?.currentSnapshotId;
+  if (!baseId) return null;
+  const snaps = await db.select().from(snapshot).where(eq(snapshot.id, baseId)).limit(1);
+  const prefix = snaps[0]?.storagePrefix;
+  if (!prefix) return null;
+  return readSnapshot(store, prefix);
 }
 
 export async function postMessage(input: {
@@ -317,13 +388,15 @@ export async function postMessage(input: {
     }
     if (!input.runner) throw new Error("No editor is configured.");
     const editSettings = await getEditSettings(db);
+    const accountSkills = await loadAccountSkills(db, currentSite?.accountId);
     let outcome: Awaited<ReturnType<typeof editWithinHandLimit>>;
     try {
       outcome = await editWithinHandLimit({
         runner: input.runner,
         files,
         request,
-        limit: editSettings.handEditPageLimit
+        limit: editSettings.handEditPageLimit,
+        accountSkills
       });
     } catch (error) {
       const messageText = error instanceof Error ? error.message : "";
@@ -386,6 +459,7 @@ export async function postMessage(input: {
       store: input.store,
       siteId: input.siteId,
       parentSnapshotId: baseId,
+      createdBy: input.userId,
       files: withAnalytics(
         outcome.files,
         sites[0]?.analyticsEnabled !== false,
@@ -500,11 +574,13 @@ export async function approveChange(input: {
     if (!input.runner) return { ok: false, reason: "No editor is configured." };
     const sourceFiles = await readSnapshot(input.store, prefix);
     const editSettings = await getEditSettings(input.db);
+    const accountSkills = await loadAccountSkills(input.db, sites[0]?.accountId);
     const outcome = await editWithinHandLimit({
       runner: input.runner,
       files: sourceFiles,
       request: request.summary,
-      limit: editSettings.handEditPageLimit
+      limit: editSettings.handEditPageLimit,
+      accountSkills
     });
     if (!outcome.accepted || !outcome.changed) {
       if (outcome.toolLog.length > 0) {
