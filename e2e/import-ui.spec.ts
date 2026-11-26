@@ -55,9 +55,19 @@ test("a WordPress address shows the detected importer, then progress, the result
   await expect(page.getByText("same on 5 pages")).toBeVisible();
   await expect(page.getByText("same on 4 pages")).toBeVisible();
   await expect(page.getByText("Article")).toBeVisible();
-  await expect(
-    page.getByText("A few blocks need a look. They stayed on their pages.")
-  ).toBeVisible();
+  const callout = page.getByRole("status").filter({
+    hasText: "A few blocks need a look. They stayed on their pages."
+  });
+  await expect(callout).toBeVisible();
+  const sentence = (await callout.locator("li span").first().innerText()).trim();
+  expect(sentence).not.toMatch(/site-footer|_inc|current-page|block inline|normaliz|\.html/);
+  expect(sentence).not.toMatch(/[<>{}`/#\\]/);
+  expect(sentence.endsWith(".")).toBe(true);
+  expect(sentence.slice(0, -1)).not.toMatch(/[.!?]/);
+  expect(sentence.length).toBeLessThanOrEqual(140);
+  expect(sentence.toLowerCase()).toContain("page");
+  await expect(callout).not.toContainText("site-footer");
+  await expect(callout).not.toContainText("Left the");
   await expect(page.getByRole("link", { name: "Women's jackets" })).toBeVisible();
   const flagHref = await page.getByRole("link", { name: "Women's jackets" }).getAttribute("href");
   expect(flagHref).toBeTruthy();
@@ -65,12 +75,23 @@ test("a WordPress address shows the detected importer, then progress, the result
   expect(flagged.ok()).toBe(true);
   expect(await flagged.text()).toContain("Women's jackets");
   await expect(page.getByRole("button", { name: "Go live" })).toBeVisible();
-  if (testInfo.project.name === "chromium") {
-    await page.screenshot({
-      path: testInfo.outputPath("03-import-result.png"),
-      fullPage: true
-    });
-  }
+  const history = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "History" }) });
+  await expect(history.getByText("Import", { exact: true })).toBeVisible();
+  await expect(history.getByText("From your old site", { exact: true })).toBeVisible();
+  await expect(history.getByText("Someone on the account")).toHaveCount(0);
+  await expect(history.locator("time")).toHaveText(/ET/, { timeout: 15_000 });
+  const project = testInfo.project.name === "mobile" ? "mobile" : "desktop";
+  await callout.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: testInfo.outputPath(`overview-${project}.png`),
+    fullPage: true
+  });
+  await history.scrollIntoViewIfNeeded();
+  await history.screenshot({
+    path: testInfo.outputPath(`history-${project}.png`)
+  });
   await page.getByRole("button", { name: "Go live" }).click();
   await expect(page.getByRole("button", { name: "Go live" })).toHaveCount(0, { timeout: 60_000 });
   await expect(page.getByRole("main").getByText("Live", { exact: true })).toBeVisible();

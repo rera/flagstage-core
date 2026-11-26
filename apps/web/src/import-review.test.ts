@@ -83,17 +83,25 @@ describe("import review", () => {
           {
             page: "jackets/index.html",
             kind: "drift",
-            detail: "Left the footer block inline."
+            detail:
+              "Left the footer.site-footer block inline. It is close to /_inc/footer.html but not an exact match after normalizing the current-page marker.",
+            explanation:
+              "This page's footer did not match the shared footer, so it stayed on the page."
           },
           {
             page: "coats/index.html",
             kind: "drift",
-            detail: "Left the footer block inline."
+            detail:
+              "Left the footer.site-footer block inline. It is close to /_inc/footer.html but not an exact match after normalizing the current-page marker.",
+            explanation:
+              "This page's footer did not match the shared footer, so it stayed on the page."
           },
           {
             page: "visit/index.html",
             kind: "near-duplicate",
-            detail: "Left the map block inline."
+            detail:
+              "Left the div.widget block inline. Similar copies appear on most pages, and no copy is the same on most pages.",
+            explanation: "Left the div.widget block inline. See /_inc/widget.html."
           }
         ]
       },
@@ -124,18 +132,21 @@ describe("import review", () => {
     expect(sameOn(2140)).toBe("same on 2,140 pages");
     expect(summary.flags).toEqual([
       {
-        detail: "Left the footer block inline.",
+        detail: "This page's footer did not match the shared footer, so it stayed on the page.",
         pagePath: "coats/index.html",
         label: "Women's jackets",
         href: "/sites/site-1/live/coats"
       },
       {
-        detail: "Left the map block inline.",
+        detail:
+          "This page's section is a little different from the shared one, so we kept it on the page.",
         pagePath: "visit/index.html",
         label: "Visit us",
         href: "/sites/site-1/live/visit"
       }
     ]);
+    expect(summary.flags.some((flag) => flag.detail.includes("site-footer"))).toBe(false);
+    expect(summary.flags.some((flag) => flag.detail.includes("_inc"))).toBe(false);
     expect(
       flagPagePaths(
         summary.flags.length

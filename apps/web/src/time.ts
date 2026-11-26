@@ -61,6 +61,22 @@ export function friendlyWhen(date: Date, timeZone = "UTC", now = new Date()): st
   return absolute;
 }
 
+/**
+ * Who to show on a history row. A name or email wins. An import with neither
+ * reads as "From your old site".
+ */
+export function historyActor(
+  kind: string,
+  person?: { name?: string | null; email?: string | null } | null
+): string {
+  const name = person?.name?.trim() ?? "";
+  if (name) return name;
+  const email = person?.email?.trim() ?? "";
+  if (email) return email;
+  if (kind === "import") return "From your old site";
+  return "Someone on the account";
+}
+
 export function versionLabel(
   kind: string,
   id: string,

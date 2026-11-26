@@ -15,7 +15,13 @@ export type ImportCaps = {
 export type FidelityItem = {
   page: string;
   kind: string;
+  /** Internal note. Site owners do not see this. */
   detail: string;
+  /**
+   * One plain sentence for a shared block left on the page.
+   * Absent on other fidelity rows.
+   */
+  explanation?: string;
 };
 
 export type FidelityReport = {
