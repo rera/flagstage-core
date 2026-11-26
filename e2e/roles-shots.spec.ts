@@ -80,7 +80,12 @@ test("writes the people and skills screens", async ({ browser }, testInfo) => {
   await alex.getByRole("button", { name: "New site" }).click();
   await expect(alex.getByRole("heading", { name: "New site" })).toBeVisible();
   await alex.getByLabel("Site name").fill("PGA Championship");
-  await alex.getByLabel("Site address").fill("https://pgachampionship.com");
+  const wordpress = `http://127.0.0.1:${process.env.E2E_WP_PORT ?? "4001"}/`;
+  await alex.getByLabel("Site address").fill(wordpress);
+  await expect(
+    alex.getByText("WordPress was detected from this address. Change this if that's wrong.")
+  ).toBeVisible();
+  await expect(alex.getByLabel("Importer")).toBeVisible();
   await alex.getByLabel("Owner").selectOption({ label: "Jordan Lee" });
   await expect(alex.getByText(/jordan.lee@example.com/)).toBeVisible();
   await alex.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
