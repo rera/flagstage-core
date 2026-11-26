@@ -86,6 +86,10 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await revealNav(page);
   await page
     .getByRole("navigation", { name: "Site" })
+    .getByRole("link", { name: "Settings" })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Settings" })
     .getByRole("link", { name: "Domain" })
     .click();
   await expect(page.getByRole("heading", { name: "Domain" })).toBeVisible();
@@ -98,7 +102,11 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await expect(page.getByText("Not found yet")).toBeVisible();
 
   await revealNav(page);
-  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Forms" }).click();
+  await page
+    .getByRole("navigation", { name: "Site" })
+    .getByRole("link", { name: "Plugins" })
+    .click();
+  await page.getByRole("link", { name: /Submissions from forms on this site/ }).click();
   await expect(page.getByRole("heading", { name: "No form submissions" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open the site" })).toBeVisible();
 
@@ -106,6 +114,7 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
   await page.getByRole("link", { name: "Parks" }).click();
   await expect(page.getByRole("heading", { name: siteName })).toBeVisible();
   await revealNav(page);
+  await page.getByRole("button", { name: /Switch site/ }).click();
   await page
     .getByRole("navigation", { name: "Account" })
     .getByRole("link", { name: "People" })

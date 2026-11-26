@@ -51,11 +51,12 @@ export function NavIcon({ name }: { name: string }) {
       </svg>
     );
   }
-  if (name === "forms") {
+  if (name === "plugins") {
     return (
       <svg {...common}>
-        <rect x="3" y="2.5" width="10" height="11" rx="1" />
-        <path d="M5.5 6h5M5.5 8.5h5M5.5 11h3" />
+        <path d="M6 2.5v2.5M10 2.5v2.5" />
+        <rect x="4" y="5" width="8" height="5.5" rx="1" />
+        <path d="M8 10.5V13" />
       </svg>
     );
   }

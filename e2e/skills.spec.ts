@@ -15,6 +15,31 @@ function sourceField(page: Page) {
   return page.locator('textarea[name="body"]');
 }
 
+async function save(page: Page) {
+  await Promise.all([
+    page.waitForEvent("framenavigated"),
+    page.getByRole("button", { name: "Save" }).click()
+  ]);
+}
+
+/** The document editor copies the fields into the hidden textarea once it hydrates. */
+async function editorReady(page: Page) {
+  await page.waitForFunction(() => {
+    const input = document.getElementById("skill-description");
+    const area = document.querySelector("textarea[name=body]");
+    if (!(input instanceof HTMLInputElement) || !(area instanceof HTMLTextAreaElement))
+      return false;
+    const previous = input.value;
+    const probe = `${previous}\u200b`;
+    input.value = probe;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    const ready = area.value.includes("\u200b");
+    input.value = previous;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    return ready;
+  });
+}
+
 test("editing a site skill saves the description and leaves the rest of the file", async ({
   page
 }, testInfo) => {
@@ -41,15 +66,16 @@ test("editing a site skill saves the description and leaves the rest of the file
   const before = await sourceField(page).inputValue();
   expect(before).toContain(`name: ${title}`);
   expect(before).toContain(kept);
-  await page.getByRole("button", { name: "Save" }).click();
+  await save(page);
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
   expect(await sourceField(page).inputValue()).toBe(before);
 
+  await editorReady(page);
   const description = `Kept with this skill (${testInfo.project.name}).`;
   const lead = `The first note for ${testInfo.project.name}.`;
   await page.getByLabel("Description").fill(description);
   await paragraphs.first().fill(lead);
-  await page.getByRole("button", { name: "Save" }).click();
+  await save(page);
   await expect(page.getByText(/Jordan Lee · Saved/).first()).toBeVisible();
   await expect(page.getByLabel("Description")).toHaveValue(description);
   await expect(paragraphs.first()).toHaveText(lead);
@@ -84,15 +110,16 @@ test("editing an account skill saves the description and the document", async ({
   const before = await sourceField(page).inputValue();
   expect(before).toContain(`name: ${title}`);
   expect(before).toContain(kept);
-  await page.getByRole("button", { name: "Save" }).click();
+  await save(page);
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
   expect(await sourceField(page).inputValue()).toBe(before);
 
+  await editorReady(page);
   const description = `Required lines the agent must keep (${testInfo.project.name}).`;
   const lead = `Keep the footer legal line on every published page (${testInfo.project.name}).`;
   await page.getByLabel("Description").fill(description);
   await paragraphs.first().fill(lead);
-  await page.getByRole("button", { name: "Save" }).click();
+  await save(page);
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
   await expect(page.getByLabel("Description")).toHaveValue(description);
   await expect(paragraphs.first()).toHaveText(lead);

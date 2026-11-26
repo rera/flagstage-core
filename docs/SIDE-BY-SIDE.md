@@ -6,11 +6,11 @@ Compared with the commercial account portal (`apps/account`) and admin site and 
 
 | Who            | Sidebar                                                                                      | Can do                                            |
 | -------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Account member | One account. Open site sections, plus All sites, People, Usage                               | Read that account's sites, people, and usage      |
+| Account member | One account. Open site sections. All sites, People, Skills, and Usage stay on the account    | Read that account's sites, people, and usage      |
 | Account admin  | The same. New site in the site switcher. Account switcher only with two or more accounts     | Import, invite, and publish inside those accounts |
 | Org admin      | That account, plus Admin: Accounts, Sites, People, Usage, Settings, and the account switcher | Every account, and the install settings           |
 
-The top of the sidebar is Account › Site. A selected site's Overview, Domain, Forms, Analytics, Scheduled, and Settings are the nav, and Make changes is the primary action. All sites, People, and Usage stay in their own group. A person in one account has no account switcher. An org admin's Accounts list lives in the Admin group. One site in an account opens on that overview. The desktop sidebar collapses to an icon rail. Addresses look like `/a/harbor/sites/{site}`.
+The top of the sidebar is Account › Site. A selected site shows Make changes, Overview, Plugins, Analytics, Scheduled, and Settings. People, Skills, Domain, and the time zone are tabs on Settings. Forms opens from Plugins. All sites, People, Skills, and Usage stay on the account: in the sidebar when no site is selected, and in the site picker under the account name when one is. A person in one account has no account switcher. An org admin's Accounts list lives in the Admin group. One site in an account opens on that overview. The desktop sidebar collapses to an icon rail. Addresses look like `/a/harbor/sites/{site}`. Old People, Skills, and Domain addresses redirect to their Settings tabs.
 
 ## Site
 
@@ -21,9 +21,9 @@ The top of the sidebar is Account › Site. A selected site's Overview, Domain, 
 | Admin site detail      | Readiness, domains, snapshot activity, settings                          | Overview history with Restore, domain status, time zone on site settings                                           |
 | Admin site detail      | Plugins, subscription, export ZIP, jobs, reassign, archive, fresh import | Left out                                                                                                           |
 | Account domain page    | DNS connection and SSL                                                   | Existing Domain page, linked from the site, not the editor                                                         |
-| Account forms          | Form plugin submissions                                                  | Forms count and submissions, linked from the site                                                                  |
+| Account forms          | Form plugin submissions                                                  | Forms count on Overview, and the Forms screen opened from Plugins                                                  |
 | —                      | —                                                                        | Upcoming schedules and a 7-day analytics glance. Core already had the full pages                                   |
-| Admin customer users   | People on the customer                                                   | People with access, from the account membership                                                                    |
+| Admin customer users   | People on the customer                                                   | People on the site, with Owner, Editor, Viewer, Analyst, or Account admin                                          |
 
 ## Account
 
@@ -37,4 +37,4 @@ The top of the sidebar is Account › Site. A selected site's Overview, Domain, 
 
 ## Editor
 
-The commercial home mixes the composer with the site. Core keeps the editor as one action, "Make changes". The editor header is Publish now, Schedule, and Undo. Domain, Forms, Analytics, Scheduled, and Settings stay on the site.
+The commercial home mixes the composer with the site. Core keeps the editor as one action, "Make changes". The editor header is Publish now, Schedule, and Undo. Plugins, Analytics, Scheduled, and Settings stay on the site. Domain is a Settings tab, and Forms opens from Plugins.

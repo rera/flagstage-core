@@ -98,6 +98,16 @@ test("an owner adds an editor, who edits a skill and publishes, while a viewer i
   await page.goto(`${sitePath}/analytics`);
   await expect(page.getByRole("heading", { name: "Analytics" })).toBeVisible();
   await revealNav(page);
-  await expect(page.getByRole("link", { name: "People", exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Skills", exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Account" })).toHaveCount(0);
+  await page.getByRole("button", { name: /Switch site/ }).click();
+  await expect(
+    page
+      .getByRole("navigation", { name: "Account" })
+      .getByRole("link", { name: "People", exact: true })
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("navigation", { name: "Account" })
+      .getByRole("link", { name: "Skills", exact: true })
+  ).toBeVisible();
 });
