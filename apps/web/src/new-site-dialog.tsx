@@ -21,7 +21,13 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
-export function NewSiteDialog({ accounts }: { accounts: Array<{ id: string; name: string }> }) {
+export function NewSiteDialog({
+  accounts,
+  people
+}: {
+  accounts: Array<{ id: string; name: string }>;
+  people: Array<{ id: string; name: string; email: string }>;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const request = useRef(0);
   const changed = useRef(false);
@@ -29,6 +35,7 @@ export function NewSiteDialog({ accounts }: { accounts: Array<{ id: string; name
   const [url, setUrl] = useState("");
   const [detected, setDetected] = useState<Choice | null>(null);
   const [source, setSource] = useState("");
+  const [ownerId, setOwnerId] = useState(people[0]?.id ?? "");
 
   useEffect(() => {
     void listImporterChoicesAction()
@@ -65,9 +72,11 @@ export function NewSiteDialog({ accounts }: { accounts: Array<{ id: string; name
     setUrl("");
     setDetected(null);
     setSource("");
+    setOwnerId(people[0]?.id ?? "");
   }
 
   const selected = source || detected?.id || "";
+  const owner = people.find((person) => person.id === ownerId) ?? people[0];
   return (
     <>
       <Button
@@ -117,6 +126,31 @@ export function NewSiteDialog({ accounts }: { accounts: Array<{ id: string; name
               <p id="importer-hint" className="text-xs text-muted-foreground">
                 {detectedHint(detected.label)}
               </p>
+            </div>
+          ) : null}
+          {people.length > 0 ? (
+            <div className="space-y-2">
+              <Label htmlFor="owner">Owner</Label>
+              <select
+                id="owner"
+                name="owner"
+                required
+                className={fieldClass}
+                value={owner?.id ?? ""}
+                onChange={(event) => setOwnerId(event.target.value)}
+              >
+                {people.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+              {owner ? (
+                <p className="text-xs text-muted-foreground">
+                  {owner.name} · {owner.email}. Manages people, the domain, and go-live for this
+                  site.
+                </p>
+              ) : null}
             </div>
           ) : null}
           {accounts.length === 1 ? (

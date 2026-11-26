@@ -27,10 +27,11 @@ export async function GET(
       id: authSession.user.id,
       orgRole: grants.orgRole,
       disabled: grants.disabled,
-      memberships: grants.memberships
+      memberships: grants.memberships,
+      siteGrants: grants.siteGrants
     },
     "site.read",
-    { accountId: found.accountId }
+    { accountId: found.accountId, siteId: found.id }
   );
   if (!allowed) return new Response("Not found", { status: 404 });
   const snapshotId = found.draftSnapshotId ?? found.currentSnapshotId;

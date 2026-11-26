@@ -53,7 +53,7 @@ test("scopes navigation to the signed-in role", async ({ page }) => {
     .getByRole("link", { name: "People" })
     .click();
   await expect(page.getByRole("heading", { name: "People" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Invite" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Add person" })).toBeVisible();
   await signOut(page);
 
   await signIn(page, "sam@example.com");

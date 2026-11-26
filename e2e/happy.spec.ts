@@ -110,7 +110,7 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
     .getByRole("navigation", { name: "Account" })
     .getByRole("link", { name: "People" })
     .click();
-  await expect(page.getByRole("button", { name: "Invite" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Add person" })).toBeVisible();
   await page.goto("/admin");
   await revealNav(page);
   await expect(page.getByRole("heading", { name: "People" })).toBeVisible();

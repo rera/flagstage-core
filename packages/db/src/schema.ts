@@ -156,6 +156,52 @@ export const invitation = pgTable("invitation", {
   tokenHash: text("token_hash").notNull(),
   expiresAt: ts("expires_at").notNull(),
   status: text("status").notNull().default("pending"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  /** Set when the invite grants a role on one site instead of the account. */
+  siteId: text("site_id").references(() => site.id, { onDelete: "cascade" }),
+  personName: text("person_name")
+});
+
+export const siteMembership = pgTable(
+  "site_membership",
+  {
+    id: text("id").primaryKey(),
+    siteId: text("site_id")
+      .notNull()
+      .references(() => site.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow()
+  },
+  (table) => [uniqueIndex("site_membership_site_user").on(table.siteId, table.userId)]
+);
+
+export const accountSkill = pgTable(
+  "account_skill",
+  {
+    id: text("id").primaryKey(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => account.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    body: text("body").notNull().default(""),
+    updatedAt: ts("updated_at").notNull().defaultNow()
+  },
+  (table) => [uniqueIndex("account_skill_account_slug").on(table.accountId, table.slug)]
+);
+
+export const skillRevision = pgTable("skill_revision", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").references(() => account.id, { onDelete: "cascade" }),
+  siteId: text("site_id").references(() => site.id, { onDelete: "cascade" }),
+  slug: text("slug").notNull(),
+  actorUserId: text("actor_user_id"),
+  action: text("action").notNull(),
+  note: text("note").notNull().default(""),
   createdAt: ts("created_at").notNull().defaultNow()
 });
 

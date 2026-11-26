@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { can, type Principal } from "@flagstage/core";
 import {
   account,
+  accountSkill,
   changeRequest,
   previewSession,
   site,
@@ -74,7 +75,8 @@ async function applyMigrations(client: PGlite) {
     "0001_auth_plugins.sql",
     "0003_builder.sql",
     "0004_schedule.sql",
-    "0006_edit_settings.sql"
+    "0006_edit_settings.sql",
+    "0009_site_roles_skills.sql"
   ]) {
     const sqlText = readFileSync(join(root, file), "utf8");
     for (const statement of sqlText.split("--> statement-breakpoint")) {
@@ -287,6 +289,76 @@ describe("chat publish", () => {
       });
       expect(rebuilt.ok).toBe(true);
       if (rebuilt.ok) expect(rebuilt.snapshotId).not.toBe(stale?.resultSnapshotId);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("gives the editor the account skills with the site", async () => {
+    const client = new PGlite();
+    const store = memoryStore();
+    try {
+      await applyMigrations(client);
+      const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+      const now = new Date();
+      await db.insert(user).values({
+        id: "user-1",
+        name: "Ada",
+        email: "ada@example.com",
+        emailVerified: true,
+        createdAt: now,
+        updatedAt: now
+      });
+      await db.insert(account).values({ id: "acct-1", name: "Digital", slug: "digital" });
+      await db.insert(accountSkill).values({
+        id: "skill-1",
+        accountId: "acct-1",
+        slug: "brand-voice",
+        name: "Brand voice",
+        description: "How the account sounds.",
+        body: "Headlines name the event."
+      });
+      const liveId = "snap-live";
+      await db.insert(site).values({
+        id: "site-1",
+        accountId: "acct-1",
+        name: "Fixture",
+        slug: "fixture",
+        status: "live"
+      });
+      await db.insert(snapshot).values({
+        id: liveId,
+        siteId: "site-1",
+        kind: "import",
+        storagePrefix: snapshotPrefix("site-1", liveId),
+        fileCount: 1,
+        bytes: 32
+      });
+      await db.update(site).set({ currentSnapshotId: liveId }).where(eq(site.id, "site-1"));
+      await store.put(
+        `${snapshotPrefix("site-1", liveId)}index.html`,
+        new TextEncoder().encode("<html><body><h1>Hello</h1></body></html>"),
+        "text/html"
+      );
+      let seen = "";
+      const runner: AgentRunner = {
+        name: "subprocess",
+        async edit(files, _request, _guidance, context) {
+          seen = context?.accountSkills ?? "";
+          return { changed: false, files };
+        }
+      };
+      await postMessage({
+        db,
+        store,
+        siteId: "site-1",
+        userId: "user-1",
+        body: "Change the headline",
+        appOrigin: "http://localhost:3000",
+        runner
+      });
+      expect(seen).toContain("Headlines name the event.");
+      expect(seen).toContain("Brand voice");
     } finally {
       await client.close();
     }

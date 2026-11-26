@@ -11,6 +11,7 @@ import { AppShell, type ShellAccount, type ShellSite } from "./app-shell";
 import { signOut } from "./actions";
 import { currentSession } from "./auth";
 import { accountHome, database, visibleAccounts } from "./guard";
+import { ownerChoices } from "./roster";
 
 export async function ShellFrame({ children }: { children: ReactNode }) {
   const session = await currentSession().catch(() => null);
@@ -30,6 +31,9 @@ export async function ShellFrame({ children }: { children: ReactNode }) {
   let sites: ShellSite[] = [];
   let canCreate = false;
   let canEdit = false;
+  let canAnalytics = true;
+  let showAccountNav = true;
+  let people: Array<{ id: string; name: string; email: string }> = [];
   let lastSlug: string | null = null;
   let collapsed = false;
   let backHref = "/sites";
@@ -40,7 +44,8 @@ export async function ShellFrame({ children }: { children: ReactNode }) {
         id: session.user.id,
         orgRole: grants.orgRole,
         disabled: grants.disabled,
-        memberships: grants.memberships
+        memberships: grants.memberships,
+        siteGrants: grants.siteGrants
       };
       admin = grants.orgRole === "admin" && grants.disabled !== true;
       if (!grants.disabled) {
@@ -59,9 +64,17 @@ export async function ShellFrame({ children }: { children: ReactNode }) {
         accounts.find((item) => item.slug === lastSlug) ??
         (accounts.length === 1 ? accounts[0] : undefined);
       if (current) {
+        showAccountNav = can(principal, "account.read", { accountId: current.id });
         canCreate = can(principal, "site.manage", { accountId: current.id });
-        canEdit = can(principal, "site.edit", { accountId: current.id });
-        const owned = await database().select().from(site).where(eq(site.accountId, current.id));
+        const siteId = pathname.match(/^\/a\/[^/]+\/sites\/([^/]+)/)?.[1];
+        canEdit = siteId ? can(principal, "site.edit", { accountId: current.id, siteId }) : false;
+        canAnalytics = siteId
+          ? can(principal, "analytics.read", { accountId: current.id, siteId })
+          : false;
+        if (canCreate) people = await ownerChoices(database(), current.id, principal);
+        const owned = (
+          await database().select().from(site).where(eq(site.accountId, current.id))
+        ).filter((row) => can(principal, "site.read", { accountId: current.id, siteId: row.id }));
         const domains =
           owned.length === 0
             ? []
@@ -103,6 +116,9 @@ export async function ShellFrame({ children }: { children: ReactNode }) {
       sites={sites}
       canCreate={canCreate}
       canEdit={canEdit}
+      canAnalytics={canAnalytics}
+      showAccountNav={showAccountNav}
+      people={people}
       lastSlug={lastSlug}
       collapsed={collapsed}
       backHref={backHref}

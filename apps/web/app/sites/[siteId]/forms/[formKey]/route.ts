@@ -15,7 +15,7 @@ export async function GET(
   const db = database();
   const sites = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
   const found = sites[0];
-  if (!found || !can(principal, "form.read", { accountId: found.accountId })) {
+  if (!found || !can(principal, "form.read", { accountId: found.accountId, siteId: found.id })) {
     return new Response("Not found", { status: 404 });
   }
   const forms = await db.select().from(leadForm).where(eq(leadForm.siteId, siteId));

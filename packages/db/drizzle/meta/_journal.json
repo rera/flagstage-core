@@ -64,6 +64,13 @@
       "when": 1762990000000,
       "tag": "0008_import_caps",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1763000000000,
+      "tag": "0009_site_roles_skills",
+      "breakpoints": true
     }
   ]
 }

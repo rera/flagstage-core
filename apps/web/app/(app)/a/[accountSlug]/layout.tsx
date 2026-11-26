@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { requireAccount } from "../../../../src/guard";
+import { requireAccountScope } from "../../../../src/guard";
 
 export default async function AccountLayout({
   children,
@@ -10,6 +10,6 @@ export default async function AccountLayout({
   params: Promise<{ accountSlug: string }>;
 }) {
   const { accountSlug } = await params;
-  await requireAccount(accountSlug);
+  await requireAccountScope(accountSlug);
   return children;
 }

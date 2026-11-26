@@ -16,7 +16,8 @@ export default async function HomePage() {
         id: session.user.id,
         orgRole: grants.orgRole,
         disabled: grants.disabled,
-        memberships: grants.memberships
+        memberships: grants.memberships,
+        siteGrants: grants.siteGrants
       };
       if (hasAnyAccess(principal)) redirect(await landingPath(principal));
     }

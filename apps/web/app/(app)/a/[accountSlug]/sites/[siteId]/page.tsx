@@ -94,7 +94,14 @@ export default async function SiteOverviewPage({
     personIds.length === 0 ? [] : await db.select().from(user).where(inArray(user.id, personIds));
   const byId = new Map(people.map((person) => [person.id, person]));
   const history = snaps.slice(0, 3);
-  const canPublish = can(principal, "site.publish", { accountId: found.accountId });
+  const canPublish = can(principal, "site.publish", {
+    accountId: found.accountId,
+    siteId: found.id
+  });
+  const canAnalytics = can(principal, "analytics.read", {
+    accountId: found.accountId,
+    siteId: found.id
+  });
   const pending = snaps.find((item) => item.kind === "import");
   const showGoLive =
     canPublish && !found.currentSnapshotId && found.status === "preview" && Boolean(pending);
@@ -177,7 +184,7 @@ export default async function SiteOverviewPage({
         {summary || importing ? null : <ScheduledCard {...cards} />}
         {summary || importing ? null : <DomainCard {...cards} />}
         <FormsCard {...cards} />
-        {summary || importing ? null : <AnalyticsCard {...cards} />}
+        {summary || importing || !canAnalytics ? null : <AnalyticsCard {...cards} />}
         {summary || importing ? null : <PeopleCard {...cards} />}
       </div>
     </Page>
@@ -366,12 +373,12 @@ function AnalyticsCard({ pageviews, visitors, base }: Cards) {
   );
 }
 
-function PeopleCard({ members, byId, accountSlug }: Cards) {
+function PeopleCard({ members, byId, base }: Cards) {
   return (
     <section className="rounded-xl border border-border bg-card px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">People</h2>
-        <a href={`/a/${accountSlug}/people`} className="text-sm font-medium text-primary">
+        <a href={`${base}/people`} className="text-sm font-medium text-primary">
           Manage access
         </a>
       </div>

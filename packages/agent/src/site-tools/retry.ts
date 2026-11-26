@@ -26,11 +26,14 @@ export async function editWithinHandLimit(input: {
   files: Map<string, Uint8Array>;
   request: string;
   limit: number;
+  accountSkills?: string;
 }): Promise<GuardedEdit> {
   const toolLog: ToolCallRecord[] = [];
   let guidance: string | undefined;
   for (let attempt = 0; attempt <= HAND_EDIT_RETRY_LIMIT; attempt += 1) {
-    const edited = await input.runner.edit(input.files, input.request, guidance);
+    const edited = await input.runner.edit(input.files, input.request, guidance, {
+      accountSkills: input.accountSkills
+    });
     toolLog.push(...(edited.toolLog ?? []));
     const hand = handEditedPages(input.files, edited.files, edited.toolLog ?? []);
     if (hand.length <= input.limit) {

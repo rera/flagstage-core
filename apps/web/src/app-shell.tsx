@@ -85,6 +85,9 @@ export function AppShell({
   sites,
   canCreate,
   canEdit,
+  canAnalytics = true,
+  showAccountNav = true,
+  people = [],
   lastSlug,
   collapsed: collapsedInitially,
   backHref,
@@ -99,6 +102,9 @@ export function AppShell({
   sites: ShellSite[];
   canCreate: boolean;
   canEdit: boolean;
+  canAnalytics?: boolean;
+  showAccountNav?: boolean;
+  people?: Array<{ id: string; name: string; email: string }>;
   lastSlug?: string | null;
   collapsed?: boolean;
   backHref?: string;
@@ -166,20 +172,26 @@ export function AppShell({
   const siteLinks = currentSite
     ? [
         { href: siteBase, label: "Overview", icon: "overview", exact: true },
+        { href: `${siteBase}/people`, label: "People", icon: "people" },
+        { href: `${siteBase}/skills`, label: "Skills", icon: "skills" },
         { href: `${siteBase}/domain`, label: "Domain", icon: "domain" },
         { href: `${siteBase}/forms`, label: "Forms", icon: "forms" },
-        { href: `${siteBase}/analytics`, label: "Analytics", icon: "analytics" },
+        ...(canAnalytics
+          ? [{ href: `${siteBase}/analytics`, label: "Analytics", icon: "analytics" }]
+          : []),
         { href: `${siteBase}/scheduled`, label: "Scheduled", icon: "scheduled" },
         { href: `${siteBase}/settings`, label: "Settings", icon: "settings" }
       ]
     : [];
-  const accountLinks = current
-    ? [
-        { href: `/a/${current.slug}/sites`, label: "All sites", icon: "sites", exact: true },
-        { href: `/a/${current.slug}/people`, label: "People", icon: "people" },
-        { href: `/a/${current.slug}/usage`, label: "Usage", icon: "usage" }
-      ]
-    : [];
+  const accountLinks =
+    current && showAccountNav
+      ? [
+          { href: `/a/${current.slug}/sites`, label: "All sites", icon: "sites", exact: true },
+          { href: `/a/${current.slug}/people`, label: "People", icon: "people" },
+          { href: `/a/${current.slug}/skills`, label: "Skills", icon: "skills" },
+          { href: `/a/${current.slug}/usage`, label: "Usage", icon: "usage" }
+        ]
+      : [];
   const adminLinks = [
     { href: "/admin/accounts", label: "Accounts", icon: "accounts" },
     { href: "/admin/sites", label: "Sites", icon: "sites" },
@@ -374,7 +386,10 @@ export function AppShell({
               </ul>
               {canCreate ? (
                 <div className="border-t border-border p-2">
-                  <NewSiteDialog accounts={[{ id: current.id, name: current.name }]} />
+                  <NewSiteDialog
+                    accounts={[{ id: current.id, name: current.name }]}
+                    people={people}
+                  />
                 </div>
               ) : null}
             </div>

@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { notFound } from "next/navigation";
 
 import { pageviewsByDay, topPages, visitsInRange } from "@flagstage/analytics";
 import { analyticsDaily, analyticsEvent } from "@flagstage/db";
@@ -12,6 +13,8 @@ import {
   t,
   type MessageKey
 } from "@flagstage/ui";
+
+import { can } from "@flagstage/core";
 
 import { database, requireSite } from "../../../../../../../src/guard";
 import { Page } from "../../../../../../../src/page";
@@ -41,7 +44,10 @@ export default async function AnalyticsPage({
   const { accountSlug, siteId } = await params;
   const query = await searchParams;
   const days = rangeOf(query.days);
-  const { site: found } = await requireSite(accountSlug, siteId);
+  const { principal, site: found } = await requireSite(accountSlug, siteId);
+  if (!can(principal, "analytics.read", { accountId: found.accountId, siteId: found.id })) {
+    notFound();
+  }
   const db = database();
   const base = "/a/" + accountSlug + "/sites/" + found.id;
   const daily = await db.select().from(analyticsDaily).where(eq(analyticsDaily.siteId, siteId));

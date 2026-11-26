@@ -75,8 +75,8 @@ export default async function SitePage({
   const query = await searchParams;
   const { principal, site: found } = await requireSite(accountSlug, siteId);
   if (
-    !can(principal, "site.edit", { accountId: found.accountId }) &&
-    !can(principal, "site.comment", { accountId: found.accountId })
+    !can(principal, "site.edit", { accountId: found.accountId, siteId: found.id }) &&
+    !can(principal, "site.comment", { accountId: found.accountId, siteId: found.id })
   ) {
     notFound();
   }
@@ -100,8 +100,11 @@ export default async function SitePage({
     .filter((item) => item.kind === "import")
     .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())
     .at(-1);
-  const canPublish = can(principal, "site.publish", { accountId: found.accountId });
-  const canEdit = can(principal, "site.edit", { accountId: found.accountId });
+  const canPublish = can(principal, "site.publish", {
+    accountId: found.accountId,
+    siteId: found.id
+  });
+  const canEdit = can(principal, "site.edit", { accountId: found.accountId, siteId: found.id });
   const host = `${found.slug}.localhost`;
   const siblings = await db.select().from(site).where(eq(site.accountId, found.accountId));
   const working = threads[0]?.status === "queued";
@@ -275,7 +278,7 @@ export default async function SitePage({
                 {t("chat.preview")}
               </a>
             ) : null}
-            {can(principal, "site.comment", { accountId: found.accountId }) ? (
+            {can(principal, "site.comment", { accountId: found.accountId, siteId: found.id }) ? (
               <form
                 id="composer"
                 action={sendMessageAction}

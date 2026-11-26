@@ -1,16 +1,21 @@
 import { randomUUID } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
 
 import {
   account,
+  accountSkill,
   authAccount,
   changeRequest,
   createDb,
   membership,
   migrateWithLock,
   site,
+  siteMembership,
+  skillRevision,
   snapshot,
   thread,
   user
@@ -204,6 +209,301 @@ if (!northSites[0]) {
     status: "preview",
     timeZone: "UTC"
   });
+}
+
+const jordanId = await ensureUser({
+  email: "jordan.lee@example.com",
+  name: "Jordan Lee",
+  orgRole: "none"
+});
+const samPatelId = await ensureUser({
+  email: "sam.patel@example.com",
+  name: "Sam Patel",
+  orgRole: "none"
+});
+const rileyId = await ensureUser({
+  email: "riley.chen@example.com",
+  name: "Riley Chen",
+  orgRole: "none"
+});
+const morganId = await ensureUser({
+  email: "morgan.blake@example.com",
+  name: "Morgan Blake",
+  orgRole: "none"
+});
+const alexId = await ensureUser({
+  email: "alex.morgan@example.com",
+  name: "Alex Morgan",
+  orgRole: "none"
+});
+const averyId = await ensureUser({
+  email: "avery.nguyen@example.com",
+  name: "Avery Nguyen",
+  orgRole: "none"
+});
+const taylorId = await ensureUser({
+  email: "taylor.kim@example.com",
+  name: "Taylor Kim",
+  orgRole: "none"
+});
+await ensureUser({
+  email: "casey.nguyen@example.com",
+  name: "Casey Nguyen",
+  orgRole: "none"
+});
+
+const championshipsId = await ensureAccount("Championships", "championships");
+await ensureMembership(championshipsId, alexId, "account_admin");
+await ensureMembership(championshipsId, averyId, "account_admin");
+await ensureMembership(championshipsId, taylorId, "member");
+
+const pgaRows = await db.select().from(site).where(eq(site.slug, "pga-championship"));
+let pgaId = pgaRows[0]?.id;
+if (!pgaId) {
+  pgaId = randomUUID();
+  const snapId = randomUUID();
+  const storage = process.env.FS_STORAGE_DIR;
+  const prefix = `snapshots/${pgaId}/${snapId}/`;
+  await db.insert(site).values({
+    id: pgaId,
+    accountId: championshipsId,
+    name: "PGA Championship",
+    slug: "pga-championship",
+    sourceUrl: "https://pgachampionship.com",
+    status: "importing",
+    timeZone: "America/New_York"
+  });
+  await db.insert(snapshot).values({
+    id: snapId,
+    siteId: pgaId,
+    kind: "publish",
+    storagePrefix: prefix,
+    fileCount: 4,
+    bytes: 2000,
+    createdBy: jordanId,
+    createdAt: new Date("2026-10-02T15:08:00.000Z")
+  });
+  await db
+    .update(site)
+    .set({ status: "live", currentSnapshotId: snapId })
+    .where(eq(site.id, pgaId));
+  if (storage) {
+    const src = join(storage, prefix, "src");
+    const skill = (slug: string, name: string, description: string, body: string) => {
+      mkdirSync(join(src, ".flagstage", "skills", slug), { recursive: true });
+      writeFileSync(
+        join(src, ".flagstage", "skills", slug, "SKILL.md"),
+        `---\nname: ${name}\ndescription: "${description}"\n---\n\n${body}\n`
+      );
+    };
+    mkdirSync(src, { recursive: true });
+    writeFileSync(
+      join(src, "index.html"),
+      "<!doctype html><html><body><h1>PGA Championship</h1></body></html>"
+    );
+    skill(
+      "event-facts",
+      "Event facts",
+      "Dates, course, and other facts for this championship.",
+      "Event: PGA Championship\nSite: pgachampionship.com\nDates: May 14–17, 2026\nCourse: Aronimink Golf Club\n\nUse these facts when a page mentions the event.\nDo not invent a date, a course, or a winner."
+    );
+    skill(
+      "page-structure",
+      "Page structure",
+      "Which pages exist, and which blocks are shared.",
+      "Home, Schedule, Tickets, Course, and News are the main pages.\n\nThe header and the footer are shared. Change them once, not on each page.\n\nDo not add a page that is not listed here."
+    );
+    skill(
+      "sponsor-lines",
+      "Sponsor lines",
+      "Sponsor names and the lines that must stay with them.",
+      "Keep each sponsor name with its line. Do not move a line to another sponsor.\n\nDo not drop a sponsor from the footer."
+    );
+  }
+}
+
+async function ensureSiteRole(siteId: string, userId: string, role: string) {
+  const existing = await db.select().from(siteMembership).where(eq(siteMembership.siteId, siteId));
+  if (existing.some((row) => row.userId === userId)) return;
+  await db.insert(siteMembership).values({ id: randomUUID(), siteId, userId, role });
+}
+
+await ensureSiteRole(pgaId, jordanId, "owner");
+await ensureSiteRole(pgaId, samPatelId, "editor");
+await ensureSiteRole(pgaId, rileyId, "viewer");
+await ensureSiteRole(pgaId, morganId, "analyst");
+
+async function ensureAccountSkill(input: {
+  slug: string;
+  name: string;
+  description: string;
+  body: string;
+  history: Array<{ userId: string; action: string; at: string; note: string }>;
+}) {
+  const existing = await db
+    .select()
+    .from(accountSkill)
+    .where(eq(accountSkill.accountId, championshipsId));
+  if (existing.some((row) => row.slug === input.slug)) return;
+  await db.insert(accountSkill).values({
+    id: randomUUID(),
+    accountId: championshipsId,
+    slug: input.slug,
+    name: input.name,
+    description: input.description,
+    body: input.body
+  });
+  for (const entry of input.history) {
+    await db.insert(skillRevision).values({
+      id: randomUUID(),
+      accountId: championshipsId,
+      slug: input.slug,
+      actorUserId: entry.userId,
+      action: entry.action,
+      note: entry.note,
+      createdAt: new Date(entry.at)
+    });
+  }
+}
+
+await ensureAccountSkill({
+  slug: "brand-voice",
+  name: "Brand voice",
+  description: "How the account sounds in headlines and body text.",
+  body: 'Use short sentences.\n\nHeadlines name the event. They do not use an exclamation mark.\n\nSay "championship" in headlines. Do not say "tournament" there.\n\nDo not name a player unless the page is a player page.\n\nUse the official event names in Naming rules.',
+  history: [
+    {
+      userId: averyId,
+      action: "Saved",
+      at: "2026-11-12T21:10:00.000Z",
+      note: "Tightened the headline rule."
+    },
+    {
+      userId: alexId,
+      action: "Saved",
+      at: "2026-09-03T17:26:00.000Z",
+      note: "Added the player-name rule."
+    },
+    {
+      userId: averyId,
+      action: "Created",
+      at: "2026-06-16T14:02:00.000Z",
+      note: "Added the skill."
+    }
+  ]
+});
+await ensureAccountSkill({
+  slug: "legal-lines",
+  name: "Legal lines",
+  description: "Required lines and claims the agent must keep.",
+  body: "Keep the footer legal line on every page.\n\nDo not add a claim that is not in this skill.\n\nThe ticket line stays under the event dates. Do not shorten it.",
+  history: [
+    {
+      userId: alexId,
+      action: "Saved",
+      at: "2026-10-08T15:40:00.000Z",
+      note: "Added the ticket line."
+    },
+    {
+      userId: averyId,
+      action: "Created",
+      at: "2026-06-16T14:18:00.000Z",
+      note: "Added the skill."
+    }
+  ]
+});
+await ensureAccountSkill({
+  slug: "naming-rules",
+  name: "Naming rules",
+  description: "Official names, and names to avoid.",
+  body: "PGA Championship\nWomen's PGA Championship\n\nWrite the apostrophe in Women's. Do not write Womens.\n\nDo not shorten PGA Championship to PGA in a headline.",
+  history: [
+    {
+      userId: averyId,
+      action: "Saved",
+      at: "2026-08-21T18:05:00.000Z",
+      note: "Added Women's PGA Championship."
+    },
+    {
+      userId: alexId,
+      action: "Created",
+      at: "2026-06-16T14:24:00.000Z",
+      note: "Added the skill."
+    }
+  ]
+});
+
+const siteHistory = [
+  {
+    slug: "event-facts",
+    entries: [
+      {
+        userId: jordanId,
+        action: "Saved",
+        at: "2026-11-24T20:42:00.000Z",
+        note: "Updated the course name."
+      },
+      {
+        userId: samPatelId,
+        action: "Saved",
+        at: "2026-11-18T14:15:00.000Z",
+        note: "Added the event dates."
+      },
+      {
+        userId: jordanId,
+        action: "Created",
+        at: "2026-10-02T15:08:00.000Z",
+        note: "Added the skill."
+      }
+    ]
+  },
+  {
+    slug: "page-structure",
+    entries: [
+      {
+        userId: samPatelId,
+        action: "Saved",
+        at: "2026-11-04T13:55:00.000Z",
+        note: "Listed the main pages."
+      },
+      {
+        userId: jordanId,
+        action: "Created",
+        at: "2026-10-02T15:20:00.000Z",
+        note: "Added the skill."
+      }
+    ]
+  },
+  {
+    slug: "sponsor-lines",
+    entries: [
+      {
+        userId: jordanId,
+        action: "Created",
+        at: "2026-10-09T20:36:00.000Z",
+        note: "Added the skill."
+      }
+    ]
+  }
+];
+const existingRevisions = await db
+  .select()
+  .from(skillRevision)
+  .where(eq(skillRevision.siteId, pgaId));
+if (existingRevisions.length === 0) {
+  for (const skill of siteHistory) {
+    for (const entry of skill.entries) {
+      await db.insert(skillRevision).values({
+        id: randomUUID(),
+        siteId: pgaId,
+        slug: skill.slug,
+        actorUserId: entry.userId,
+        action: entry.action,
+        note: entry.note,
+        createdAt: new Date(entry.at)
+      });
+    }
+  }
 }
 
 await pool.end();

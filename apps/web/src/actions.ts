@@ -12,19 +12,20 @@ import {
   acceptInvitation,
   can,
   createAccount,
-  createInvitation,
   getImporterSettings,
   hasAnyAccess,
   loadGrants,
   slugify,
   updateEditSettings,
-  updateImporterSettings
+  updateImporterSettings,
+  type Action,
+  type Principal
 } from "@flagstage/core";
 import { importRun, message, site, thread, user } from "@flagstage/db";
 import { sendEmail } from "@flagstage/forms";
 import { approveImport, getImporter } from "@flagstage/importer";
 import { startImport, startTurn } from "./dispatch";
-import { createBlobStore, outputPrefix, publicPrefixFor } from "@flagstage/storage";
+import { createBlobStore, publicPrefixFor } from "@flagstage/storage";
 import {
   approveChange,
   buildAgentEnv,
@@ -37,17 +38,12 @@ import {
   insertSchedule,
   invalidatePublishedKeys,
   localInputToUtc,
-  materializeOutput,
-  notePublishChecks,
   publishRedirects,
-  recordPublish,
   redirectEdge,
-  rollbackTo,
-  swapLive,
-  writeHostMap
+  rollbackTo
 } from "@flagstage/publish";
 import { siteSchedule } from "@flagstage/db";
-import { account, siteDomain, snapshot } from "@flagstage/db";
+import { account, siteDomain, siteMembership, snapshot } from "@flagstage/db";
 import {
   checkDnsRecords,
   cloudfrontKeyValueStore,
@@ -65,6 +61,17 @@ import { getAuth } from "./auth";
 import { applyAuthResponse } from "./cookies";
 import { database, landingPath, requirePrincipal } from "./guard";
 import { installedImporters } from "./installed-importers";
+import { publishDraftFor } from "./publish-draft";
+import { ownerChoices } from "./roster";
+
+async function allowedSite(principal: Principal, siteId: string, action: Action) {
+  const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
+  const found = rows[0];
+  if (!found || !can(principal, action, { accountId: found.accountId, siteId: found.id })) {
+    return null;
+  }
+  return found;
+}
 
 async function deliver(to: string, subject: string, text: string) {
   const config = loadConfig();
@@ -168,7 +175,8 @@ export async function signInWithPassword(formData: FormData) {
     id: person.id,
     orgRole: grants.orgRole,
     disabled: grants.disabled,
-    memberships: grants.memberships
+    memberships: grants.memberships,
+    siteGrants: grants.siteGrants
   };
   if (!hasAnyAccess(principal)) redirect("/no-access");
   redirect(await landingPath(principal));
@@ -211,28 +219,6 @@ export async function createAccountAction(formData: FormData) {
   redirect(nextPath(formData, `/a/${created.slug}/sites`));
 }
 
-export async function inviteMember(
-  _previous: { secret?: string; error?: string } | null,
-  formData: FormData
-) {
-  const principal = await requirePrincipal();
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "member.manage", { accountId }))
-    return { error: "You cannot invite members of this account." };
-  const email = String(formData.get("email") ?? "")
-    .trim()
-    .toLowerCase();
-  if (!email.includes("@")) return { error: "Enter an email address." };
-  const invite = await createInvitation(database(), {
-    accountId,
-    email,
-    role: "account_admin"
-  });
-  const link = `${appUrl()}/invitations/${invite.token}`;
-  await deliver(email, "You are invited", `Open this link to join the account:\n${link}`);
-  return { secret: link };
-}
-
 export async function acceptInviteAction(formData: FormData) {
   const principal = await requirePrincipal();
   const invite = await acceptInvitation(
@@ -271,9 +257,12 @@ export async function importSiteAction(formData: FormData) {
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const source = String(formData.get("source") ?? "").trim();
+  const ownerId = String(formData.get("owner") ?? "");
+  const choices = await ownerChoices(database(), accountId, principal);
+  const owner = choices.find((person) => person.id === ownerId);
   const accountSlug = await accountSlugFor(accountId);
   const sitesPath = accountSlug ? `/a/${accountSlug}/sites` : "/";
-  if (!sourceUrl || !name) redirect(`${sitesPath}?error=1`);
+  if (!sourceUrl || !name || !owner) redirect(`${sitesPath}?error=1`);
   if (source) {
     try {
       getImporter(source);
@@ -303,6 +292,12 @@ export async function importSiteAction(formData: FormData) {
     status: "importing",
     timeZone
   });
+  await db.insert(siteMembership).values({
+    id: randomUUID(),
+    siteId,
+    userId: owner.id,
+    role: "owner"
+  });
   await db.insert(importRun).values({
     id: runId,
     siteId,
@@ -328,14 +323,10 @@ export async function approveSiteAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
   const snapshotId = String(formData.get("snapshotId") ?? "");
-  if (!can(principal, "site.publish", { accountId: String(formData.get("accountId") ?? "") })) {
-    redirect("/no-access");
-  }
-  const config = loadConfig();
   const db = database();
-  const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
-  const found = rows[0];
-  if (!found) redirect(await landingPath(principal));
+  const found = await allowedSite(principal, siteId, "site.publish");
+  if (!found) redirect("/no-access");
+  const config = loadConfig();
   await publishEdgeRedirects(siteId, liveHost(found.slug));
   const before = found.currentSnapshotId
     ? await db.select().from(snapshot).where(eq(snapshot.id, found.currentSnapshotId)).limit(1)
@@ -374,9 +365,12 @@ function editor() {
 export async function sendMessageAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  const canComment = can(principal, "site.comment", { accountId });
-  const canEdit = can(principal, "site.edit", { accountId });
+  const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
+  const foundSite = rows[0];
+  if (!foundSite) redirect("/no-access");
+  const scope = { accountId: foundSite.accountId, siteId: foundSite.id };
+  const canEdit = can(principal, "site.edit", scope);
+  const canComment = can(principal, "site.comment", scope);
   if (!canComment && !canEdit) redirect("/no-access");
   const body = String(formData.get("body") ?? "").trim();
   if (!body) redirect(nextPath(formData, await siteHref(siteId, "/edit")));
@@ -421,12 +415,10 @@ export async function sendMessageAction(formData: FormData) {
 export async function approveChangeAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
+  const found = await allowedSite(principal, siteId, "site.publish");
+  if (!found) redirect("/no-access");
   const config = loadConfig();
-  const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
-  const found = rows[0];
-  if (found) await publishEdgeRedirects(siteId, liveHost(found.slug));
+  await publishEdgeRedirects(siteId, liveHost(found.slug));
   const published = await approveChange({
     db: database(),
     store: createBlobStore(config),
@@ -437,7 +429,7 @@ export async function approveChangeAction(formData: FormData) {
     runner: editor(),
     appOrigin: config.APP_URL
   });
-  if (published.ok && found) {
+  if (published.ok) {
     await publishHostMap(liveHost(found.slug), published.publicPrefix);
     await invalidateLive(published.fromPrefix, published.storagePrefix);
   }
@@ -447,56 +439,20 @@ export async function approveChangeAction(formData: FormData) {
 export async function publishDraftAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
-  const snapshotId = String(formData.get("snapshotId") ?? "");
-  const db = database();
-  const rows = await db.select().from(site).where(eq(site.id, siteId)).limit(1);
-  const found = rows[0];
-  const snaps = await db.select().from(snapshot).where(eq(snapshot.id, snapshotId)).limit(1);
-  if (!found?.currentSnapshotId || !snaps[0] || found.draftSnapshotId !== snapshotId) {
-    redirect(`${await siteHref(siteId)}?error=1`);
-  }
-  const previous = await db
-    .select()
-    .from(snapshot)
-    .where(eq(snapshot.id, found.currentSnapshotId))
-    .limit(1);
-  const config = loadConfig();
-  const built = await materializeOutput({
-    store: createBlobStore(config),
-    storagePrefix: snaps[0].storagePrefix,
-    previousStoragePrefix: previous[0]?.storagePrefix,
-    review: "later"
-  });
-  await notePublishChecks(
-    db,
+  const result = await publishDraftFor({
+    principal,
     siteId,
-    built.checks ?? { blocked: false, drift: [], missing: [], ms: 0 }
-  );
-  await publishEdgeRedirects(siteId, liveHost(found.slug));
-  const swapped = await swapLive(db, siteId, found.currentSnapshotId, snapshotId);
-  if (!swapped) redirect(`${await siteHref(siteId)}?error=1`);
-  await recordPublish({
-    db,
-    siteId,
-    fromSnapshotId: found.currentSnapshotId,
-    toSnapshotId: snapshotId,
-    actorUserId: principal.id,
-    kind: "publish"
+    snapshotId: String(formData.get("snapshotId") ?? "")
   });
-  const publicPrefix = outputPrefix(snaps[0].storagePrefix);
-  writeHostMap(`${config.FS_STORAGE_DIR}/hostmap.json`, liveHost(found.slug), publicPrefix);
-  await publishHostMap(liveHost(found.slug), publicPrefix);
-  await invalidateLive(previous[0]?.storagePrefix, snaps[0].storagePrefix);
+  if (result === "denied") redirect("/no-access");
+  if (result === "failed") redirect(`${await siteHref(siteId)}?error=1`);
   redirect(nextPath(formData, await siteHref(siteId)));
 }
 
 export async function schedulePublishAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
+  if (!(await allowedSite(principal, siteId, "site.publish"))) redirect("/no-access");
   const found = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
   const zone = found[0]?.timeZone || "UTC";
   const publish = localInputToUtc(String(formData.get("publishAt") ?? ""), zone);
@@ -522,8 +478,7 @@ export async function schedulePublishAction(formData: FormData) {
 export async function cancelScheduleAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
+  if (!(await allowedSite(principal, siteId, "site.publish"))) redirect("/no-access");
   const id = String(formData.get("scheduleId") ?? "");
   await disarmSchedule(id, "publish").catch(() => undefined);
   await disarmSchedule(id, "revert").catch(() => undefined);
@@ -537,8 +492,7 @@ export async function cancelScheduleAction(formData: FormData) {
 export async function rescheduleAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
+  if (!(await allowedSite(principal, siteId, "site.publish"))) redirect("/no-access");
   const id = String(formData.get("scheduleId") ?? "");
   const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
   const zone = rows[0]?.timeZone || "UTC";
@@ -564,8 +518,7 @@ export async function rescheduleAction(formData: FormData) {
 export async function updateSiteTimeZoneAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "site.manage", { accountId })) redirect("/no-access");
+  if (!(await allowedSite(principal, siteId, "site.manage"))) redirect("/no-access");
   const requested = String(formData.get("timeZone") ?? "").trim();
   try {
     Intl.DateTimeFormat(undefined, { timeZone: requested });
@@ -579,8 +532,8 @@ export async function updateSiteTimeZoneAction(formData: FormData) {
 export async function rollbackAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "site.publish", { accountId })) redirect("/no-access");
+  const foundAccess = await allowedSite(principal, siteId, "site.publish");
+  if (!foundAccess) redirect("/no-access");
   const snapshotId = String(formData.get("snapshotId") ?? "");
   const config = loadConfig();
   const db = database();
@@ -624,8 +577,7 @@ export async function setBudgetAction(formData: FormData) {
 export async function undoEditAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "site.edit", { accountId })) redirect("/no-access");
+  if (!(await allowedSite(principal, siteId, "site.edit"))) redirect("/no-access");
   await undoEdit(database(), siteId);
   redirect(nextPath(formData, await siteHref(siteId, "/edit")));
 }
@@ -633,8 +585,7 @@ export async function undoEditAction(formData: FormData) {
 export async function addDomainAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "domain.manage", { accountId })) redirect("/no-access");
+  if (!(await allowedSite(principal, siteId, "domain.manage"))) redirect("/no-access");
   const config = loadConfig();
   const hostname = normalizeHostname(String(formData.get("hostname") ?? ""));
   if (!isValidHostname(hostname)) redirect(await siteHref(siteId, "/domain"));
@@ -725,8 +676,7 @@ export async function saveEditSettingsAction(formData: FormData) {
 export async function recheckDomainAction(formData: FormData) {
   const principal = await requirePrincipal();
   const siteId = String(formData.get("siteId") ?? "");
-  const accountId = String(formData.get("accountId") ?? "");
-  if (!can(principal, "domain.manage", { accountId })) redirect("/no-access");
+  if (!(await allowedSite(principal, siteId, "domain.manage"))) redirect("/no-access");
   const domainId = String(formData.get("domainId") ?? "");
   const rows = await database()
     .select()

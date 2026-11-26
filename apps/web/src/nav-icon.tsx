@@ -90,6 +90,15 @@ export function NavIcon({ name }: { name: string }) {
       </svg>
     );
   }
+  if (name === "skills") {
+    return (
+      <svg {...common}>
+        <path d="M4 2.5h5.5L13 6v7.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1Z" />
+        <path d="M9.5 2.5V6H13" />
+        <path d="M5.5 9h5M5.5 11.5h3.5" />
+      </svg>
+    );
+  }
   if (name === "people") {
     return (
       <svg {...common}>

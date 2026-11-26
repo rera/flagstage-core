@@ -19,7 +19,8 @@ export async function requirePrincipal(): Promise<Principal & { email: string; n
     name: session.user.name,
     orgRole: grants.orgRole,
     disabled: grants.disabled,
-    memberships: grants.memberships
+    memberships: grants.memberships,
+    siteGrants: grants.siteGrants
   };
   if (!hasAnyAccess(principal)) redirect("/no-access");
   return principal;
@@ -32,7 +33,12 @@ export function database() {
 export async function visibleAccounts(principal: Principal) {
   const db = database();
   if (principal.orgRole === "admin") return db.select().from(account);
-  const ids = principal.memberships.map((membership) => membership.accountId);
+  const ids = [
+    ...new Set([
+      ...principal.memberships.map((membership) => membership.accountId),
+      ...(principal.siteGrants ?? []).map((grant) => grant.accountId)
+    ])
+  ];
   if (ids.length === 0) return [];
   return db.select().from(account).where(inArray(account.id, ids));
 }
@@ -62,20 +68,39 @@ export async function landingPath(principal: Principal): Promise<string> {
 }
 
 export async function requireAccount(slug: string) {
+  const scope = await requireAccountScope(slug);
+  if (!can(scope.principal, "account.read", { accountId: scope.account.id })) notFound();
+  return scope;
+}
+
+/** Site roles can open their site under the account without an account membership. */
+export async function requireAccountScope(slug: string) {
   const principal = await requirePrincipal();
   const rows = await database().select().from(account).where(eq(account.slug, slug)).limit(1);
   const found = rows[0];
-  if (!found || !can(principal, "account.read", { accountId: found.id })) notFound();
+  if (!found) notFound();
+  if (can(principal, "account.read", { accountId: found.id })) {
+    return { principal, account: found };
+  }
+  const onSite = (principal.siteGrants ?? []).some((grant) => grant.accountId === found.id);
+  if (!onSite) notFound();
   return { principal, account: found };
 }
 
 export async function requireSite(accountSlug: string, siteId: string) {
-  const scope = await requireAccount(accountSlug);
+  const principal = await requirePrincipal();
+  const accounts = await database()
+    .select()
+    .from(account)
+    .where(eq(account.slug, accountSlug))
+    .limit(1);
+  const foundAccount = accounts[0];
+  if (!foundAccount) notFound();
   const rows = await database().select().from(site).where(eq(site.id, siteId)).limit(1);
   const found = rows[0];
-  if (!found || found.accountId !== scope.account.id) notFound();
-  if (!can(scope.principal, "site.read", { accountId: scope.account.id })) notFound();
-  return { ...scope, site: found };
+  if (!found || found.accountId !== foundAccount.id) notFound();
+  if (!can(principal, "site.read", { accountId: foundAccount.id, siteId: found.id })) notFound();
+  return { principal, account: foundAccount, site: found };
 }
 
 export async function viewerIsAdmin(): Promise<boolean> {

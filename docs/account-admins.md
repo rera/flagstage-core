@@ -4,7 +4,7 @@ An admin creates an account, then invites the people who run it. Each invite mak
 
 1. Sign in as an admin.
 2. Create the account.
-3. Open the account and invite the person by email. Send them the link. It is shown once.
+3. Open the account, choose People, and add the person by first name, last name, and email. If that email is new, send them the link. It is shown once. If they already have an account, they can sign in with that email.
 4. They set a password from that link if they do not already have one, then they can import sites and publish.
 
 From a shell:

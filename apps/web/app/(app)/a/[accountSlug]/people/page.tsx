@@ -1,33 +1,32 @@
 import { eq, inArray } from "drizzle-orm";
 
 import { can } from "@flagstage/core";
-import { invitation, membership, user } from "@flagstage/db";
-import { Badge, PageHeader, t } from "@flagstage/ui";
+import { membership, user } from "@flagstage/db";
+import { Alert, Badge, PageHeader, buttonVariants } from "@flagstage/ui";
 
-import { inviteMember } from "../../../../../src/actions";
 import { database, requireAccount } from "../../../../../src/guard";
 import { Page } from "../../../../../src/page";
-import { SecretForm } from "../../../../../src/secret-form";
-
-function roleLabel(role: string) {
-  if (role === "account_admin") return t("roles.accountAdmin");
-  if (role === "member") return t("roles.member");
-  return role;
-}
+import { AddPersonDialog, RemovePersonDialog } from "../../../../../src/people-dialogs";
+import {
+  addAccountPersonAction,
+  removeAccountPersonAction
+} from "../../../../../src/roster-actions";
 
 export default async function AccountPeoplePage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ accountSlug: string }>;
+  searchParams: Promise<{ dialog?: string; person?: string; error?: string }>;
 }) {
   const { accountSlug } = await params;
+  const query = await searchParams;
   const { principal, account: found } = await requireAccount(accountSlug);
   const db = database();
   const members = await db.select().from(membership).where(eq(membership.accountId, found.id));
-  const invites = await db.select().from(invitation).where(eq(invitation.accountId, found.id));
-  const pending = invites.filter((invite) => invite.status === "pending");
+  const admins = members.filter((member) => member.role === "account_admin");
   const people =
-    members.length === 0
+    admins.length === 0
       ? []
       : await db
           .select()
@@ -35,65 +34,72 @@ export default async function AccountPeoplePage({
           .where(
             inArray(
               user.id,
-              members.map((member) => member.userId)
+              admins.map((member) => member.userId)
             )
           );
-  const byId = new Map(people.map((person) => [person.id, person]));
-  const canInvite = can(principal, "member.manage", { accountId: found.id });
+  const rows = people
+    .map((person) => ({ id: person.id, name: person.name, email: person.email }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const canManage = can(principal, "member.manage", { accountId: found.id });
+  const selected = rows.find((person) => person.email === query.person) ?? rows[0];
+  const closeHref = `/a/${found.slug}/people`;
   return (
     <Page>
       <PageHeader
         title="People"
-        description={
-          canInvite
-            ? "People who can open this account, and invites that are still waiting."
-            : "People who can open this account."
+        description="Account admins manage every site in this account."
+        actions={
+          canManage ? (
+            <a href="?dialog=add" className={buttonVariants()}>
+              Add person
+            </a>
+          ) : undefined
         }
       />
-      <section className="space-y-3 rounded-xl border border-border bg-card px-4 py-4">
-        {members.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No one is on this account yet.</p>
-        ) : (
-          <ul className="divide-y divide-border text-sm">
-            {members.map((member) => (
-              <li key={member.id} className="flex items-center justify-between gap-3 py-2">
-                <span>{byId.get(member.userId)?.email ?? member.userId}</span>
-                <Badge>{roleLabel(member.role)}</Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-        {pending.length > 0 ? (
-          <ul className="space-y-1 text-sm text-muted-foreground">
-            {pending.map((invite) => (
-              <li key={invite.id}>
-                Invite pending for {invite.email} · {roleLabel(invite.role)}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {canInvite ? (
-          <SecretForm
-            inline
-            action={inviteMember}
-            submit={t("members.invite")}
-            secretLabel={t("members.linkOnce")}
+      {query.error === "admin" ? (
+        <Alert variant="destructive">This account needs an admin.</Alert>
+      ) : null}
+      <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+        {rows.map((person) => (
+          <li
+            key={person.email}
+            className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center"
           >
-            <input type="hidden" name="accountId" value={found.id} />
-            <label className="min-w-48 flex-1 space-y-1 text-sm font-medium" htmlFor="invite-email">
-              <span>{t("signIn.email")}</span>
-              <input
-                id="invite-email"
-                name="email"
-                type="email"
-                required
-                placeholder="name@company.com"
-                className="h-9 w-full rounded-md border border-input px-3 text-sm font-normal"
-              />
-            </label>
-          </SecretForm>
-        ) : null}
-      </section>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{person.name}</p>
+              <p className="truncate text-sm text-muted-foreground">{person.email}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge>Account admin</Badge>
+              {canManage ? (
+                <a
+                  href={`?dialog=remove&person=${encodeURIComponent(person.email)}`}
+                  className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-destructive hover:bg-destructive/10"
+                >
+                  Remove
+                </a>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {canManage && query.dialog === "add" ? (
+        <AddPersonDialog
+          action={addAccountPersonAction}
+          closeHref={closeHref}
+          includeRole={false}
+          hidden={{ accountId: found.id }}
+        />
+      ) : null}
+      {canManage && selected && query.dialog === "remove" ? (
+        <RemovePersonDialog
+          action={removeAccountPersonAction}
+          closeHref={closeHref}
+          title={`Remove ${selected.name}`}
+          body={`${selected.name} will no longer be an account admin. They will lose access to every site in ${found.name}.`}
+          hidden={{ accountId: found.id, userId: selected.id }}
+        />
+      ) : null}
     </Page>
   );
 }

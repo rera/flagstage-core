@@ -7,6 +7,7 @@ import { database, requireAccount } from "../../../../../src/guard";
 import { Hostname } from "../../../../../src/hostname";
 import { LocalTime } from "../../../../../src/local-time";
 import { NewSiteDialog } from "../../../../../src/new-site-dialog";
+import { ownerChoices } from "../../../../../src/roster";
 import { Page } from "../../../../../src/page";
 
 function statusLabel(status: string) {
@@ -30,6 +31,7 @@ export default async function AccountSitesPage({
   const db = database();
   const sites = await db.select().from(site).where(eq(site.accountId, found.id));
   const canCreate = can(principal, "site.manage", { accountId: found.id });
+  const people = canCreate ? await ownerChoices(db, found.id, principal) : [];
   const currentIds = sites
     .map((row) => row.currentSnapshotId)
     .filter((id): id is string => Boolean(id));
@@ -56,7 +58,9 @@ export default async function AccountSitesPage({
         title={t("sites.title")}
         description={sites.length === 0 ? t("sites.lead") : "Sites in this account."}
         actions={
-          canCreate ? <NewSiteDialog accounts={[{ id: found.id, name: found.name }]} /> : undefined
+          canCreate ? (
+            <NewSiteDialog accounts={[{ id: found.id, name: found.name }]} people={people} />
+          ) : undefined
         }
       />
       {query.error ? <Alert variant="destructive">{t("sites.failed")}</Alert> : null}
