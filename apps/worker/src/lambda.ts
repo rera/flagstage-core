@@ -1,5 +1,5 @@
 import { buildAgentEnv, postMessage, skillsDirectory, subprocessRunner } from "@flagstage/agent";
-import { loadConfig } from "@flagstage/config";
+import { emitFailure, failureLogger, loadConfig } from "@flagstage/config";
 import { getDb } from "@flagstage/db";
 import { createBlobStore } from "@flagstage/storage";
 
@@ -28,45 +28,65 @@ function editor() {
 
 export async function handler(event: TurnEvent & { scheduleId?: string; action?: string }) {
   if (event.scheduleId) {
-    const { publishScheduled, redirectEdge, revertScheduled, syncScheduleHost } =
-      await import("@flagstage/publish");
-    const config = loadConfig();
-    const db = getDb(config.DATABASE_URL);
-    const now = new Date();
-    const status =
-      event.action === "revert"
-        ? await revertScheduled(db, event.scheduleId, now)
-        : await publishScheduled(db, event.scheduleId, now, createBlobStore(config), {
-            ...redirectEdge(config),
-            enforce: true
-          });
-    if (status === "published" || status === "reverted") {
-      await syncScheduleHost(db, event.scheduleId);
+    try {
+      const { publishScheduled, redirectEdge, revertScheduled, syncScheduleHost } =
+        await import("@flagstage/publish");
+      const config = loadConfig();
+      const db = getDb(config.DATABASE_URL);
+      const now = new Date();
+      const status =
+        event.action === "revert"
+          ? await revertScheduled(db, event.scheduleId, now)
+          : await publishScheduled(db, event.scheduleId, now, createBlobStore(config), {
+              ...redirectEdge(config),
+              enforce: true
+            });
+      if (status === "published" || status === "reverted") {
+        await syncScheduleHost(db, event.scheduleId);
+      }
+      return { status };
+    } catch (error) {
+      emitFailure(
+        failureLogger("chat"),
+        "publish",
+        { err: error, scheduleId: event.scheduleId },
+        "scheduled publish failed"
+      );
+      throw error;
     }
-    return { status };
   }
-  const config = loadConfig();
-  const result = await postMessage({
-    db: getDb(config.DATABASE_URL),
-    store: createBlobStore(config),
-    siteId: event.siteId,
-    userId: event.userId,
-    body: event.body,
-    appOrigin: config.APP_URL,
-    userRecorded: true,
-    continuation: event.continuation,
-    deadlineMs: Date.now() + 14 * 60 * 1000,
-    runner: editor()
-  });
-  if (result.continue && process.env.AWS_LAMBDA_FUNCTION_NAME) {
-    const { LambdaClient, InvokeCommand } = await import("@aws-sdk/client-lambda");
-    await new LambdaClient({}).send(
-      new InvokeCommand({
-        FunctionName: process.env.AWS_LAMBDA_FUNCTION_NAME,
-        InvocationType: "Event",
-        Payload: Buffer.from(JSON.stringify({ ...event, continuation: true }))
-      })
+  try {
+    const config = loadConfig();
+    const result = await postMessage({
+      db: getDb(config.DATABASE_URL),
+      store: createBlobStore(config),
+      siteId: event.siteId,
+      userId: event.userId,
+      body: event.body,
+      appOrigin: config.APP_URL,
+      userRecorded: true,
+      continuation: event.continuation,
+      deadlineMs: Date.now() + 14 * 60 * 1000,
+      runner: editor()
+    });
+    if (result.continue && process.env.AWS_LAMBDA_FUNCTION_NAME) {
+      const { LambdaClient, InvokeCommand } = await import("@aws-sdk/client-lambda");
+      await new LambdaClient({}).send(
+        new InvokeCommand({
+          FunctionName: process.env.AWS_LAMBDA_FUNCTION_NAME,
+          InvocationType: "Event",
+          Payload: Buffer.from(JSON.stringify({ ...event, continuation: true }))
+        })
+      );
+    }
+    return { continue: Boolean(result.continue) };
+  } catch (error) {
+    emitFailure(
+      failureLogger("chat"),
+      "chat",
+      { err: error, siteId: event.siteId },
+      "chat turn failed"
     );
+    throw error;
   }
-  return { continue: Boolean(result.continue) };
 }

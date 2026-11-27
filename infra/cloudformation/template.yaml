@@ -55,9 +55,17 @@ Parameters:
     Default: flagstage
     AllowedPattern: "^[a-z][a-z0-9-]{1,20}$"
     Description: Short prefix for resource names.
+  AlarmEmail:
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    Description: >
+      Optional email subscribed to the alarm topic. Leave empty for no
+      subscription. The address must confirm the subscription AWS sends.
 
 Conditions:
   UseProvisionedConcurrency: !Not [!Equals [!Ref ProvisionedConcurrency, 0]]
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
 
 Resources:
   HostedZone:
@@ -1187,6 +1195,129 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: import
 
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${Name}-alarms"
+
+  AlarmTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref AlarmTopic
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudWatchAlarms
+            Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref AlarmTopic
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+
+  AlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlarmEmail
+    Properties:
+      Protocol: email
+      TopicArn: !Ref AlarmTopic
+      Endpoint: !Ref AlarmEmail
+
+  FailedChatTurnsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Name}-failed-chat-turns"
+      AlarmDescription: A chat turn failed. Missing data means none failed.
+      Namespace: Flagstage
+      MetricName: FailedChatTurns
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  FailedImportsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Name}-failed-imports"
+      AlarmDescription: An import failed. Missing data means none failed.
+      Namespace: Flagstage
+      MetricName: FailedImports
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  FailedPublishesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Name}-failed-publishes"
+      AlarmDescription: A publish failed. Missing data means none failed.
+      Namespace: Flagstage
+      MetricName: FailedPublishes
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  ChatLambdaErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Name}-chat-lambda-errors"
+      AlarmDescription: The chat Lambda reported an error.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ChatFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  WebHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Name}-web-unhealthy"
+      AlarmDescription: >
+        The web task is failing the load balancer check on /api/health.
+        UnHealthyHostCount is that existing check. A Route 53 health check
+        or a Synthetics canary would add a second probe.
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !GetAtt TargetGroup.TargetGroupFullName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
 Outputs:
   NameServers:
     Description: Delegate the domain to these name servers.
@@ -1203,3 +1334,6 @@ Outputs:
   HostedZoneId:
     Description: Hosted zone id.
     Value: !Ref HostedZone
+  AlarmTopicArn:
+    Description: Alarm topic. Subscribe a pager here, or set AlarmEmail at deploy.
+    Value: !Ref AlarmTopic

@@ -21,7 +21,15 @@ export {
 } from "./edit-settings";
 export type { EditSettings, EditSettingsPatch } from "./edit-settings";
 export { renderConfigurationMarkdown } from "./docs";
-export { createLogger } from "./logger";
+export {
+  FAILURE_METRICS,
+  FAILURE_NAMESPACE,
+  createLogger,
+  emitFailure,
+  failureFields,
+  failureLogger
+} from "./logger";
+export type { FailureKind } from "./logger";
 export { ConfigError } from "./errors";
 export { fileConfigSchema, findConfigFile, loadFileConfig, resolveBrandLogo } from "./file";
 export type { FileConfig } from "./file";

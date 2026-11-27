@@ -60,7 +60,6 @@ No phone-home and no update check. No billing, plans, or a review queue. No inbo
 Filed on [rera/flagstage-core](https://github.com/rera/flagstage-core/issues):
 
 - [#1 Trace each chat turn and import with one correlation ID](https://github.com/rera/flagstage-core/issues/1)
-- [#2 Health metrics and alarms in the CloudFormation stack](https://github.com/rera/flagstage-core/issues/2)
 - [#3 Screen-reader accessibility pass](https://github.com/rera/flagstage-core/issues/3)
 - [#4 Revisit CI: repo CI and deploying from CI](https://github.com/rera/flagstage-core/issues/4)
 - [#5 Bring back SSO, SAML and SCIM](https://github.com/rera/flagstage-core/issues/5) from `feature/sso`
