@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 
 import { bedrockListingDecide } from "@flagstage/ai";
+import { emitFailure, failureLogger } from "@flagstage/config";
 import { getImporterSettings } from "@flagstage/core";
 import type { Database } from "@flagstage/db";
 import { importRun, site } from "@flagstage/db";
@@ -136,6 +137,12 @@ export async function runImport(input: {
       .where(eq(importRun.id, input.importRunId));
     await input.db.update(site).set({ status: "failed" }).where(eq(site.id, input.siteId));
     await notify(input.db, input.siteId);
+    emitFailure(
+      failureLogger("import"),
+      "import",
+      { err: error, siteId: input.siteId, importRunId: input.importRunId },
+      "import failed"
+    );
     return {};
   }
 }

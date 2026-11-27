@@ -1,4 +1,4 @@
-import { loadConfig } from "@flagstage/config";
+import { emitFailure, failureLogger, loadConfig } from "@flagstage/config";
 import { can, type Principal } from "@flagstage/core";
 import { site, snapshot } from "@flagstage/db";
 import { eq } from "drizzle-orm";
@@ -71,31 +71,44 @@ export async function publishDraftFor(input: {
     .where(eq(snapshot.id, found.currentSnapshotId))
     .limit(1);
   const config = loadConfig();
-  const built = await materializeOutput({
-    store: createBlobStore(config),
-    storagePrefix: snaps[0].storagePrefix,
-    previousStoragePrefix: previous[0]?.storagePrefix,
-    review: "later"
-  });
-  await notePublishChecks(
-    db,
-    input.siteId,
-    built.checks ?? { blocked: false, drift: [], missing: [], ms: 0 }
-  );
-  await publishEdgeRedirects(input.siteId, liveHost(found.slug));
-  const swapped = await swapLive(db, input.siteId, found.currentSnapshotId, input.snapshotId);
-  if (!swapped) return "failed";
-  await recordPublish({
-    db,
-    siteId: input.siteId,
-    fromSnapshotId: found.currentSnapshotId,
-    toSnapshotId: input.snapshotId,
-    actorUserId: input.principal.id,
-    kind: "publish"
-  });
-  const publicPrefix = outputPrefix(snaps[0].storagePrefix);
-  writeHostMap(`${config.FS_STORAGE_DIR}/hostmap.json`, liveHost(found.slug), publicPrefix);
-  await publishHostMap(liveHost(found.slug), publicPrefix);
-  await invalidateLive(previous[0]?.storagePrefix, snaps[0].storagePrefix);
-  return "ok";
+  try {
+    const built = await materializeOutput({
+      store: createBlobStore(config),
+      storagePrefix: snaps[0].storagePrefix,
+      previousStoragePrefix: previous[0]?.storagePrefix,
+      review: "later"
+    });
+    await notePublishChecks(
+      db,
+      input.siteId,
+      built.checks ?? { blocked: false, drift: [], missing: [], ms: 0 }
+    );
+    await publishEdgeRedirects(input.siteId, liveHost(found.slug));
+    const swapped = await swapLive(db, input.siteId, found.currentSnapshotId, input.snapshotId);
+    if (!swapped) {
+      emitFailure(failureLogger("web"), "publish", { siteId: input.siteId }, "publish failed");
+      return "failed";
+    }
+    await recordPublish({
+      db,
+      siteId: input.siteId,
+      fromSnapshotId: found.currentSnapshotId,
+      toSnapshotId: input.snapshotId,
+      actorUserId: input.principal.id,
+      kind: "publish"
+    });
+    const publicPrefix = outputPrefix(snaps[0].storagePrefix);
+    writeHostMap(`${config.FS_STORAGE_DIR}/hostmap.json`, liveHost(found.slug), publicPrefix);
+    await publishHostMap(liveHost(found.slug), publicPrefix);
+    await invalidateLive(previous[0]?.storagePrefix, snaps[0].storagePrefix);
+    return "ok";
+  } catch (error) {
+    emitFailure(
+      failureLogger("web"),
+      "publish",
+      { err: error, siteId: input.siteId },
+      "publish failed"
+    );
+    throw error;
+  }
 }

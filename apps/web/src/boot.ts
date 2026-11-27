@@ -1,4 +1,4 @@
-import { loadConfig, createLogger } from "@flagstage/config";
+import { loadConfig, createLogger, emitFailure } from "@flagstage/config";
 import { migrateWithLock, createDb, getDb } from "@flagstage/db";
 import { bootstrapAdmin } from "@flagstage/auth";
 import { syncOrganization } from "@flagstage/core";
@@ -47,7 +47,7 @@ export async function boot(): Promise<void> {
     const edge = redirectEdge(current);
     const applied = await runDueSchedules(db, new Date(), createBlobStore(current), edge).catch(
       (error: unknown) => {
-        log.error({ err: error }, "scheduled publish failed");
+        emitFailure(log, "publish", { err: error }, "scheduled publish failed");
         return [] as string[];
       }
     );
@@ -66,7 +66,7 @@ export async function boot(): Promise<void> {
       } catch (error) {
         const text =
           error instanceof Error ? error.message : "scheduled publish did not update the edge";
-        log.error({ err: error, scheduleId: id }, text);
+        emitFailure(log, "publish", { err: error, scheduleId: id }, text);
         if (error instanceof RedirectMapError) syncedEdge.add(token);
       }
     }

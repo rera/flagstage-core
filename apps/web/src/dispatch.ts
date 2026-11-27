@@ -1,5 +1,5 @@
 import { buildAgentEnv, postMessage, skillsDirectory, subprocessRunner } from "@flagstage/agent";
-import { loadConfig } from "@flagstage/config";
+import { emitFailure, failureLogger, loadConfig } from "@flagstage/config";
 import { getDb } from "@flagstage/db";
 import { runImport } from "@flagstage/importer";
 import { createBlobStore } from "@flagstage/storage";
@@ -73,7 +73,14 @@ export async function startImport(job: {
     region,
     source: job.source,
     caps: { maxDepth: config.IMPORT_MAX_DEPTH }
-  }).catch(() => undefined);
+  }).catch((error: unknown) => {
+    emitFailure(
+      failureLogger("web"),
+      "import",
+      { err: error, siteId: job.siteId },
+      "import failed"
+    );
+  });
 }
 
 export async function startTurn(job: {
@@ -111,5 +118,12 @@ export async function startTurn(job: {
       if (result.continue) return startTurn({ ...job, continuation: true });
       return undefined;
     })
-    .catch(() => undefined);
+    .catch((error: unknown) => {
+      emitFailure(
+        failureLogger("web"),
+        "chat",
+        { err: error, siteId: job.siteId },
+        "chat turn failed"
+      );
+    });
 }

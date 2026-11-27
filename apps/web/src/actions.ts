@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { loadConfig } from "@flagstage/config";
+import { emitFailure, failureLogger, loadConfig } from "@flagstage/config";
 import { setUserPassword } from "@flagstage/auth";
 import {
   acceptInvitation,
@@ -314,6 +314,12 @@ export async function importSiteAction(formData: FormData) {
       .set({ status: "failed", error: messageText, updatedAt: new Date() })
       .where(eq(importRun.id, runId));
     await db.update(site).set({ status: "failed" }).where(eq(site.id, siteId));
+    emitFailure(
+      failureLogger("web"),
+      "import",
+      { err: error, siteId, importRunId: runId },
+      "import failed"
+    );
     redirect(`${sitesPath}?error=1`);
   }
   redirect(accountSlug ? `/a/${accountSlug}/sites/${siteId}` : sitesPath);
@@ -401,7 +407,8 @@ export async function sendMessageAction(formData: FormData) {
   if (canEdit) {
     try {
       await startTurn({ siteId, userId: principal.id, body });
-    } catch {
+    } catch (error) {
+      emitFailure(failureLogger("web"), "chat", { err: error, siteId }, "chat turn failed");
       await db
         .update(thread)
         .set({ status: "open", updatedAt: new Date() })
