@@ -131,7 +131,7 @@ A thrown error fails the run. The message is stored on the import row, and the s
 
 `crawlSite` is that source's `run`. It fetches `/robots.txt` and obeys `Disallow` for `FlagstageCrawler` (or `User-agent: *` when that group is the one that matches). It reads every `Sitemap:` line and `/sitemap.xml`, follows sitemap indexes and nested sitemaps, and gunzips `.gz` bodies. Those URLs are the page set, plus `/` when robots allows it. With no sitemap, it follows same-origin links from the seeds (default `/`) until a cap or `maxDepth` stops it. `urls` replaces that discovery. An explicit list does not also crawl the sitemap.
 
-HTML is stored as `pages`. Other saved files are `assets`. A link to an imported page or asset is rewritten to a root-relative URL. A link to a page that was not imported stays absolute on the source origin. A form mapped by `annotatePage` is pointed at `{appOrigin}/f/{siteId}/{formKey}` and added to `forms`. Site search markup is a fidelity note. Missing files are listed on the report. This crawler does not request WordPress URLs, and it does not record `/feed`, `/feed/`, `/index.php`, or `/?p=` redirects.
+HTML is stored as `pages`. Other saved files are `assets`. A link to an imported page or asset is rewritten to a root-relative URL. A link to a page that was not imported stays absolute on the source origin. A form that collects a visitor's input is pointed at `{appOrigin}/f/{siteId}/{formKey}` and added to `forms`. The key is the page path plus the form's id, name, or position, so the same site imports to the same form. A form `annotatePage` already mapped is left to that importer. Search, login, comment, cart, checkout, and payment forms are fidelity notes, as are forms that post to another site, forms with a file field, and forms inside an iframe. The form endpoint stores text fields and does not store uploaded files. Site search markup is a fidelity note. Missing files are listed on the report. This crawler does not request WordPress URLs, and it does not record `/feed`, `/feed/`, `/index.php`, or `/?p=` redirects.
 
 Workers default to 6 (`DEFAULT_CRAWL_CONCURRENCY`, clamped to 8) with 200ms between fetches to one host (`DEFAULT_HOST_INTERVAL_MS`). Those are code defaults. Pass `concurrency` or `hostIntervalMs` on `crawlSite` to override them. There is no environment variable for either.
 
@@ -149,7 +149,7 @@ After each page it calls `onProgress` with the stage, pages found, pages process
 
 The run seeds `/` plus every same-origin URL in `/wp-sitemap.xml` and `/sitemap_index.xml`. It also seeds the first page of `/wp-json/wp/v2/pages` and `/wp-json/wp/v2/posts` (`per_page=100`). Each listed post or page with an id gets a redirect from `/?p=<id>` to that path. The run also records redirects from `/feed`, `/feed/`, and `/index.php` to `/`.
 
-Contact Form 7 and Gravity Forms markup is mapped to lead forms. Comment forms (`wp-comments-post`), login (`wp-login.php`), `tribe-events`, and `wp-calendar` are fidelity notes. The generic crawl still notes site search.
+Contact Form 7 and Gravity Forms markup is mapped to lead forms. The generic form pass does not map those again. Other forms on the page are still picked up. Comment forms (`wp-comments-post`), login (`wp-login.php`), `tribe-events`, and `wp-calendar` are fidelity notes. The generic crawl still notes site search.
 
 ## Shared blocks
 
