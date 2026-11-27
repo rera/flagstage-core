@@ -83,12 +83,54 @@ export function applyFormActions(
     if (!form.marker) continue;
     const marker = form.marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const action = `${appOrigin}/f/${siteId}/${form.formKey}`;
-    next = next.replace(new RegExp(`<form\\b([^>]*${marker}[^>]*)>`, "i"), (tag) => {
-      const stripped = tag.replace(/\saction=["'][^"']*["']/i, "");
-      return stripped.replace(/<form\b/i, `<form action="${action}"`);
-    });
+    next = applyOneFormAction(next, marker, action);
   }
   return next;
+}
+
+const ATTR = String.raw`(?:"[^"]*"|'[^']*'|[^\s>]+)`;
+
+function applyOneFormAction(html: string, marker: string, action: string): string {
+  const full = new RegExp(`<form\\b[^>]*${marker}[^>]*>([\\s\\S]*?)</form>`, "i");
+  const replaced = html.replace(full, (match) => rewriteMappedForm(match, action));
+  if (replaced !== html) return replaced;
+  return html.replace(new RegExp(`<form\\b[^>]*${marker}[^>]*>`, "i"), (tag) =>
+    rewriteOpenTag(tag, action)
+  );
+}
+
+function rewriteMappedForm(full: string, action: string): string {
+  const openEnd = endOfOpenTag(full);
+  const open = rewriteOpenTag(full.slice(0, openEnd), action);
+  const rest = full.slice(openEnd).replace(new RegExp(String.raw`\sformaction\s*=\s*${ATTR}`, "gi"), "");
+  return open + rest;
+}
+
+function rewriteOpenTag(tag: string, action: string): string {
+  const stripped = tag
+    .replace(new RegExp(String.raw`\saction\s*=\s*${ATTR}`, "gi"), "")
+    .replace(new RegExp(String.raw`\smethod\s*=\s*${ATTR}`, "gi"), "")
+    .replace(new RegExp(String.raw`\sformaction\s*=\s*${ATTR}`, "gi"), "")
+    .replace(new RegExp(String.raw`\son[a-z]+\s*=\s*${ATTR}`, "gi"), "");
+  return stripped.replace(/<form\b/i, `<form method="post" action="${action}"`);
+}
+
+function endOfOpenTag(full: string): number {
+  let quote = "";
+  for (let index = 0; index < full.length; index += 1) {
+    const ch = full[index] ?? "";
+    if (quote) {
+      if (ch === quote) quote = "";
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === ">") return index + 1;
+  }
+  const fallback = full.indexOf(">");
+  return fallback < 0 ? full.length : fallback + 1;
 }
 
 export function mappedForms(forms: readonly AnnotatedForm[]): MappedForm[] {

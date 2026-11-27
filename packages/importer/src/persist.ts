@@ -58,7 +58,7 @@ export async function storeImport(input: {
         formKey: form.formKey,
         name: form.name
       })
-      .onConflictDoNothing();
+      .onConflictDoNothing({ target: [leadForm.siteId, leadForm.formKey] });
   }
   await input.db
     .update(importRun)

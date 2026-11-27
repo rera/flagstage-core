@@ -17,6 +17,7 @@ import {
   type RobotsRules
 } from "./discover";
 import type { ImportOptions, ImportProgress, ImportStage } from "./interface";
+import { detectPageForms } from "./forms";
 import {
   applyFormActions,
   mappedForms,
@@ -405,14 +406,20 @@ export async function crawlSite(input: CrawlOptions): Promise<ImportResult> {
     if (!object) return;
     const html = TEXT.decode(object.body);
     const extra = input.annotatePage?.(html, path);
-    const pageForms = extra?.forms ?? [];
+    const detected = detectPageForms({
+      html,
+      page: path,
+      origin,
+      claimed: extra?.formsMapped ?? []
+    });
+    const pageForms = [...(extra?.forms ?? []), ...detected.notes];
     const pagePlugins = [...searchNotes(html, path), ...(extra?.plugins ?? [])];
-    const pageMapped = extra?.formsMapped ?? [];
+    const pageMapped = [...(extra?.formsMapped ?? []), ...detected.mapped];
     forms.push(...pageForms);
     plugins.push(...pagePlugins);
     mapped.push(...mappedForms(pageMapped));
     const rewritten = applyFormActions(
-      rewriteCapturedHtml(html, origin, imported),
+      rewriteCapturedHtml(detected.html, origin, imported),
       input.appOrigin,
       input.siteId,
       pageMapped
