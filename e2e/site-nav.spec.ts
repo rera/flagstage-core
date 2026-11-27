@@ -180,8 +180,15 @@ test("plugins opens the forms screen", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Plugins", level: 2 })).toBeVisible();
   await expect(page.getByText("Submissions from forms on this site.")).toBeVisible();
   await page.getByRole("link", { name: /Submissions from forms on this site/ }).click();
-  await expect(page).toHaveURL(/\/forms$/);
-  await expect(page.getByRole("heading", { name: "No form submissions" })).toBeVisible();
+  await expect(page).toHaveURL(/\/plugins\/forms$/);
+  await expect(page.getByRole("heading", { name: "No forms yet" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Forms" }).getByRole("link")).toHaveText([
+    "Submissions",
+    "Settings"
+  ]);
+  await expect(
+    page.getByRole("navigation", { name: "Forms" }).getByRole("link", { name: "Submissions" })
+  ).toHaveAttribute("aria-current", "page");
   await revealNav(page);
   await expect(
     page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Plugins" })

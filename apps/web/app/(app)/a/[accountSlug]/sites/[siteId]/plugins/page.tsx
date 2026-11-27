@@ -19,7 +19,7 @@ export default async function SitePluginsPage({
       <ul className="grid gap-3">
         <li>
           <a
-            href={`${base}/forms`}
+            href={`${base}/plugins/forms`}
             className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-5 py-4 hover:bg-[var(--wash)]"
           >
             <span className="min-w-0">
