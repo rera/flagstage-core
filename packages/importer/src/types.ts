@@ -35,6 +35,15 @@ export type FidelityReport = {
    * most pages. A miss here is a missed include; the page bytes stay.
    */
   uncertain: FidelityItem[];
+  /**
+   * Built pages that still post a form to the imported site.
+   * Overview reads this. The detail stays off the editor.
+   */
+  legacyForms?: Array<{
+    page: string;
+    kind: string;
+    detail: string;
+  }>;
 };
 
 export type MappedForm = {

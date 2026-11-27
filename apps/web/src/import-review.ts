@@ -42,7 +42,31 @@ export type ImportSummary = {
   sections: ImportSection[];
   pageTypes: ImportPageType[];
   flags: ImportFlag[];
+  /** One row per removed or leftover form: "Search box on /blog". */
+  pluginNotes: string[];
 };
+
+export const PLUGIN_NOTE_HEADING = "Some features need a plugin";
+
+export const PLUGIN_NOTE_BODY =
+  "We took these off your new site for now. They'll come back once the matching plugin is ready.";
+
+const PLUGIN_KIND_LABEL: Record<string, string> = {
+  search: "Search box",
+  login: "Sign-in form",
+  comments: "Comment form",
+  checkout: "Checkout",
+  "file-upload": "File upload form"
+};
+
+const PLUGIN_LABEL_ORDER = [
+  "Search box",
+  "Sign-in form",
+  "Comment form",
+  "Checkout",
+  "File upload form",
+  "Form"
+];
 
 const DEFAULT_STAGE = "Copying pages";
 
@@ -102,8 +126,38 @@ export function readImportSummary(input: {
     pages: readPageCount(input.baseline, input.stats),
     sections,
     pageTypes,
-    flags
+    flags,
+    pluginNotes: pluginFeatureNotes(input.report)
   };
+}
+
+/**
+ * Rows for the Overview note. Removed search, sign-in, comment, checkout,
+ * and file-upload forms, plus a form that still points at the old site.
+ * A leftover that is not one of those kinds is "Form on {page}".
+ */
+export function pluginFeatureNotes(report: unknown): string[] {
+  const record = recordOf(report);
+  const rows: string[] = [];
+  if (Array.isArray(record.forms)) {
+    for (const entry of record.forms) {
+      const row = recordOf(entry);
+      const label = pluginKindLabel(row.kind);
+      const path = notePath(row.page);
+      if (!label || !path) continue;
+      rows.push(`${label} on ${path}`);
+    }
+  }
+  if (Array.isArray(record.legacyForms)) {
+    for (const entry of record.legacyForms) {
+      const row = recordOf(entry);
+      const path = notePath(row.page);
+      if (!path) continue;
+      const label = pluginKindLabel(row.kind) ?? leftoverLabel(row.detail) ?? "Form";
+      rows.push(`${label} on ${path}`);
+    }
+  }
+  return [...new Set(rows)].sort(comparePluginNotes);
 }
 
 export function flagPagePaths(report: unknown): string[] {
@@ -249,6 +303,56 @@ function typeName(kind: string): string {
 export function pageHref(siteId: string, storagePath: string): string {
   const path = publicPath(storagePath);
   return path === "/" ? `/sites/${siteId}/live` : `/sites/${siteId}/live${path}`;
+}
+
+function pluginKindLabel(kind: unknown): string | null {
+  if (typeof kind !== "string") return null;
+  return PLUGIN_KIND_LABEL[kind] ?? null;
+}
+
+function leftoverLabel(detail: unknown): string | null {
+  if (typeof detail !== "string") return null;
+  const action = detail.match(/"([^"]*)"/)?.[1]?.trim() ?? "";
+  if (!action) return null;
+  if (/(?:^|[/?&#=._-])search(?:[/?&#=._-]|$)/i.test(action)) return "Search box";
+  if (/(?:^|[/?&#=._-])(?:wp-login(?:\.php)?|log-?in|sign-?in)(?:[/?&#=._-]|$)/i.test(action)) {
+    return "Sign-in form";
+  }
+  if (
+    /(?:^|[/?&#=._-])(?:wp-comments-post|comment-?form|comments?)(?:[/?&#=._-]|$)/i.test(action)
+  ) {
+    return "Comment form";
+  }
+  if (/(?:^|[/?&#=._-])(?:add-to-cart|checkout|cart|payment)(?:[/?&#=._-]|$)/i.test(action)) {
+    return "Checkout";
+  }
+  if (/(?:^|[/?&#=._-])(?:file-upload|upload)(?:[/?&#=._-]|$)/i.test(action)) {
+    return "File upload form";
+  }
+  return null;
+}
+
+function comparePluginNotes(left: string, right: string): number {
+  const a = splitPluginNote(left);
+  const b = splitPluginNote(right);
+  const kind = PLUGIN_LABEL_ORDER.indexOf(a.label) - PLUGIN_LABEL_ORDER.indexOf(b.label);
+  if (kind !== 0) return kind;
+  return a.path.localeCompare(b.path);
+}
+
+function splitPluginNote(row: string): { label: string; path: string } {
+  const at = row.lastIndexOf(" on ");
+  if (at < 0) return { label: row, path: "" };
+  return { label: row.slice(0, at), path: row.slice(at + " on ".length) };
+}
+
+function notePath(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const page = value.trim().split("?")[0] ?? "";
+  if (!page) return "";
+  const path = publicPath(page);
+  if (path.length > 1 && path.endsWith("/")) return path.replace(/\/+$/, "");
+  return path;
 }
 
 function publicPath(storagePath: string): string {
