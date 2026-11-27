@@ -589,14 +589,23 @@ export function AppShell({
         <header className="flex h-14 items-center gap-2 border-b border-border px-4 md:hidden">
           <button
             type="button"
-            className="h-8 rounded-md border border-border px-2.5 text-sm"
+            className="h-8 shrink-0 rounded-md border border-border px-2.5 text-sm"
             aria-expanded={open}
             aria-label="Menu"
             onClick={() => setOpen((value) => !value)}
           >
             Menu
           </button>
-          <span className="truncate text-sm font-semibold">
+          <a href={home} aria-label={name} className="shrink-0">
+            {logoSrc ? (
+              <img src={logoSrc} alt="" width={32} height={32} className="size-8 rounded-lg" />
+            ) : (
+              <span className="grid size-8 place-items-center overflow-hidden rounded-lg bg-[#111620]">
+                <FlagstageMark className="size-8" />
+              </span>
+            )}
+          </a>
+          <span className="min-w-0 truncate text-sm font-semibold">
             {adminMode
               ? "Platform admin"
               : current

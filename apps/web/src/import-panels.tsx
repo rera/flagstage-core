@@ -4,6 +4,8 @@ import { Alert, t } from "@flagstage/ui";
 
 import {
   formatCount,
+  PLUGIN_NOTE_BODY,
+  PLUGIN_NOTE_HEADING,
   sameOn,
   skippedPages,
   typePages,
@@ -45,6 +47,26 @@ export function ImportProgressPanel({ progress }: { progress: ImportProgressView
   );
 }
 
+function PluginNote({ notes }: { notes: string[] }) {
+  if (notes.length === 0) return null;
+  return (
+    <Alert variant="warning" role="status">
+      <p className="font-medium">{PLUGIN_NOTE_HEADING}</p>
+      <p className="mt-1 leading-relaxed">{PLUGIN_NOTE_BODY}</p>
+      <ul className="mt-2">
+        {notes.map((note) => (
+          <li
+            key={note}
+            className="min-w-0 border-b border-warning/30 py-2 break-words last:border-b-0"
+          >
+            {note}
+          </li>
+        ))}
+      </ul>
+    </Alert>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border border-border bg-card px-4 py-3">
@@ -70,6 +92,7 @@ export function ImportResultPanel({
         </p>
         {goLive}
       </div>
+      <PluginNote notes={summary.pluginNotes} />
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat label="Pages" value={summary.pages} />
         <Stat label="Shared sections" value={summary.sections.length} />

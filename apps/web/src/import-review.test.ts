@@ -4,6 +4,9 @@ import {
   detectedHint,
   flagPagePaths,
   formatCount,
+  PLUGIN_NOTE_BODY,
+  PLUGIN_NOTE_HEADING,
+  pluginFeatureNotes,
   readImportProgress,
   readImportSummary,
   sameOn,
@@ -159,5 +162,122 @@ describe("import review", () => {
     expect(detectedHint("WordPress")).toBe(
       "WordPress was detected from this address. Change this if that's wrong."
     );
+    expect(summary.pluginNotes).toEqual([]);
+  });
+
+  it("lists removed forms and leftover forms that still point at the old site", () => {
+    const report = {
+      forms: [
+        {
+          page: "/blog",
+          kind: "search",
+          detail: "A search form was removed. It posted to this site."
+        },
+        {
+          page: "/account/",
+          kind: "login",
+          detail: "A login or password form was removed. It posted to this site."
+        },
+        {
+          page: "news/index.html",
+          kind: "comments",
+          detail: "A comment form was removed. It posted to this site."
+        },
+        {
+          page: "/shop",
+          kind: "checkout",
+          detail: "A cart, checkout, or payment form was removed. It posted to this site."
+        },
+        {
+          page: "/apply",
+          kind: "file-upload",
+          detail: "A form with a file field was removed. It posted to this site."
+        },
+        {
+          page: "/blog",
+          kind: "search",
+          detail: "A search form was removed. It posted to this site."
+        },
+        {
+          page: "/contact",
+          kind: "form",
+          detail: 'Form "Form on /contact" was pointed at the site form endpoint.'
+        },
+        {
+          page: "/visit",
+          kind: "form",
+          detail: "A form that posted to this site was removed."
+        },
+        {
+          page: "/newsletter",
+          kind: "external-form",
+          detail: "A form that posts to another site was left unchanged."
+        }
+      ],
+      plugins: [
+        { page: "/events", kind: "calendar", detail: "A calendar plugin was found." },
+        { page: "/blog", kind: "search", detail: "Site search does not run on a static snapshot." }
+      ],
+      legacyForms: [
+        {
+          page: "contact/index.html",
+          kind: "form-action",
+          detail: 'Form action "https://harbor.example/join" still points at the imported site.'
+        },
+        {
+          page: "index.html",
+          kind: "form-action",
+          detail: 'Form action "/search" still points at the imported site.'
+        },
+        {
+          page: "account/index.html",
+          kind: "formaction",
+          detail:
+            'Button formaction "https://harbor.example/wp-login.php" still points at the imported site.'
+        },
+        {
+          page: "shop/index.html",
+          kind: "form-action",
+          detail: 'Form action "/checkout" still points at the imported site.'
+        },
+        {
+          page: "stories/note.html",
+          kind: "form-action",
+          detail: 'Form action "/wp-comments-post.php" still points at the imported site.'
+        },
+        {
+          page: "jobs/index.html",
+          kind: "formaction",
+          detail:
+            'Input formaction "https://harbor.example/upload" still points at the imported site.'
+        }
+      ]
+    };
+    expect(pluginFeatureNotes(report)).toEqual([
+      "Search box on /",
+      "Search box on /blog",
+      "Sign-in form on /account",
+      "Comment form on /news",
+      "Comment form on /stories/note.html",
+      "Checkout on /shop",
+      "File upload form on /apply",
+      "File upload form on /jobs",
+      "Form on /contact"
+    ]);
+    expect(pluginFeatureNotes({})).toEqual([]);
+    expect(pluginFeatureNotes(null)).toEqual([]);
+    expect(PLUGIN_NOTE_HEADING).toBe("Some features need a plugin");
+    expect(PLUGIN_NOTE_BODY).toBe(
+      "We took these off your new site for now. They'll come back once the matching plugin is ready."
+    );
+    const summary = readImportSummary({
+      stats: { pages: 1 },
+      report,
+      drift: null,
+      skill: null,
+      baseline: null,
+      siteId: "site-1"
+    });
+    expect(summary.pluginNotes).toEqual(pluginFeatureNotes(report));
   });
 });

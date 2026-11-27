@@ -29,6 +29,16 @@ export async function storeImport(input: {
     bytes += file.body.byteLength;
   }
   await materializeOutput({ store: input.store, storagePrefix: prefix });
+  const sites = await input.db.select().from(site).where(eq(site.id, input.siteId)).limit(1);
+  const legacy = await legacyPostsInOutput(
+    input.store,
+    outputPrefix(prefix),
+    sites[0]?.sourceUrl ?? null
+  );
+  const report =
+    legacy.length === 0
+      ? input.result.report
+      : { ...input.result.report, legacyForms: legacyFormRows(legacy) };
   const now = new Date();
   await input.db.insert(snapshot).values({
     id: snapshotId,
@@ -68,7 +78,7 @@ export async function storeImport(input: {
     .set({
       status: "preview",
       stats: input.result.stats,
-      fidelityReport: input.result.report,
+      fidelityReport: report,
       updatedAt: now
     })
     .where(eq(importRun.id, input.importRunId));
@@ -105,10 +115,9 @@ export async function approveImport(input: {
     previousStoragePrefix: previous[0]?.storagePrefix,
     review: previousId ? "later" : "import"
   });
-  let checks = built.checks ?? { blocked: false, drift: [], missing: [], ms: 0 };
+  const checks = built.checks ?? { blocked: false, drift: [], missing: [], ms: 0 };
   const publicPrefix = outputPrefix(storagePrefix);
   const legacy = await legacyPostsInOutput(input.store, publicPrefix, sites[0]?.sourceUrl ?? null);
-  if (legacy.length > 0) checks = { ...checks, blocked: true };
   if (checks.blocked) {
     await notePublishChecks(input.db, input.siteId, checks);
     await writeLegacyForms(input.db, input.siteId, legacy);
@@ -156,7 +165,7 @@ function isPublicHtml(rel: string): boolean {
 
 /**
  * Records forms that still post to the imported site.
- * The editor shows `publishChecks` only, so this list stays off that screen.
+ * Overview lists them. The editor shows `publishChecks` only, so this list stays off that screen.
  */
 async function writeLegacyForms(
   db: Database,
@@ -173,16 +182,20 @@ async function writeLegacyForms(
   if (hits.length === 0 && !had) return;
   if (hits.length === 0) delete report.legacyForms;
   else {
-    report.legacyForms = hits.map((hit) => ({
-      page: hit.page,
-      kind: hit.kind,
-      detail: hit.detail
-    }));
+    report.legacyForms = legacyFormRows(hits);
   }
   await db
     .update(importRun)
     .set({ fidelityReport: report, updatedAt: new Date() })
     .where(eq(importRun.id, latest.id));
+}
+
+function legacyFormRows(hits: readonly LegacyFormPost[]) {
+  return hits.map((hit) => ({
+    page: hit.page,
+    kind: hit.kind,
+    detail: hit.detail
+  }));
 }
 
 function asReport(value: unknown): Record<string, unknown> {
