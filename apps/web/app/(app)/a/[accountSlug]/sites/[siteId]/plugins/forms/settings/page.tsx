@@ -6,7 +6,6 @@ import { FormsPluginFrame } from "../../../../../../../../../src/forms-plugin";
 
 const ERRORS: Record<string, string> = {
   email: "Enter an email address.",
-  webhook: "Enter a webhook URL that starts with https://.",
   save: "That form could not be saved."
 };
 
@@ -51,15 +50,6 @@ export default async function FormsPluginSettingsPage({
                   defaultValue={form.notifyEmails.join(", ")}
                   hint="Separate more than one address with a comma."
                 />
-                <Field
-                  id={`${form.id}-webhook`}
-                  label="Webhook URL"
-                  name="webhookUrl"
-                  type="url"
-                  autoComplete="off"
-                  defaultValue={form.webhookUrl ?? ""}
-                  hint="Optional. Posted when this form has a webhook secret. This screen does not set the secret."
-                />
                 <Button type="submit">Save</Button>
               </form>
             ) : (
@@ -73,15 +63,6 @@ export default async function FormsPluginSettingsPage({
                   <span className="mt-1 block">
                     {form.notifyEmails.length > 0 ? form.notifyEmails.join(", ") : "None"}
                   </span>
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Webhook URL</span>
-                  <span className="mt-1 block break-all">{form.webhookUrl || "None"}</span>
-                </p>
-                <p className="text-muted-foreground">
-                  {form.webhookSecret
-                    ? "A webhook secret is stored. This screen does not change it."
-                    : "No webhook secret is stored. This screen does not set one."}
                 </p>
               </section>
             )

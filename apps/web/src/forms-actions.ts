@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { can } from "@flagstage/core";
 import { account, leadForm, site } from "@flagstage/db";
 
-import { notifyEmailList, notifyWebhook } from "./forms-submissions";
+import { notifyEmailList } from "./forms-submissions";
 import { database, requirePrincipal } from "./guard";
 
 export async function updateFormSettingsAction(formData: FormData) {
@@ -29,11 +29,9 @@ export async function updateFormSettingsAction(formData: FormData) {
   }
   const emails = notifyEmailList(String(formData.get("notifyEmail") ?? ""));
   if (!emails) redirect(`${back}?error=email`);
-  const webhook = notifyWebhook(String(formData.get("webhookUrl") ?? ""));
-  if (webhook === null) redirect(`${back}?error=webhook`);
   await database()
     .update(leadForm)
-    .set({ notifyEmails: emails, webhookUrl: webhook || null })
+    .set({ notifyEmails: emails })
     .where(and(eq(leadForm.id, formId), eq(leadForm.siteId, found.id)));
   redirect(back);
 }

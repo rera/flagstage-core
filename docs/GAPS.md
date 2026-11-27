@@ -47,7 +47,7 @@ No phone-home and no update check. No billing, plans, or a review queue. No inbo
 - An admin creates an account from the app or with `flagstage account create`. `flagstage member add` invites an account admin. See [Invite account admins](account-admins.md).
 - `pnpm e2e` signs in, imports a local fixture, sends a chat edit, opens the preview, publishes, and reads the DNS checklist. The workflow file is `docs/ci/workflows/e2e.yml`.
 - The runtime image no longer copies the workspace or runs TypeScript through `tsx`. It includes OpenCode 2.2.7. Displayed size is 804MB.
-- Analytics shows 7, 30, and 90 day totals, a bar for each day, and the top pages. Form submissions keep the signed webhook and mail `FORM_NOTIFY_EMAIL` plus the form's own list through SES.
+- Analytics shows 7, 30, and 90 day totals, a bar for each day, and the top pages. Form submissions mail `FORM_NOTIFY_EMAIL` plus the form's own list through SES.
 - The README leads with a screenshot of the app. README and announcement copy still carry `copy-review: required before announce`.
 - Sign-in is email and password. An admin page lists people and can promote or remove an admin. The Admin link is hidden from everyone else. The one-time `/bootstrap` link sets its cookie in a route handler.
 - Accounts, sites, versions, form submissions, and analytics each show an empty state with one next action. Focus is visible on links, buttons, and fields, and the first Tab stop is "Skip to content". `pnpm e2e` runs axe.

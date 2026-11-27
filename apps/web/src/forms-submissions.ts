@@ -86,14 +86,6 @@ export function notifyEmailList(value: string): string[] | null {
   return ok ? parts : null;
 }
 
-/** Empty clears the webhook. `null` means the value is not an https URL. */
-export function notifyWebhook(value: string): string | null {
-  const webhook = value.trim();
-  if (!webhook) return "";
-  if (!/^https:\/\/\S+$/.test(webhook)) return null;
-  return webhook;
-}
-
 export function submissionsCsv(
   rows: Array<{ leadFormId: string; fields: unknown; createdAt: Date }>,
   forms: Array<{ id: string; name: string }>

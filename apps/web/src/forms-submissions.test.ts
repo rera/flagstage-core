@@ -4,7 +4,6 @@ import {
   csvFilename,
   fieldLabel,
   notifyEmailList,
-  notifyWebhook,
   submissionEntries,
   submissionFrom,
   submissionsCsv
@@ -39,18 +38,13 @@ describe("submission fields", () => {
     expect(submissionEntries("nope")).toEqual([]);
   });
 
-  it("checks notification addresses and https webhooks", () => {
+  it("checks notification addresses", () => {
     expect(notifyEmailList(" desk@example.com, press@example.com ")).toEqual([
       "desk@example.com",
       "press@example.com"
     ]);
     expect(notifyEmailList("")).toEqual([]);
     expect(notifyEmailList("not-an-email")).toBeNull();
-    expect(notifyWebhook("")).toBe("");
-    expect(notifyWebhook(" https://example.com/hooks/contact ")).toBe(
-      "https://example.com/hooks/contact"
-    );
-    expect(notifyWebhook("http://example.com/hooks")).toBeNull();
   });
 
   it("exports the given rows, with commas quoted", () => {

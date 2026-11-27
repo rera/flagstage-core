@@ -537,8 +537,7 @@ if (existingForms.length === 0) {
       siteId: pgaId,
       formKey: "contact",
       name: "Contact",
-      notifyEmails: ["desk@example.com"],
-      webhookUrl: "https://example.com/hooks/contact"
+      notifyEmails: ["desk@example.com"]
     },
     {
       id: ticketsId,

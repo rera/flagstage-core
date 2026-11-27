@@ -397,8 +397,6 @@ export const leadForm = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
-    webhookUrl: text("webhook_url"),
-    webhookSecret: text("webhook_secret"),
     createdAt: ts("created_at").notNull().defaultNow()
   },
   (table) => [uniqueIndex("lead_form_site_key").on(table.siteId, table.formKey)]

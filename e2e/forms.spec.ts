@@ -114,9 +114,7 @@ test("filters submissions, exports that view, and returns from a submission", as
     .click();
   await expect(page).toHaveURL(/\/plugins\/forms\/settings$/);
   await expect(page.getByLabel("Notification email").first()).toHaveValue("desk@example.com");
-  await expect(page.getByLabel("Webhook URL").first()).toHaveValue(
-    "https://example.com/hooks/contact"
-  );
+  await expect(page.getByText(/webhook/i)).toHaveCount(0);
   await expect(
     page.getByRole("navigation", { name: "Forms" }).getByRole("link", { name: "Settings" })
   ).toHaveAttribute("aria-current", "page");
@@ -211,6 +209,7 @@ test("writes plugin screenshots", async ({ browser }, testInfo) => {
   await page.goto(`${site}/plugins/forms/settings`);
   await expect(page.getByRole("heading", { name: "Contact", level: 3 })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save" }).first()).toBeVisible();
+  await expect(page.getByText(/webhook/i)).toHaveCount(0);
   await still(page, "forms-settings");
   await desktop.close();
 
@@ -229,6 +228,13 @@ test("writes plugin screenshots", async ({ browser }, testInfo) => {
   const mobile = await shotContext(browser, testInfo, { width: 390, height: 844 });
   const phone = await mobile.newPage();
   await signIn(phone, "alex.morgan@example.com");
+  await phone.setViewportSize({ width: 390, height: 1100 });
+  await phone.goto(`${site}/plugins/forms/settings`);
+  await expect(phone.getByRole("heading", { name: "Contact", level: 3 })).toBeVisible();
+  await expect(phone.getByRole("heading", { name: "Tickets", level: 3 })).toBeVisible();
+  await expect(phone.getByText(/webhook/i)).toHaveCount(0);
+  await still(phone, "forms-settings-mobile");
+  await phone.setViewportSize({ width: 390, height: 844 });
   await phone.goto(`${site}/plugins/forms`);
   await expect(phone.getByRole("link", { name: /Ticket window/ })).toBeVisible();
   await expect(phone.getByRole("columnheader", { name: "Open" })).toHaveCount(0);

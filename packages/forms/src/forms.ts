@@ -1,5 +1,3 @@
-import { createHmac } from "node:crypto";
-
 import { eq } from "drizzle-orm";
 
 import type { Database } from "@flagstage/db";
@@ -53,10 +51,6 @@ export async function takeToken(
     .set({ tokens: refilled - 1, updatedAt: now })
     .where(eq(rateBucket.key, key));
   return true;
-}
-
-export function signBody(secret: string, body: string): string {
-  return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
 }
 
 export function csvEscape(value: string): string {
