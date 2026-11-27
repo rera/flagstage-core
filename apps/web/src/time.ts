@@ -61,6 +61,17 @@ export function friendlyWhen(date: Date, timeZone = "UTC", now = new Date()): st
   return absolute;
 }
 
+/** Shorter clock for a narrow column. Month, day, and time, without the zone. */
+export function compactWhen(date: Date, timeZone = "UTC"): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(date);
+}
+
 /**
  * Who to show on a history row. A name or email wins. An import with neither
  * reads as "From your old site".

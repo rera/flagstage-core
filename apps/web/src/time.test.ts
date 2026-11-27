@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { friendlyWhen, historyActor, monthKey } from "./time";
+import { compactWhen, friendlyWhen, historyActor, monthKey } from "./time";
 
 describe("friendlyWhen", () => {
   it("uses the site zone, so a Pacific afternoon is not an evening UTC clock", () => {
@@ -14,6 +14,12 @@ describe("friendlyWhen", () => {
     const at = new Date("2026-11-12T02:00:00.000Z");
     const now = new Date("2026-11-12T23:00:00.000Z");
     expect(friendlyWhen(at, "America/Los_Angeles", now)).toBe("Yesterday, 6:00 PM PT");
+  });
+
+  it("drops the zone for a narrow column", () => {
+    const at = new Date("2026-11-24T18:42:00.000Z");
+    expect(compactWhen(at, "America/New_York")).toBe("Nov 24, 1:42 PM");
+    expect(compactWhen(at, "UTC")).toBe("Nov 24, 6:42 PM");
   });
 
   it("does not call a future instant today", () => {

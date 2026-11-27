@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { friendlyWhen } from "./time";
+import { compactWhen, friendlyWhen } from "./time";
 
 function viewerZone(): string {
   try {
@@ -13,12 +13,21 @@ function viewerZone(): string {
 }
 
 /** Same friendly clock everywhere, in the viewer's time zone. */
-export function LocalTime({ value }: { value: string }) {
+export function LocalTime({ value, compact = false }: { value: string; compact?: boolean }) {
   const [text, setText] = useState("");
+  const [short, setShort] = useState("");
   useEffect(() => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return;
-    setText(friendlyWhen(date, viewerZone()));
-  }, [value]);
-  return <time dateTime={value}>{text}</time>;
+    const zone = viewerZone();
+    setText(friendlyWhen(date, zone));
+    if (compact) setShort(compactWhen(date, zone));
+  }, [compact, value]);
+  if (!compact) return <time dateTime={value}>{text}</time>;
+  return (
+    <time dateTime={value}>
+      <span className="whitespace-nowrap sm:hidden">{short}</span>
+      <span className="hidden whitespace-nowrap sm:inline">{text}</span>
+    </time>
+  );
 }

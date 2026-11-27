@@ -6,9 +6,7 @@ import { can, SITE_ROLE_LABEL, SITE_ROLES, type SiteRole } from "@flagstage/core
 import {
   analyticsDaily,
   analyticsEvent,
-  formSubmission,
   importRun,
-  leadForm,
   membership,
   siteDomain,
   siteMembership,
@@ -18,7 +16,7 @@ import {
 } from "@flagstage/db";
 import { describeSchedule } from "@flagstage/publish";
 import { createBlobStore } from "@flagstage/storage";
-import { Alert, Badge, Button, EmptyState, t } from "@flagstage/ui";
+import { Alert, Badge, Button, EmptyState, cn, t } from "@flagstage/ui";
 
 import { approveSiteAction, rollbackAction } from "../../../../../../src/actions";
 import { database, requireSite } from "../../../../../../src/guard";
@@ -64,19 +62,6 @@ export default async function SiteOverviewPage({
     .filter((item) => item.status === "scheduled")
     .sort((left, right) => left.publishAt.getTime() - right.publishAt.getTime());
   const domains = await db.select().from(siteDomain).where(eq(siteDomain.siteId, siteId));
-  const forms = await db.select().from(leadForm).where(eq(leadForm.siteId, siteId));
-  const submissions =
-    forms.length === 0
-      ? []
-      : await db
-          .select()
-          .from(formSubmission)
-          .where(
-            inArray(
-              formSubmission.leadFormId,
-              forms.map((form) => form.id)
-            )
-          );
   const daily = await db.select().from(analyticsDaily).where(eq(analyticsDaily.siteId, siteId));
   const recent = await db.select().from(analyticsEvent).where(eq(analyticsEvent.siteId, siteId));
   const week = visitsInRange(
@@ -165,8 +150,6 @@ export default async function SiteOverviewPage({
     host,
     upcoming,
     domains,
-    forms,
-    submissions,
     pageviews,
     visitors,
     access,
@@ -217,9 +200,8 @@ export default async function SiteOverviewPage({
         {importing ? <DomainCard {...cards} /> : null}
         {summary || importing ? null : <ScheduledCard {...cards} />}
         {summary || importing ? null : <DomainCard {...cards} />}
-        <FormsCard {...cards} />
         {summary || importing || !canAnalytics ? null : <AnalyticsCard {...cards} />}
-        {summary || importing ? null : <PeopleCard {...cards} />}
+        {summary || importing ? null : <PeopleCard {...cards} wide={canAnalytics} />}
       </div>
     </Page>
   );
@@ -244,8 +226,6 @@ type Cards = {
   host: string;
   upcoming: Array<Parameters<typeof describeSchedule>[0]>;
   domains: Array<{ id: string; hostname: string; status: string }>;
-  forms: Array<{ id: string }>;
-  submissions: Array<{ id: string }>;
   pageviews: number;
   visitors: number;
   access: Array<{ id: string; email: string; role: string }>;
@@ -365,26 +345,6 @@ function DomainCard({ domains, base, host }: Cards) {
   );
 }
 
-function FormsCard({ forms, submissions, base }: Cards) {
-  return (
-    <section className="rounded-xl border border-border bg-card px-4 py-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">Forms</h2>
-        <a href={`${base}/forms`} className="text-sm font-medium text-primary">
-          View submissions
-        </a>
-      </div>
-      <p className="mt-3 text-sm text-muted-foreground">
-        {forms.length === 0
-          ? "No forms yet. They show up here when an import finds one on the site."
-          : submissions.length === 0
-            ? `${forms.length} ${forms.length === 1 ? "form" : "forms"}. No submissions yet.`
-            : `${forms.length} ${forms.length === 1 ? "form" : "forms"} · ${submissions.length} ${submissions.length === 1 ? "submission" : "submissions"}`}
-      </p>
-    </section>
-  );
-}
-
 function AnalyticsCard({ pageviews, visitors, base }: Cards) {
   return (
     <section className="rounded-xl border border-border bg-card px-4 py-4">
@@ -410,9 +370,11 @@ function AnalyticsCard({ pageviews, visitors, base }: Cards) {
   );
 }
 
-function PeopleCard({ access, base }: Cards) {
+function PeopleCard({ access, base, wide }: Cards & { wide?: boolean }) {
   return (
-    <section className="rounded-xl border border-border bg-card px-4 py-4">
+    <section
+      className={cn("rounded-xl border border-border bg-card px-4 py-4", wide && "lg:col-span-2")}
+    >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">People</h2>
         <a href={`${base}/settings/people`} className="text-sm font-medium text-primary">
@@ -422,9 +384,11 @@ function PeopleCard({ access, base }: Cards) {
       {access.length === 0 ? (
         <EmptyState title="No one has access yet" description="Invite someone from the account." />
       ) : (
-        <ul className="mt-3 space-y-2 text-sm">
+        <ul
+          className={cn("mt-3 text-sm", wide ? "grid gap-x-8 gap-y-2 lg:grid-cols-2" : "space-y-2")}
+        >
           {access.map((person) => (
-            <li key={person.id} className="flex items-center justify-between gap-3">
+            <li key={person.id} className="flex min-w-0 items-center justify-between gap-3">
               <span className="min-w-0 truncate">{person.email}</span>
               <span className="shrink-0 text-muted-foreground">{person.role}</span>
             </li>
