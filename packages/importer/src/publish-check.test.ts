@@ -261,4 +261,103 @@ describe("publish checks on go-live", () => {
     expect(afterWarn[0]?.status).toBe("live");
     await client.close();
   });
+
+  it("fails go-live when a form still posts to the imported site, and passes when it does not", async () => {
+    const client = new PGlite();
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: fullSchema }) as unknown as Database;
+    await db.insert(account).values({ id: "acct-legacy", name: "Grove", slug: "grove" });
+    await db.insert(site).values({
+      id: "site-legacy",
+      accountId: "acct-legacy",
+      name: "Grove",
+      slug: "grove",
+      sourceUrl: "https://www.grove.co.uk",
+      status: "importing"
+    });
+    await db.insert(importRun).values({
+      id: "run-legacy",
+      siteId: "site-legacy",
+      sourceUrl: "https://www.grove.co.uk",
+      status: "queued"
+    });
+    const bad = `<!doctype html><html><body><h1>Grove</h1>
+<form action="https://forms.grove.co.uk/join" method="post"><input type="email" name="email"></form>
+<form action="https://formspree.io/f/abc" method="post"><input type="email" name="email"></form>
+<form action="https://other.co.uk/join" method="post"><button type="submit" formaction="https://grove.co.uk/save">Save</button></form>
+<form action="/search" method="get"><input type="search" name="q"></form>
+</body></html>`;
+    const clean = `<!doctype html><html><body><h1>Grove</h1>
+<form action="https://formspree.io/f/abc" method="post"><input type="email" name="email"></form>
+<form action="http://localhost:3000/f/site-legacy/home-1" method="post"><input type="text" name="name"></form>
+</body></html>`;
+    const store = memoryStore();
+    const hostMap = join(mkdtempSync(join(tmpdir(), "publish-legacy-")), "hostmap.json");
+    const stored = await storeImport({
+      db,
+      store,
+      siteId: "site-legacy",
+      importRunId: "run-legacy",
+      result: imported([{ path: "index.html", html: bad }])
+    });
+    const sourceKey = `snapshots/site-legacy/${stored.snapshotId}/src/index.html`;
+    const blocked = await approveImport({
+      db,
+      store,
+      siteId: "site-legacy",
+      snapshotId: stored.snapshotId,
+      host: "grove.localhost",
+      hostMapPath: hostMap
+    });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.checks.blocked).toBe(true);
+    expect(blocked.checks.missing).toEqual([]);
+    const held = await db.select().from(site).where(eq(site.id, "site-legacy"));
+    expect(held[0]?.currentSnapshotId).toBeNull();
+    expect(held[0]?.status).toBe("preview");
+    const failed = await db.select().from(importRun).where(eq(importRun.id, "run-legacy"));
+    const legacy = (
+      failed[0]?.fidelityReport as {
+        legacyForms?: Array<{ page: string; kind: string; detail: string }>;
+        publishChecks?: unknown;
+      }
+    ).legacyForms;
+    expect(legacy).toEqual([
+      {
+        page: "index.html",
+        kind: "form-action",
+        detail: 'Form action "https://forms.grove.co.uk/join" still points at the imported site.'
+      },
+      {
+        page: "index.html",
+        kind: "formaction",
+        detail: 'Button formaction "https://grove.co.uk/save" still points at the imported site.'
+      },
+      {
+        page: "index.html",
+        kind: "form-action",
+        detail: 'Form action "/search" still points at the imported site.'
+      }
+    ]);
+    expect(JSON.stringify(failed[0]?.fidelityReport)).not.toContain("formspree.io");
+    expect(JSON.stringify(failed[0]?.fidelityReport)).not.toContain("other.co.uk");
+
+    await store.put(sourceKey, encoder.encode(clean));
+    const passed = await approveImport({
+      db,
+      store,
+      siteId: "site-legacy",
+      snapshotId: stored.snapshotId,
+      host: "grove.localhost",
+      hostMapPath: hostMap
+    });
+    expect(passed.ok).toBe(true);
+    expect(passed.checks.blocked).toBe(false);
+    const live = await db.select().from(site).where(eq(site.id, "site-legacy"));
+    expect(live[0]?.currentSnapshotId).toBe(stored.snapshotId);
+    expect(live[0]?.status).toBe("live");
+    const cleared = await db.select().from(importRun).where(eq(importRun.id, "run-legacy"));
+    expect(cleared[0]?.fidelityReport).not.toMatchObject({ legacyForms: expect.anything() });
+    await client.close();
+  });
 });
