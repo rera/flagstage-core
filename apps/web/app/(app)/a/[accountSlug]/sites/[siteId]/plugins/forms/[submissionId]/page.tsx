@@ -17,9 +17,12 @@ export default async function FormSubmissionPage({
   const entries = submissionEntries(row.fields);
   return (
     <FormsPluginFrame site={found} base={base} current="submissions">
-      <article className="max-w-2xl">
+      <article className="max-w-2xl space-y-3">
+        <a href={`${base}/plugins/forms`} className="text-sm font-medium text-primary">
+          All submissions
+        </a>
         <h3 className="text-base font-semibold">{form.name}</h3>
-        <dl className="mt-4 divide-y divide-border rounded-xl border border-border bg-card">
+        <dl className="divide-y divide-border rounded-xl border border-border bg-card">
           <div className="grid gap-1 px-4 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4">
             <dt className="text-sm text-muted-foreground">Received</dt>
             <dd className="text-sm">
