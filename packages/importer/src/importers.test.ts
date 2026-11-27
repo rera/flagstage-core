@@ -92,7 +92,7 @@ describe("public crawler", () => {
     );
     expect(result.redirects).toEqual([]);
     expect(result.forms).toEqual([]);
-    expect(result.report.forms).toEqual([]);
+    expect(result.report.forms.map((item) => item.kind)).toEqual(["form", "form"]);
     expect(result.report.plugins).toEqual([]);
     expect(result.pages.map((file) => file.path).sort()).toEqual([
       "about/index.html",
@@ -107,7 +107,8 @@ describe("public crawler", () => {
       result.pages.find((file) => file.path === "index.html")?.body
     );
     expect(home).not.toContain("/f/site-1/cf7-12");
-    expect(home).toContain('action="/#wpcf7"');
+    expect(home).not.toContain("<form");
+    expect(home).not.toContain('action="/#wpcf7"');
   });
 });
 

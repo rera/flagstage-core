@@ -8,7 +8,10 @@ import { materializeOutput, notePublishChecks, writeHostMap } from "@flagstage/p
 import type { PublishChecks } from "@flagstage/sitebuild";
 import { outputPrefix, snapshotPrefix, sourcePrefix, type BlobStore } from "@flagstage/storage";
 
+import { legacyFormPosts, type LegacyFormPost } from "./forms";
 import type { ImportResult } from "./types";
+
+const TEXT = new TextDecoder();
 
 export async function storeImport(input: {
   db: Database;
@@ -102,10 +105,13 @@ export async function approveImport(input: {
     previousStoragePrefix: previous[0]?.storagePrefix,
     review: previousId ? "later" : "import"
   });
-  const checks = built.checks ?? { blocked: false, drift: [], missing: [], ms: 0 };
+  let checks = built.checks ?? { blocked: false, drift: [], missing: [], ms: 0 };
   const publicPrefix = outputPrefix(storagePrefix);
+  const legacy = await legacyPostsInOutput(input.store, publicPrefix, sites[0]?.sourceUrl ?? null);
+  if (legacy.length > 0) checks = { ...checks, blocked: true };
   if (checks.blocked) {
     await notePublishChecks(input.db, input.siteId, checks);
+    await writeLegacyForms(input.db, input.siteId, legacy);
     return { ok: false, publicPrefix, checks };
   }
   await input.db
@@ -114,5 +120,72 @@ export async function approveImport(input: {
     .where(eq(site.id, input.siteId));
   if (input.host && input.hostMapPath) writeHostMap(input.hostMapPath, input.host, publicPrefix);
   await notePublishChecks(input.db, input.siteId, checks);
+  await writeLegacyForms(input.db, input.siteId, legacy);
   return { ok: true, publicPrefix, checks };
+}
+
+async function legacyPostsInOutput(
+  store: BlobStore,
+  publicPrefix: string,
+  sourceUrl: string | null
+): Promise<LegacyFormPost[]> {
+  if (!sourceUrl) return [];
+  let origin: URL;
+  try {
+    origin = new URL(sourceUrl);
+  } catch {
+    return [];
+  }
+  const hits: LegacyFormPost[] = [];
+  for (const item of await store.list(publicPrefix)) {
+    const rel = item.key.startsWith(publicPrefix) ? item.key.slice(publicPrefix.length) : "";
+    if (!isPublicHtml(rel)) continue;
+    const object = await store.get(item.key);
+    if (!object) continue;
+    hits.push(...legacyFormPosts(TEXT.decode(object.body), rel, origin));
+  }
+  return hits;
+}
+
+function isPublicHtml(rel: string): boolean {
+  const lower = rel.toLowerCase();
+  if (!lower.endsWith(".html") && !lower.endsWith(".htm")) return false;
+  const top = rel.split("/")[0];
+  return top !== "_inc" && top !== "_templates" && top !== ".flagstage";
+}
+
+/**
+ * Records forms that still post to the imported site.
+ * The editor shows `publishChecks` only, so this list stays off that screen.
+ */
+async function writeLegacyForms(
+  db: Database,
+  siteId: string,
+  hits: readonly LegacyFormPost[]
+): Promise<void> {
+  const runs = await db.select().from(importRun).where(eq(importRun.siteId, siteId));
+  const latest = runs
+    .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())
+    .at(-1);
+  if (!latest) return;
+  const report = asReport(latest.fidelityReport);
+  const had = Object.prototype.hasOwnProperty.call(report, "legacyForms");
+  if (hits.length === 0 && !had) return;
+  if (hits.length === 0) delete report.legacyForms;
+  else {
+    report.legacyForms = hits.map((hit) => ({
+      page: hit.page,
+      kind: hit.kind,
+      detail: hit.detail
+    }));
+  }
+  await db
+    .update(importRun)
+    .set({ fidelityReport: report, updatedAt: new Date() })
+    .where(eq(importRun.id, latest.id));
+}
+
+function asReport(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return { ...(value as Record<string, unknown>) };
 }

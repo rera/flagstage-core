@@ -3,10 +3,179 @@ import type { FidelityItem } from "./types";
 
 /**
  * The `/f/{siteId}/{formKey}` route parses urlencoded and multipart bodies
- * and stores every string field. File parts are `File` objects and are
- * dropped. A form with a file field is reported and left unchanged.
+ * and stores every string field. File parts are dropped, so a file field is
+ * not wired yet.
+ *
+ * Same-site forms of these kinds are removed until a plugin wires them.
+ * Set a kind to "wire" to point it at the lead-form endpoint with the others.
+ * Search is issue 46. File upload is issue 45.
  */
 const MARKER_ATTR = "data-flagstage-form";
+
+type SameSiteKind = "search" | "login" | "comments" | "checkout" | "file-upload";
+type FormDisposition = "remove" | "wire";
+
+export const SAME_SITE_FORM_DISPOSITION: Record<SameSiteKind, FormDisposition> = {
+  search: "remove",
+  login: "remove",
+  comments: "remove",
+  checkout: "remove",
+  "file-upload": "remove"
+};
+
+/**
+ * Country-code second levels where the registrable name is three labels
+ * (`example.co.uk`), not two. Not the public suffix list.
+ */
+const MULTI_PART_SUFFIX = new Set([
+  "ac.uk",
+  "co.uk",
+  "gov.uk",
+  "ltd.uk",
+  "me.uk",
+  "net.uk",
+  "org.uk",
+  "plc.uk",
+  "sch.uk",
+  "ac.jp",
+  "ad.jp",
+  "co.jp",
+  "ed.jp",
+  "go.jp",
+  "gr.jp",
+  "lg.jp",
+  "ne.jp",
+  "or.jp",
+  "asn.au",
+  "com.au",
+  "edu.au",
+  "gov.au",
+  "id.au",
+  "net.au",
+  "org.au",
+  "ac.nz",
+  "co.nz",
+  "geek.nz",
+  "govt.nz",
+  "net.nz",
+  "org.nz",
+  "school.nz",
+  "co.za",
+  "gov.za",
+  "net.za",
+  "org.za",
+  "web.za",
+  "com.br",
+  "edu.br",
+  "gov.br",
+  "net.br",
+  "org.br",
+  "ac.in",
+  "co.in",
+  "com.in",
+  "edu.in",
+  "firm.in",
+  "gen.in",
+  "gov.in",
+  "ind.in",
+  "net.in",
+  "org.in",
+  "com.mx",
+  "gob.mx",
+  "org.mx",
+  "com.ar",
+  "gob.ar",
+  "net.ar",
+  "org.ar",
+  "com.tr",
+  "edu.tr",
+  "gov.tr",
+  "net.tr",
+  "org.tr",
+  "com.sg",
+  "edu.sg",
+  "gov.sg",
+  "net.sg",
+  "org.sg",
+  "com.hk",
+  "edu.hk",
+  "gov.hk",
+  "org.hk",
+  "com.tw",
+  "edu.tw",
+  "gov.tw",
+  "org.tw",
+  "ac.kr",
+  "co.kr",
+  "go.kr",
+  "ne.kr",
+  "or.kr",
+  "ac.cn",
+  "com.cn",
+  "gov.cn",
+  "net.cn",
+  "org.cn",
+  "ac.il",
+  "co.il",
+  "gov.il",
+  "org.il",
+  "com.ua",
+  "gov.ua",
+  "net.ua",
+  "org.ua",
+  "ac.id",
+  "co.id",
+  "go.id",
+  "or.id",
+  "web.id",
+  "com.my",
+  "edu.my",
+  "gov.my",
+  "net.my",
+  "org.my",
+  "com.ph",
+  "gov.ph",
+  "net.ph",
+  "org.ph",
+  "ac.th",
+  "co.th",
+  "go.th",
+  "or.th",
+  "com.pk",
+  "net.pk",
+  "org.pk",
+  "com.ng",
+  "gov.ng",
+  "org.ng",
+  "com.eg",
+  "org.eg",
+  "ac.ke",
+  "co.ke",
+  "go.ke",
+  "or.ke",
+  "com.bd",
+  "net.bd",
+  "org.bd",
+  "com.vn",
+  "gov.vn",
+  "net.vn",
+  "org.vn",
+  "com.sa",
+  "gov.sa",
+  "org.sa",
+  "com.pe",
+  "gob.pe",
+  "net.pe",
+  "org.pe",
+  "com.co",
+  "gov.co",
+  "net.co",
+  "org.co",
+  "com.ve",
+  "gob.ve",
+  "net.ve",
+  "org.ve"
+]);
 
 const VOID = new Set([
   "area",
@@ -45,12 +214,22 @@ type RawForm = {
   tag: string;
   inner: string;
   start: number;
+  /** Exclusive end, including `</form>` when the page closed the element. */
+  end: number;
   tagEnd: number;
   ancestors: string[];
   inIframe: boolean;
+  frame: RawIframe | null;
 };
 
-type RawIframe = { src: string; label: string; hasForm: boolean };
+type RawIframe = { src: string; label: string; hasForm: boolean; handled: boolean };
+
+export type LegacyFormPost = {
+  page: string;
+  kind: "form-action" | "formaction";
+  /** Internal note. Site owners do not see this. */
+  detail: string;
+};
 
 type SeenTag = {
   name: string;
@@ -70,20 +249,45 @@ export function detectPageForms(input: {
   const scanned = scan(input.html);
   const notes: FidelityItem[] = [];
   const pending: Array<{ form: RawForm; key: string; name: string; marker: string | null }> = [];
+  const removals: RawForm[] = [];
   const used = new Set(claimed.map((item) => item.formKey));
   const ids = uniqueValues(scanned.forms, "id");
   const names = uniqueValues(scanned.forms, "name");
 
+  const takeOut = (form: RawForm) => {
+    removals.push(form);
+    if (form.frame) form.frame.handled = true;
+  };
+
   scanned.forms.forEach((form, index) => {
-    if (form.inIframe) return;
     const fields = fieldsIn(form.inner);
-    if (fields.length === 0) return;
-    if (isClaimed(form, claimed)) return;
-    const excluded = exclusion(form, fields, input.origin);
-    if (excluded) {
-      notes.push({ page: input.page, kind: excluded.kind, detail: excluded.detail });
+    if (!formPostsOnSite(form, input.origin)) {
+      if (fields.length > 0 && !form.inIframe) {
+        notes.push({
+          page: input.page,
+          kind: "external-form",
+          detail: "A form that posts to another site was left unchanged."
+        });
+      }
       return;
     }
+    if (isClaimed(form, claimed)) return;
+    const kind = deferredKind(form, fields);
+    if (kind && SAME_SITE_FORM_DISPOSITION[kind] === "remove") {
+      takeOut(form);
+      notes.push({ page: input.page, kind, detail: removedDetail(kind) });
+      return;
+    }
+    if (fields.length === 0) {
+      takeOut(form);
+      notes.push({
+        page: input.page,
+        kind: "form",
+        detail: "A form that posted to this site was removed."
+      });
+      return;
+    }
+    if (form.frame) form.frame.handled = true;
     const key = uniqueKey(
       formKey(input.page, ids.get(form) ?? "", names.get(form) ?? "", index),
       index,
@@ -110,15 +314,19 @@ export function detectPageForms(input: {
     if (fallbackCount > 1) item.name = `${fallback} ${fallbackCount}`;
   }
 
-  let html = input.html;
   const mapped: AnnotatedForm[] = [];
-  const injections = pending
-    .filter((item) => !item.marker)
-    .sort((left, right) => right.form.tagEnd - left.form.tagEnd);
-  for (const item of injections) {
+  const edits: Array<{ at: number; end: number; text: string }> = [];
+  for (const form of removals) edits.push({ at: form.start, end: form.end, text: "" });
+  for (const item of pending) {
+    if (item.marker) continue;
     const marker = `${MARKER_ATTR}="${item.key}"`;
-    html = `${html.slice(0, item.form.tagEnd - 1)} ${marker}${html.slice(item.form.tagEnd - 1)}`;
+    edits.push({ at: item.form.tagEnd - 1, end: item.form.tagEnd - 1, text: ` ${marker}` });
     item.marker = marker;
+  }
+  edits.sort((left, right) => right.at - left.at || right.end - left.end);
+  let html = input.html;
+  for (const edit of edits) {
+    html = html.slice(0, edit.at) + edit.text + html.slice(edit.end);
   }
   for (const item of pending) {
     if (!item.marker) continue;
@@ -130,6 +338,7 @@ export function detectPageForms(input: {
     });
   }
   for (const frame of scanned.iframes) {
+    if (frame.handled) continue;
     if (!frame.hasForm && !isFormIframe(frame.src, frame.label)) continue;
     notes.push({
       page: input.page,
@@ -140,34 +349,22 @@ export function detectPageForms(input: {
   return { html, mapped, notes };
 }
 
-function exclusion(
-  form: RawForm,
-  fields: Field[],
-  origin: URL
-): { kind: string; detail: string } | null {
-  if (isSearch(form, fields)) {
-    return { kind: "search", detail: "A search form was left unchanged." };
-  }
-  if (isLogin(form, fields)) {
-    return { kind: "login", detail: "A login or password form was left unchanged." };
-  }
-  if (isComment(form)) {
-    return { kind: "comments", detail: "A comment form was left unchanged." };
-  }
-  if (isCheckout(form)) {
-    return { kind: "checkout", detail: "A cart, checkout, or payment form was left unchanged." };
-  }
-  const action = attr(form.tag, "action");
-  if (isExternal(action, form.inner, origin)) {
-    return { kind: "external-form", detail: "A form that posts to another site was left unchanged." };
-  }
-  if (fields.some((field) => field.type === "file")) {
-    return {
-      kind: "file-upload",
-      detail: "A form with a file field was left unchanged. The form endpoint does not store uploaded files."
-    };
-  }
+function deferredKind(form: RawForm, fields: Field[]): SameSiteKind | null {
+  if (isSearch(form, fields)) return "search";
+  if (isLogin(form, fields)) return "login";
+  if (isComment(form)) return "comments";
+  if (isCheckout(form)) return "checkout";
+  if (fields.some((field) => field.type === "file")) return "file-upload";
   return null;
+}
+
+function removedDetail(kind: SameSiteKind): string {
+  if (kind === "search") return "A search form was removed. It posted to this site.";
+  if (kind === "login") return "A login or password form was removed. It posted to this site.";
+  if (kind === "comments") return "A comment form was removed. It posted to this site.";
+  if (kind === "checkout")
+    return "A cart, checkout, or payment form was removed. It posted to this site.";
+  return "A form with a file field was removed. It posted to this site.";
 }
 
 function isSearch(form: RawForm, fields: Field[]): boolean {
@@ -205,19 +402,28 @@ function identity(form: RawForm): string {
   return `${attr(form.tag, "id")} ${attr(form.tag, "class")} ${attr(form.tag, "name")} ${attr(form.tag, "action")}`;
 }
 
-function isExternal(action: string, inner: string, origin: URL): boolean {
-  if (postsElsewhere(action, origin)) return true;
-  if (action.trim()) return false;
-  for (const match of inner.matchAll(/\sformaction\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)) {
-    const target = match[1] ?? match[2] ?? match[3] ?? "";
-    if (postsElsewhere(target, origin)) return true;
-  }
-  return false;
+/** Relative, empty, or an action on this site or one of its subdomains. */
+function formPostsOnSite(form: RawForm, origin: URL): boolean {
+  const action = attr(form.tag, "action");
+  if (action.trim()) return !postsToOtherDomain(action, origin);
+  const targets = formactionValues(form.inner);
+  if (targets.length === 0) return true;
+  return targets.some((target) => !postsToOtherDomain(target, origin));
 }
 
-function postsElsewhere(action: string, origin: URL): boolean {
+function formactionValues(inner: string): string[] {
+  const values: string[] = [];
+  for (const match of inner.matchAll(/\sformaction\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)) {
+    values.push(match[1] ?? match[2] ?? match[3] ?? "");
+  }
+  return values;
+}
+
+function postsToOtherDomain(action: string, origin: URL): boolean {
   const value = decode(action.trim());
-  if (!value || value.startsWith("#") || /^(?:mailto:|javascript:|tel:|sms:)/i.test(value)) return false;
+  if (!value || value.startsWith("#") || /^(?:mailto:|javascript:|tel:|sms:|data:)/i.test(value)) {
+    return false;
+  }
   let url: URL;
   try {
     url = new URL(value, origin);
@@ -225,11 +431,71 @@ function postsElsewhere(action: string, origin: URL): boolean {
     return false;
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-  return hostKey(url) !== hostKey(origin);
+  return registrableDomain(url.hostname) !== registrableDomain(origin.hostname);
 }
 
-function hostKey(url: URL): string {
-  return url.hostname.toLowerCase().replace(/^www\./, "");
+/** True when a published action still resolves to the imported site. */
+export function actionTargetsOrigin(action: string, origin: URL): boolean {
+  const value = decode(action.trim());
+  if (!value || value.startsWith("#") || /^(?:mailto:|javascript:|tel:|sms:|data:)/i.test(value)) {
+    return false;
+  }
+  let url: URL;
+  try {
+    url = new URL(value, origin);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  return registrableDomain(url.hostname) === registrableDomain(origin.hostname);
+}
+
+function registrableDomain(hostname: string): string {
+  const host = hostname
+    .toLowerCase()
+    .replace(/\.$/, "")
+    .replace(/^\[|\]$/g, "");
+  if (!host) return host;
+  if (host.includes(":") || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) return host;
+  const labels = host.split(".").filter(Boolean);
+  if (labels.length <= 2) return labels.join(".");
+  const suffix = labels.slice(-2).join(".");
+  if (MULTI_PART_SUFFIX.has(suffix)) return labels.slice(-3).join(".");
+  return labels.slice(-2).join(".");
+}
+
+/**
+ * Form `action` values and `formaction` values on buttons and submit inputs
+ * that still resolve to the imported site. An empty action posts to the
+ * current page and is not reported.
+ */
+export function legacyFormPosts(html: string, page: string, origin: URL): LegacyFormPost[] {
+  const hits: LegacyFormPost[] = [];
+  walkTags(html, (tag) => {
+    if (tag.closing) return;
+    const raw = html.slice(tag.start, tag.end);
+    if (tag.name === "form") {
+      const action = attr(raw, "action");
+      if (action && actionTargetsOrigin(action, origin)) {
+        hits.push({
+          page,
+          kind: "form-action",
+          detail: `Form action "${action}" still points at the imported site.`
+        });
+      }
+      return;
+    }
+    if (tag.name !== "button" && tag.name !== "input") return;
+    const action = attr(raw, "formaction");
+    if (!action || !actionTargetsOrigin(action, origin)) return;
+    const label = tag.name === "button" ? "Button" : "Input";
+    hits.push({
+      page,
+      kind: "formaction",
+      detail: `${label} formaction "${action}" still points at the imported site.`
+    });
+  });
+  return hits;
 }
 
 function isFormIframe(src: string, label: string): boolean {
@@ -270,9 +536,18 @@ function fieldsIn(inner: string): Field[] {
 function formName(html: string, form: RawForm, page: string): string {
   const labelled = labelledBy(html, form.tag);
   const legend = textContent(form.inner.match(/<legend\b[^>]*>([\s\S]*?)<\/legend>/i)?.[1] ?? "");
-  const innerHeading = textContent(form.inner.match(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/i)?.[1] ?? "");
+  const innerHeading = textContent(
+    form.inner.match(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/i)?.[1] ?? ""
+  );
   const before = precedingHeading(html, form.start);
-  const candidates = [labelled, legend, innerHeading, before, attr(form.tag, "aria-label"), humanize(attr(form.tag, "id"))];
+  const candidates = [
+    labelled,
+    legend,
+    innerHeading,
+    before,
+    attr(form.tag, "aria-label"),
+    humanize(attr(form.tag, "id"))
+  ];
   for (const candidate of candidates) {
     const label = usableLabel(candidate);
     if (label) return label;
@@ -417,7 +692,9 @@ function attr(tag: string, name: string): string {
 }
 
 function textContent(value: string): string {
-  return decode(value.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  return decode(value.replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function decode(value: string): string {
@@ -439,19 +716,27 @@ function scan(html: string): { forms: RawForm[]; iframes: RawIframe[] } {
   const iframes: RawIframe[] = [];
   const stack: Array<{ name: string; raw: string }> = [];
   const iframeStack: RawIframe[] = [];
-  let open: { start: number; tagEnd: number; tag: string; ancestors: string[] } | null = null;
+  let open: {
+    start: number;
+    tagEnd: number;
+    tag: string;
+    ancestors: string[];
+    frame: RawIframe | null;
+  } | null = null;
 
-  const closeOpen = (end: number, popForm: boolean) => {
+  const closeOpen = (contentEnd: number, elementEnd: number, popForm: boolean) => {
     if (!open) return;
-    const frame = iframeStack.at(-1);
+    const frame = open.frame;
     if (frame) frame.hasForm = true;
     forms.push({
       tag: open.tag,
-      inner: html.slice(open.tagEnd, end),
+      inner: html.slice(open.tagEnd, contentEnd),
       start: open.start,
+      end: elementEnd,
       tagEnd: open.tagEnd,
       ancestors: open.ancestors,
-      inIframe: iframeStack.length > 0
+      inIframe: frame !== null,
+      frame
     });
     if (popForm) pop(stack, "form");
     open = null;
@@ -459,18 +744,19 @@ function scan(html: string): { forms: RawForm[]; iframes: RawIframe[] } {
 
   walkTags(html, (tag) => {
     if (tag.closing) {
-      if (tag.name === "form") closeOpen(tag.start, false);
+      if (tag.name === "form") closeOpen(tag.start, tag.end, false);
       if (tag.name === "iframe") iframeStack.pop();
       pop(stack, tag.name);
       return;
     }
     if (tag.name === "form") {
-      closeOpen(tag.start, true);
+      closeOpen(tag.start, tag.start, true);
       open = {
         start: tag.start,
         tagEnd: tag.end,
         tag: html.slice(tag.start, tag.end),
-        ancestors: stack.map((item) => item.raw)
+        ancestors: stack.map((item) => item.raw),
+        frame: iframeStack.at(-1) ?? null
       };
     }
     if (tag.name === "iframe") {
@@ -478,7 +764,8 @@ function scan(html: string): { forms: RawForm[]; iframes: RawIframe[] } {
       const frame = {
         src: attr(raw, "src"),
         label: `${attr(raw, "title")} ${attr(raw, "name")} ${attr(raw, "aria-label")}`,
-        hasForm: false
+        hasForm: false,
+        handled: false
       };
       iframes.push(frame);
       if (!tag.selfClosing) iframeStack.push(frame);
@@ -487,7 +774,7 @@ function scan(html: string): { forms: RawForm[]; iframes: RawIframe[] } {
       stack.push({ name: tag.name, raw: html.slice(tag.start, tag.end) });
     }
   });
-  closeOpen(html.length, true);
+  closeOpen(html.length, html.length, true);
   return { forms, iframes };
 }
 

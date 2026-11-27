@@ -94,15 +94,31 @@ function applyOneFormAction(html: string, marker: string, action: string): strin
   const full = new RegExp(`<form\\b[^>]*${marker}[^>]*>([\\s\\S]*?)</form>`, "i");
   const replaced = html.replace(full, (match) => rewriteMappedForm(match, action));
   if (replaced !== html) return replaced;
-  return html.replace(new RegExp(`<form\\b[^>]*${marker}[^>]*>`, "i"), (tag) =>
+  const openOnly = html.replace(new RegExp(`<form\\b[^>]*${marker}[^>]*>`, "i"), (tag) =>
     rewriteOpenTag(tag, action)
   );
+  if (openOnly !== html) return openOnly;
+  return rewriteWrappedForm(html, marker, action);
+}
+
+/** The marker is on a wrapper. Point the first form inside that wrapper. */
+function rewriteWrappedForm(html: string, marker: string, action: string): string {
+  const start = new RegExp(marker, "i").exec(html);
+  if (!start) return html;
+  const window = html.slice(start.index, start.index + 15000);
+  const form = /<form\b[^>]*>[\s\S]*?<\/form>/i.exec(window);
+  if (!form) return html;
+  const at = start.index + form.index;
+  const rewritten = rewriteMappedForm(form[0], action);
+  return html.slice(0, at) + rewritten + html.slice(at + form[0].length);
 }
 
 function rewriteMappedForm(full: string, action: string): string {
   const openEnd = endOfOpenTag(full);
   const open = rewriteOpenTag(full.slice(0, openEnd), action);
-  const rest = full.slice(openEnd).replace(new RegExp(String.raw`\sformaction\s*=\s*${ATTR}`, "gi"), "");
+  const rest = full
+    .slice(openEnd)
+    .replace(new RegExp(String.raw`\sformaction\s*=\s*${ATTR}`, "gi"), "");
   return open + rest;
 }
 
