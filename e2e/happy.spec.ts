@@ -107,8 +107,11 @@ test("sign in, import, edit, preview, publish, and read the DNS checklist", asyn
     .getByRole("link", { name: "Plugins" })
     .click();
   await page.getByRole("link", { name: /Submissions from forms on this site/ }).click();
-  await expect(page.getByRole("heading", { name: "No form submissions" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open the site" })).toBeVisible();
+  await expect(page).toHaveURL(/\/plugins\/forms$/);
+  await expect(page.getByRole("heading", { name: "No forms yet" })).toBeVisible();
+  await expect(
+    page.locator("main").getByRole("link", { name: "Plugins", exact: true })
+  ).toBeVisible();
 
   await page.goto("/admin/accounts");
   await page.getByRole("link", { name: "Parks" }).click();

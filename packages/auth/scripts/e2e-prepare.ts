@@ -11,6 +11,8 @@ import {
   authAccount,
   changeRequest,
   createDb,
+  formSubmission,
+  leadForm,
   membership,
   migrateWithLock,
   site,
@@ -523,6 +525,66 @@ if (existingRevisions.length === 0) {
       });
     }
   }
+}
+
+const existingForms = await db.select().from(leadForm).where(eq(leadForm.siteId, pgaId));
+if (existingForms.length === 0) {
+  const contactId = randomUUID();
+  const ticketsId = randomUUID();
+  await db.insert(leadForm).values([
+    {
+      id: contactId,
+      siteId: pgaId,
+      formKey: "contact",
+      name: "Contact",
+      notifyEmails: ["desk@example.com"]
+    },
+    {
+      id: ticketsId,
+      siteId: pgaId,
+      formKey: "tickets",
+      name: "Tickets",
+      notifyEmails: []
+    }
+  ]);
+  await db.insert(formSubmission).values([
+    {
+      id: randomUUID(),
+      leadFormId: contactId,
+      siteId: pgaId,
+      fields: {
+        name: "Front desk",
+        email: "desk@example.com",
+        message: "The gate opens at 7."
+      },
+      status: "stored",
+      createdAt: new Date("2026-11-20T15:04:00.000Z")
+    },
+    {
+      id: randomUUID(),
+      leadFormId: ticketsId,
+      siteId: pgaId,
+      fields: {
+        name: "Ticket window",
+        email: "tickets@example.com",
+        day: "Saturday",
+        message: "Two passes, Saturday morning."
+      },
+      status: "stored",
+      createdAt: new Date("2026-11-24T18:42:00.000Z")
+    },
+    {
+      id: randomUUID(),
+      leadFormId: contactId,
+      siteId: pgaId,
+      fields: {
+        email: "press@example.com",
+        message: "Where is press parking?"
+      },
+      status: "stored",
+      createdAt: new Date("2026-11-18T14:10:00.000Z")
+    }
+  ]);
 }
 
 await pool.end();

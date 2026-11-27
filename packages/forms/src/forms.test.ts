@@ -9,12 +9,17 @@ import { describe, expect, it } from "vitest";
 import type { Database } from "@flagstage/db";
 import * as fullSchema from "@flagstage/db";
 
-import { allowedOrigin, isHoneypot, signBody, takeToken, toCsv } from "./forms";
+import { allowedOrigin, isHoneypot, takeToken, toCsv } from "./forms";
 import { notifyRecipients, submissionLetter } from "./mail";
 
 async function applyMigrations(client: PGlite) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "../../db/drizzle");
-  for (const file of ["0000_init.sql", "0001_auth_plugins.sql", "0003_builder.sql", "0004_schedule.sql"]) {
+  for (const file of [
+    "0000_init.sql",
+    "0001_auth_plugins.sql",
+    "0003_builder.sql",
+    "0004_schedule.sql"
+  ]) {
     const sqlText = readFileSync(join(root, file), "utf8");
     for (const statement of sqlText.split("--> statement-breakpoint")) {
       const query = statement.trim();
@@ -34,14 +39,6 @@ describe("lead forms", () => {
   it("drops a filled honeypot", () => {
     expect(isHoneypot({ website: "spam", email: "a@b.c" })).toBe(true);
     expect(isHoneypot({ website: "", email: "a@b.c" })).toBe(false);
-  });
-
-  it("signs a webhook body", () => {
-    const body = JSON.stringify({ email: "a@b.c" });
-    const signature = signBody("secret", body);
-    expect(signature).toBe(signBody("secret", body));
-    expect(signature.startsWith("sha256=")).toBe(true);
-    expect(signature).not.toBe(signBody("other", body));
   });
 
   it("escapes commas, quotes, and newlines in CSV", () => {

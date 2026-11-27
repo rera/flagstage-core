@@ -9,7 +9,6 @@ import {
   isHoneypot,
   notifyRecipients,
   sendEmail,
-  signBody,
   submissionLetter,
   takeToken
 } from "@flagstage/forms";
@@ -69,17 +68,6 @@ export async function POST(
       ipHash: createHash("sha256").update(ip).digest("hex"),
       userAgent: request.headers.get("user-agent")
     });
-  if (form.webhookUrl && form.webhookSecret) {
-    const body = JSON.stringify({ siteId, formKey, fields: stored });
-    await fetch(form.webhookUrl, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-flagstage-signature": signBody(form.webhookSecret, body)
-      },
-      body
-    }).catch(() => undefined);
-  }
   const config = loadConfig();
   const recipients = notifyRecipients(form.notifyEmails, config.FORM_NOTIFY_EMAIL);
   const region = config.product?.region ?? config.S3_REGION;
