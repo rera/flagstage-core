@@ -1,13 +1,16 @@
 # CI workflows
 
-These workflow files stay out of `.github/workflows/` on `main` of
-`rera/flagstage-core`. A file there would run. Nothing here deploys, and
-nothing here pushes an image.
+`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`.
+It lints, typechecks, and runs the unit tests and the Playwright tests.
+It uses no secrets and does not call AWS. The other files in this directory
+stay out of `.github/workflows/` on `main`. A file there would run. Nothing
+here deploys, and nothing here pushes an image.
 
 `pnpm e2e` runs the Playwright happy path locally. It creates an admin for the
 test, imports a fixture page, sends a chat edit through the editor on `PATH`, opens the
 preview, publishes, and reads the DNS checklist. With no `DATABASE_URL`, it
-starts Postgres in Docker on port 54329. The app listens on port 3100.
+starts Postgres in Docker on port 54329. The app listens on port 3100. CI sets
+`DATABASE_URL` and uses a Postgres service container instead of Docker.
 
 The release recipe is [release.md](release.md). `workflows/version.yml` opens a
 Changesets version pull request, and `workflows/release.yml` builds a

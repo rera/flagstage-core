@@ -66,6 +66,21 @@ pnpm build
 
 Unit tests do not call AWS. Adapters take a mocked client. Integration tests that need Postgres use PGlite or the compose database when `DATABASE_URL` is set.
 
+## CI
+
+Pull requests and pushes to `main` run lint, typecheck, unit tests, and browser tests. The workflow uses no secrets and does not call AWS.
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm e2e
+```
+
+`pnpm format:check` is not in that workflow. It currently fails on `main`.
+
+`pnpm e2e` is the browser suite. With Docker, and with `DATABASE_URL` unset, it starts Postgres on port 54329. Point `DATABASE_URL` at a Postgres you already have to skip that. The suite uses Chromium.
+
 ## Developer Certificate of Origin
 
 This project uses a Developer Certificate of Origin sign-off instead of a contributor license agreement. Apache-2.0 inbound contributions stay under Apache-2.0.

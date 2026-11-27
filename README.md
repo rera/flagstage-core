@@ -70,6 +70,77 @@ Product settings are `flagstage.config.json`. Secrets stay in the environment lo
 - [Architecture](docs/architecture.md)
 - [Upgrading](docs/upgrading.md)
 
+## Using Flagstage Core as a dependency
+
+A downstream repository can deploy its own stack from a pinned Core release. Pin one semver tag. Upgrade in a small pull request that moves the pin to the next tag, builds from that tag, and runs the downstream checks. Roll back by reverting that pull request. If the new version has already migrated the database, restore a backup before starting the previous image. See [Upgrading](docs/upgrading.md).
+
+The workspace packages are private, and the apps depend on each other with `workspace:*`. They are not published to npm. A pnpm git dependency on one workspace path, such as `github:rera/flagstage-core#vX.Y.Z&path:apps/web`, does not install. Pin the repository with a submodule at a tag.
+
+```bash
+git submodule add https://github.com/rera/flagstage-core.git core
+git -C core fetch origin tag vX.Y.Z
+git -C core checkout vX.Y.Z
+git add core
+```
+
+Replace `vX.Y.Z` with the tag. The parent repository records that commit. To upgrade, fetch the new tag, check it out, and commit the submodule pointer again.
+
+Keep `flagstage.config.json` in the downstream repository. The image copies that filename from the build context, so copy the downstream file over a throwaway build directory. Do not commit it into the submodule.
+
+```bash
+rm -rf /tmp/flagstage-build
+cp -a core /tmp/flagstage-build
+cp deploy/flagstage.config.json /tmp/flagstage-build/flagstage.config.json
+docker build -f /tmp/flagstage-build/docker/Dockerfile \
+  -t registry.example.com/flagstage-core:vX.Y.Z \
+  /tmp/flagstage-build
+docker build -f /tmp/flagstage-build/docker/Dockerfile --target lambda \
+  -t registry.example.com/flagstage-core:vX.Y.Z-lambda \
+  /tmp/flagstage-build
+```
+
+`deploy/flagstage.config.json`:
+
+```json
+{
+  "domain": "sites.example.com",
+  "orgName": "Example Organization",
+  "adminEmail": "admin@example.com",
+  "bedrockModelId": "amazon.nova-micro-v1:0",
+  "region": "us-east-1",
+  "sesFrom": "noreply@sites.example.com",
+  "brand": {
+    "name": "Example",
+    "color": "#1f4d3a"
+  }
+}
+```
+
+`brand.logo` is optional. It is a path relative to the config file, and that file has to be in the build directory too. The app reads this file at startup. `FLAGSTAGE_CONFIG` can point at another path.
+
+Pass stack parameters from the downstream repository. The template to deploy is the one in the pin, `core/infra/cloudformation/template.yaml`. `Domain`, `BedrockModelId`, and `SesFrom` should match the config file. `ImageUri` and `LambdaImageUri` are the images built from the same tag. Deploy in us-east-1 so CloudFront can use the certificate.
+
+```bash
+aws cloudformation deploy \
+  --region us-east-1 \
+  --stack-name flagstage \
+  --template-file core/infra/cloudformation/template.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    Domain=sites.example.com \
+    BedrockModelId=amazon.nova-micro-v1:0 \
+    SesFrom=noreply@sites.example.com \
+    ImageUri=registry.example.com/flagstage-core:vX.Y.Z \
+    LambdaImageUri=registry.example.com/flagstage-core:vX.Y.Z-lambda \
+    Name=flagstage
+```
+
+`Name` is a short prefix for resource names. `AlarmEmail` is optional. Leave the importer model parameters at their defaults unless the stored importer setting uses another model.
+
+## Releases
+
+There are no git tags yet. A version is an annotated semver tag on `main`, named `vX.Y.Z`, for example `v0.1.0`. That tag is what a downstream pins. The workspace packages stay private. How to cut a tag is [RELEASING.md](RELEASING.md). CI does not create tags.
+
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before a pull request. Commits need a Developer Certificate of Origin sign-off (`git commit -s`). The license is [Apache-2.0](LICENSE). Report vulnerabilities privately, as [SECURITY.md](SECURITY.md) describes.
